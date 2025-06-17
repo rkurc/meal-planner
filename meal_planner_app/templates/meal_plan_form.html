@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if meal_plan else 'Create New' }} Meal Plan - Meal Planner{% endblock %}
+
+{% block content %}
+    <h1>{{ 'Edit Meal Plan Name' if meal_plan else 'Create New Meal Plan' }}</h1>
+
+    {% if error %}
+        <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="{{ form_action }}">
+        <div>
+            <label for="name">Meal Plan Name:</label>
+            <input type="text" id="name" name="name" value="{{ request.form.name if request.form.name else meal_plan.name if meal_plan else '' }}" required>
+        </div>
+        <div>
+            <input type="submit" value="{{ 'Save Changes' if meal_plan else 'Create Meal Plan' }}">
+            <a href="{{ url_for('meal_plan_list') if not meal_plan else url_for('meal_plan_detail', meal_plan_id=meal_plan.id) }}" class="button-secondary">Cancel</a>
+        </div>
+    </form>
+{% endblock %}
