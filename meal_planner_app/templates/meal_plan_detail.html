@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}{{ meal_plan.name }} - Meal Plan Details{% endblock %}
+
+{% block content %}
+    <h1>{{ meal_plan.name }}</h1>
+    <a href="{{ url_for('edit_meal_plan_name', meal_plan_id=meal_plan.id) }}" class="button-secondary">Rename Meal Plan</a>
+    <a href="{{ url_for('shopping_list_detail_route', meal_plan_id=meal_plan.id) }}" class="button" style="margin-left: 10px;">View Shopping List</a>
+    <hr>
+
+    <h2>Recipes in this Plan</h2>
+    {% if recipes_in_plan %}
+        <ul>
+            {% for recipe in recipes_in_plan %}
+                <li>
+                    {{ recipe.name }}
+                    <div style="float: right;">
+                        <a href="{{ url_for('recipe_detail', recipe_id=recipe.id) }}" class="button-secondary" target="_blank">View Recipe</a>
+                        <form action="{{ url_for('remove_recipe_from_meal_plan_route', meal_plan_id=meal_plan.id, recipe_id=recipe.id) }}" method="POST" style="display: inline;">
+                            <input type="submit" value="Remove from Plan" class="button-danger">
+                        </form>
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No recipes have been added to this meal plan yet.</p>
+    {% endif %}
+
+    <hr>
+    <h2>Add Recipes to Plan</h2>
+    {% if available_recipes %}
+        <ul>
+            {% for recipe in available_recipes %}
+                <li>
+                    {{ recipe.name }}
+                     <small><i>{% if recipe.description %}{{ recipe.description|truncate(50) }}{% endif %}</i></small>
+                    <div style="float: right;">
+                         <form action="{{ url_for('add_recipe_to_meal_plan_route', meal_plan_id=meal_plan.id, recipe_id=recipe.id) }}" method="POST" style="display: inline;">
+                            <input type="submit" value="Add to Plan" class="button">
+                        </form>
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No other recipes available to add. <a href="{{ url_for('new_recipe') }}">Create a new recipe?</a></p>
+    {% endif %}
+
+    <hr>
+    <a href="{{ url_for('meal_plan_list') }}" class="button-secondary">Back to Meal Plan List</a>
+{% endblock %}

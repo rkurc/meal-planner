@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Shopping List for {{ meal_plan_name }}{% endblock %}
+
+{% block content %}
+    <h1>Shopping List for "{{ meal_plan_name }}"</h1>
+
+    {% if shopping_list %}
+        <table>
+            <thead>
+                <tr>
+                    <th style="text-align: left; padding-right: 20px;">Ingredient</th>
+                    <th style="text-align: left; padding-right: 20px;">Quantity</th>
+                    <th style="text-align: left;">Unit</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in shopping_list %}
+                    <tr>
+                        <td style="padding: 5px; border-bottom: 1px solid #eee;">{{ item.name }}</td>
+                        <td style="padding: 5px; border-bottom: 1px solid #eee;">
+                            {% if item.quantity is iterable and item.quantity is not string %}
+                                {{ item.quantity|join(', ') }}
+                            {% else %}
+                                {{ item.quantity }}
+                            {% endif %}
+                        </td>
+                        <td style="padding: 5px; border-bottom: 1px solid #eee;">{{ item.unit }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>This shopping list is empty. The meal plan might not have any recipes, or the recipes might not have any ingredients.</p>
+    {% endif %}
+
+    <hr>
+    <a href="{{ url_for('download_shopping_list_pdf', meal_plan_id=meal_plan_id) }}" class="button">Download PDF</a>
+    <a href="{{ url_for('meal_plan_detail', meal_plan_id=meal_plan_id) }}" class="button-secondary" style="margin-left: 10px;">Back to Meal Plan Details</a>
+    <a href="{{ url_for('meal_plan_list') }}" class="button-secondary" style="margin-left: 10px;">Back to All Meal Plans</a>
+{% endblock %}

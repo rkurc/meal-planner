@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if recipe else 'Add New' }} Recipe - Meal Planner{% endblock %}
+
+{% block content %}
+    <h1>{{ 'Edit' if recipe else 'Add New' }} Recipe</h1>
+
+    {% if error %}
+        <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="{{ form_action }}">
+        <div>
+            <label for="name">Recipe Name:</label>
+            <input type="text" id="name" name="name" value="{{ request.form.name if request.form.name else recipe.name if recipe else '' }}" required>
+        </div>
+        <div>
+            <label for="description">Description (Optional):</label>
+            <textarea id="description" name="description">{{ request.form.description if request.form.description else recipe.description if recipe and recipe.description else '' }}</textarea>
+        </div>
+        <div>
+            <label for="ingredients">Ingredients (one per line, e.g., "1 cup sugar" or "Eggs"):</label>
+            <textarea id="ingredients" name="ingredients" placeholder="e.g.&#10;1 cup flour&#10;2 eggs&#10;1 tsp vanilla extract">{{ request.form.ingredients if request.form.ingredients else ingredients_text if ingredients_text else '' }}</textarea>
+        </div>
+        <div>
+            <label for="instructions">Instructions:</label>
+            <textarea id="instructions" name="instructions" required>{{ request.form.instructions if request.form.instructions else recipe.instructions if recipe else '' }}</textarea>
+        </div>
+        <div>
+            <label for="source_url">Source URL (Optional):</label>
+            <input type="text" id="source_url" name="source_url" value="{{ request.form.source_url if request.form.source_url else recipe.source_url if recipe and recipe.source_url else '' }}">
+        </div>
+        <div>
+            <input type="submit" value="{{ 'Save Changes' if recipe else 'Add Recipe' }}">
+            <a href="{{ url_for('recipe_list') if not recipe else url_for('recipe_detail', recipe_id=recipe.id) }}" class="button-secondary">Cancel</a>
+        </div>
+    </form>
+{% endblock %}
