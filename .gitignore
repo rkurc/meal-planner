@@ -1,1 +1,15 @@
 __pycache__
+# Python
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Docker
+.dockerignore
+
+# VS Code
+.vscode/

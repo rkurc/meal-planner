@@ -1,0 +1,17 @@
+[project]
+name = "meal_planner_app"
+version = "0.1.0"
+description = "A simple meal planner application"
+dependencies = [
+    "Flask",
+    "fpdf2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pylint",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"

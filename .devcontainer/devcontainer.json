@@ -1,0 +1,14 @@
+{
+  "name": "Meal Planner App Dev Container",
+  "dockerFile": "../Dockerfile",
+  "settings": {
+    "python.pythonPath": "/usr/local/bin/python",
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true
+  },
+  "extensions": [
+    "ms-python.python"
+  ],
+  "forwardPorts": [5000],
+  "postCreateCommand": "pip install --user -e .[dev]"
+}
