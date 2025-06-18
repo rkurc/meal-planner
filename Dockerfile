@@ -4,8 +4,20 @@ FROM python:3.9-slim
 # Set the working directory in the container
 WORKDIR /app
 
+# Install Node.js and npm
+RUN apt-get update && apt-get install -y curl
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+RUN apt-get install -y nodejs
+
+# Copy package.json and install npm dependencies
+COPY package.json ./
+RUN npm install
+
 # Copy the current directory contents into the container at /app
-COPY . /app
+COPY . .
+
+# Build CSS and React App
+RUN npm run build
 
 # Install any needed packages specified in pyproject.toml
 RUN pip install --no-cache-dir .

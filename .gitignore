@@ -13,3 +13,12 @@ venv/
 
 # VS Code
 .vscode/
+
+# Node
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Generated CSS
+meal_planner_app/static/css/dist/
+

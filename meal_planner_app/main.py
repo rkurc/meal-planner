@@ -3,7 +3,7 @@ Main Flask application file for the Meal Planner App.
 Handles web routes, request processing, and rendering HTML templates.
 Integrates with CRUD operations and other services.
 """
-from flask import Flask, render_template, request, redirect, url_for, abort, Response
+from flask import Flask, render_template, request, redirect, url_for, abort, Response, send_from_directory, jsonify
 import uuid # Required for recipe_id conversion
 
 from meal_planner_app import crud
@@ -123,6 +123,33 @@ if __name__ == '__main__':
 
     # crud.reset_meal_plans_db() # Optional: clear meal plans on start
     app.run(debug=True)
+
+
+# --- API Routes ---
+@app.route('/api/recipes', methods=['GET'])
+def api_get_recipes():
+    recipes = crud.list_recipes()
+    # Convert full recipe objects to simpler dicts for the API
+    recipes_list = [
+        {
+            "id": str(recipe.id),  # Convert UUID to string
+            "name": recipe.name,
+            "description": recipe.description
+            # Add other fields if needed by the React component, e.g., instructions, ingredients
+        }
+        for recipe in recipes
+    ]
+    return jsonify(recipes_list)
+
+
+# --- React App Route ---
+@app.route('/ui/')
+@app.route('/ui/<path:path>') # Catch-all for client-side routing
+def serve_react_app(path=None):
+    if path is None or '.' not in path: # If it's a route like /ui/somepage or just /ui/
+        return send_from_directory('static/react_app', 'index.html')
+    else: # If it's a request for a static asset like /ui/assets/main.js
+        return send_from_directory('static/react_app', path)
 
 # --- Meal Plan Routes ---
 

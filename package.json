@@ -1,0 +1,15 @@
+{
+  "name": "meal_planner_app_frontend",
+  "version": "0.1.0",
+  "description": "Frontend assets for Meal Planner App",
+  "scripts": {
+    "build:css": "tailwindcss -i ./meal_planner_app/static/css/src/input.css -o ./meal_planner_app/static/css/dist/output.css --minify",
+    "build:react": "npm --prefix frontend run build",
+    "build": "npm run build:css && npm run build:react"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.0.0",
+    "postcss": "^8.0.0",
+    "autoprefixer": "^10.0.0"
+  }
+}
