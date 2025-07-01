@@ -4,7 +4,7 @@
   "description": "Frontend assets for Meal Planner App",
   "scripts": {
     "build:css": "tailwindcss -i ./meal_planner_app/static/css/src/input.css -o ./meal_planner_app/static/css/dist/output.css --minify",
-    "build:react": "npm --prefix frontend run build",
+    "build:react": "mkdir -p ./meal_planner_app/static/react_app && npm --prefix frontend run build",
     "build": "npm run build:css && npm run build:react"
   },
   "devDependencies": {
