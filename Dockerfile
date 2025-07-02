@@ -13,10 +13,15 @@ RUN apt-get install -y nodejs
 COPY package.json ./
 RUN npm install
 
+# Copy frontend package files and install frontend dependencies
+COPY frontend/package.json frontend/package-lock.json* ./frontend/
+RUN npm install --prefix frontend
+
 # Copy the current directory contents into the container at /app
 COPY . .
 
 # Build CSS and React App
+# This will use the dependencies installed in ./frontend/node_modules
 RUN npm run build
 
 # Install any needed packages specified in pyproject.toml
