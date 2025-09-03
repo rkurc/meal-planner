@@ -1,0 +1,11 @@
+LICENSE
+README.md
+pyproject.toml
+meal_planner_app/crud.py
+meal_planner_app/main.py
+meal_planner_app/services.py
+meal_planner_app.egg-info/PKG-INFO
+meal_planner_app.egg-info/SOURCES.txt
+meal_planner_app.egg-info/dependency_links.txt
+meal_planner_app.egg-info/requires.txt
+meal_planner_app.egg-info/top_level.txt

@@ -98,9 +98,11 @@ def reset_meal_plans_db():
     global meal_plans_db
     meal_plans_db = []
 
-def create_meal_plan(name: str) -> MealPlan:
+def create_meal_plan(name: str, recipe_ids: Optional[List[uuid.UUID]] = None) -> MealPlan:
     """Creates a new meal plan."""
-    meal_plan = MealPlan(name=name)
+    if recipe_ids is None:
+        recipe_ids = []
+    meal_plan = MealPlan(name=name, recipe_ids=recipe_ids)
     meal_plans_db.append(meal_plan)
     return meal_plan
 
@@ -148,12 +150,19 @@ def delete_meal_plan(meal_plan_id: uuid.UUID) -> bool:
         return True
     return False
 
-def update_meal_plan_name(meal_plan_id: uuid.UUID, name: str) -> Optional[MealPlan]:
-    """Updates the name of an existing meal plan."""
+def update_meal_plan(meal_plan_id: uuid.UUID, name: Optional[str] = None, recipe_ids: Optional[List[uuid.UUID]] = None) -> Optional[MealPlan]:
+    """Updates an existing meal plan's name and/or recipe list."""
     meal_plan = get_meal_plan(meal_plan_id)
     if not meal_plan:
         return None
-    meal_plan.name = name
+
+    if name is not None:
+        meal_plan.name = name
+
+    if recipe_ids is not None:
+        # Here we replace the entire list of recipe_ids
+        meal_plan.recipe_ids = recipe_ids
+
     return meal_plan
 
 # --- Shopping List Generation ---

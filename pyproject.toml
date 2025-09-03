@@ -10,6 +10,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pylint",
+    "pytest",
 ]
 
 [build-system]

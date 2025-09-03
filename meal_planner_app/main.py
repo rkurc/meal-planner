@@ -5,11 +5,22 @@ Integrates with CRUD operations and other services.
 """
 from flask import Flask, render_template, request, redirect, url_for, abort, Response, send_from_directory, jsonify
 import uuid # Required for recipe_id conversion
+import re
+from markupsafe import escape, Markup
 
 from meal_planner_app import crud
 from meal_planner_app.models.ingredient import Ingredient # Required for parsing
+from meal_planner_app.models.meal_plan import MealPlan # Required for type hinting
 
 app = Flask(__name__)
+
+@app.template_filter('nl2br')
+def nl2br(s):
+    """Converts newlines in a string to HTML <br> tags."""
+    if s:
+        s = escape(s)
+        return Markup(re.sub(r'\r\n|\r|\n', '<br>\n', s))
+    return ''
 
 def parse_ingredients_from_textarea(textarea_content: str) -> list[dict]:
     """
@@ -126,6 +137,15 @@ if __name__ == '__main__':
 
 
 # --- API Routes ---
+
+def _meal_plan_to_dict(meal_plan: MealPlan) -> dict:
+    """Serializes a MealPlan object to a dictionary."""
+    return {
+        "id": str(meal_plan.id),
+        "name": meal_plan.name,
+        "recipe_ids": [str(rid) for rid in meal_plan.recipe_ids]
+    }
+
 @app.route('/api/recipes', methods=['GET'])
 def api_get_recipes():
     recipes = crud.list_recipes()
@@ -140,6 +160,78 @@ def api_get_recipes():
         for recipe in recipes
     ]
     return jsonify(recipes_list)
+
+@app.route('/api/meal-plans', methods=['GET'])
+def api_get_meal_plans():
+    meal_plans = crud.list_meal_plans()
+    return jsonify([_meal_plan_to_dict(mp) for mp in meal_plans])
+
+@app.route('/api/meal-plans', methods=['POST'])
+def api_create_meal_plan():
+    data = request.get_json()
+    if not data or not data.get('name'):
+        abort(400, description="Name is required.")
+
+    name = data['name']
+    recipe_ids_str = data.get('recipe_ids', [])
+    recipe_ids = [uuid.UUID(rid) for rid in recipe_ids_str]
+
+    new_meal_plan = crud.create_meal_plan(name, recipe_ids)
+    return jsonify(_meal_plan_to_dict(new_meal_plan)), 201
+
+@app.route('/api/meal-plans/<uuid:meal_plan_id>', methods=['GET'])
+def api_get_meal_plan(meal_plan_id: uuid.UUID):
+    meal_plan = crud.get_meal_plan(meal_plan_id)
+    if not meal_plan:
+        abort(404)
+    return jsonify(_meal_plan_to_dict(meal_plan))
+
+@app.route('/api/meal-plans/<uuid:meal_plan_id>', methods=['PUT'])
+def api_update_meal_plan(meal_plan_id: uuid.UUID):
+    data = request.get_json()
+    if not data:
+        abort(400)
+
+    name = data.get('name')
+    recipe_ids_str = data.get('recipe_ids')
+    recipe_ids = [uuid.UUID(rid) for rid in recipe_ids_str] if recipe_ids_str is not None else None
+
+    updated_meal_plan = crud.update_meal_plan(meal_plan_id, name=name, recipe_ids=recipe_ids)
+    if not updated_meal_plan:
+        abort(404)
+    return jsonify(_meal_plan_to_dict(updated_meal_plan))
+
+@app.route('/api/meal-plans/<uuid:meal_plan_id>', methods=['DELETE'])
+def api_delete_meal_plan(meal_plan_id: uuid.UUID):
+    if not crud.delete_meal_plan(meal_plan_id):
+        abort(404)
+    return '', 204
+
+@app.route('/api/meal-plans/<uuid:meal_plan_id>/recipes', methods=['POST'])
+def api_add_recipe_to_meal_plan(meal_plan_id: uuid.UUID):
+    data = request.get_json()
+    if not data or not data.get('recipe_id'):
+        abort(400, description="recipe_id is required.")
+
+    recipe_id = uuid.UUID(data['recipe_id'])
+    meal_plan = crud.add_recipe_to_meal_plan(meal_plan_id, recipe_id)
+    if not meal_plan:
+        abort(404, description="Meal plan or recipe not found.")
+    return jsonify(_meal_plan_to_dict(meal_plan))
+
+@app.route('/api/meal-plans/<uuid:meal_plan_id>/recipes/<uuid:recipe_id>', methods=['DELETE'])
+def api_remove_recipe_from_meal_plan(meal_plan_id: uuid.UUID, recipe_id: uuid.UUID):
+    meal_plan = crud.remove_recipe_from_meal_plan(meal_plan_id, recipe_id)
+    if not meal_plan:
+        abort(404, description="Meal plan not found.")
+    return jsonify(_meal_plan_to_dict(meal_plan))
+
+@app.route('/api/meal-plans/<uuid:meal_plan_id>/shopping-list', methods=['GET'])
+def api_get_shopping_list(meal_plan_id: uuid.UUID):
+    shopping_list = crud.generate_shopping_list(meal_plan_id)
+    if shopping_list is None:
+        abort(404, description="Meal plan not found.")
+    return jsonify(shopping_list)
 
 
 # --- React App Route ---
@@ -194,7 +286,7 @@ def edit_meal_plan_name(meal_plan_id: uuid.UUID):
         name = request.form.get('name')
         if not name:
             return render_template('meal_plan_form.html', meal_plan=meal_plan, error="Name is required.", form_action=url_for('edit_meal_plan_name', meal_plan_id=meal_plan_id)), 400
-        crud.update_meal_plan_name(meal_plan_id, name)
+        crud.update_meal_plan(meal_plan_id, name=name)
         return redirect(url_for('meal_plan_detail', meal_plan_id=meal_plan_id))
 
     return render_template('meal_plan_form.html', meal_plan=meal_plan, form_action=url_for('edit_meal_plan_name', meal_plan_id=meal_plan_id))
