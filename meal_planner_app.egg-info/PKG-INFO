@@ -8,4 +8,5 @@ Requires-Dist: fpdf2
 Provides-Extra: dev
 Requires-Dist: pylint; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
+Requires-Dist: black; extra == "dev"
 Dynamic: license-file

@@ -1,6 +1,6 @@
 // frontend/src/components/RecipeList.jsx
-import React, { useState, useEffect } from 'react';
-import RecipeItem from './RecipeItem';
+import React, { useState, useEffect } from "react";
+import RecipeItem from "./RecipeItem";
 
 const RecipeList = () => {
   const [recipes, setRecipes] = useState([]);
@@ -8,18 +8,18 @@ const RecipeList = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch('/api/recipes') // Assuming Flask serves API at this path
-      .then(response => {
+    fetch("/api/recipes") // Assuming Flask serves API at this path
+      .then((response) => {
         if (!response.ok) {
-          throw new Error('Network response was not ok');
+          throw new Error("Network response was not ok");
         }
         return response.json();
       })
-      .then(data => {
+      .then((data) => {
         setRecipes(data);
         setLoading(false);
       })
-      .catch(error => {
+      .catch((error) => {
         setError(error.message);
         setLoading(false);
       });
@@ -30,7 +30,9 @@ const RecipeList = () => {
   }
 
   if (error) {
-    return <p className="text-center text-red-500">Error loading recipes: {error}</p>;
+    return (
+      <p className="text-center text-red-500">Error loading recipes: {error}</p>
+    );
   }
 
   if (recipes.length === 0) {
@@ -39,9 +41,11 @@ const RecipeList = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <h2 className="text-3xl font-bold text-center mb-6 text-gray-800">Recipe List (React)</h2>
+      <h2 className="text-3xl font-bold text-center mb-6 text-gray-800">
+        Recipe List (React)
+      </h2>
       <ul className="space-y-4">
-        {recipes.map(recipe => (
+        {recipes.map((recipe) => (
           <RecipeItem key={recipe.id} recipe={recipe} />
         ))}
       </ul>
