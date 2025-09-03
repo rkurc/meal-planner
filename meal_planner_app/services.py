@@ -1,10 +1,15 @@
 """
 Application services, such as PDF generation.
 """
-from fpdf import FPDF
-from typing import List, Dict, Union
 
-def generate_shopping_list_pdf(meal_plan_name: str, shopping_list_data: List[Dict[str, Union[str, float, List[str]]]]) -> bytes:
+from typing import List, Dict, Union
+from fpdf import FPDF
+
+
+def generate_shopping_list_pdf(
+    meal_plan_name: str,
+    shopping_list_data: List[Dict[str, Union[str, float, List[str]]]],
+) -> bytes:
     """
     Generates a PDF document for the given shopping list data.
     """
@@ -20,8 +25,8 @@ def generate_shopping_list_pdf(meal_plan_name: str, shopping_list_data: List[Dic
     pdf.set_font("Arial", "B", 12)
     header_height = 10
     col_width_name = pdf.w * 0.5  # 50% of page width
-    col_width_quantity = pdf.w * 0.25 # 25%
-    col_width_unit = pdf.w * 0.15 # 15% (remaining, approx)
+    col_width_quantity = pdf.w * 0.25  # 25%
+    col_width_unit = pdf.w * 0.15  # 15% (remaining, approx)
 
     pdf.cell(col_width_name, header_height, "Ingredient", border=1)
     pdf.cell(col_width_quantity, header_height, "Quantity", border=1)
@@ -36,9 +41,9 @@ def generate_shopping_list_pdf(meal_plan_name: str, shopping_list_data: List[Dic
         pdf.cell(0, 10, "This shopping list is empty.", 0, 1)
     else:
         for item in shopping_list_data:
-            name = item.get('name', 'N/A')
-            quantity_val = item.get('quantity', '')
-            unit = item.get('unit', '')
+            name = item.get("name", "N/A")
+            quantity_val = item.get("quantity", "")
+            unit = item.get("unit", "")
 
             if isinstance(quantity_val, list):
                 quantity_str = ", ".join(map(str, quantity_val))
@@ -47,7 +52,8 @@ def generate_shopping_list_pdf(meal_plan_name: str, shopping_list_data: List[Dic
 
             # Handle multi-line for long ingredient names or quantities if necessary
             # For simplicity, we'll use fixed height cells for now.
-            # If text is too long, it will overflow. A more robust solution would calculate text width and adjust cell height or font.
+            # If text is too long, it will overflow. A more robust solution would
+            # calculate text width and adjust cell height or font.
 
             pdf.cell(col_width_name, line_height, name, border=1)
             pdf.cell(col_width_quantity, line_height, quantity_str, border=1)

@@ -1,11 +1,14 @@
+"""
+Defines the Ingredient data model.
+"""
+
 from typing import Union
 
-class Ingredient:
+
+class Ingredient:  # pylint: disable=too-few-public-methods
     """Represents a single ingredient with its quantity and unit."""
-    def __init__(self,
-                 name: str,
-                 quantity: Union[float, str],
-                 unit: str):
+
+    def __init__(self, name: str, quantity: Union[float, str], unit: str):
         """
         Initializes an Ingredient instance.
 
