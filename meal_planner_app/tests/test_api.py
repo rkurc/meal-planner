@@ -164,7 +164,9 @@ class TestMealPlanApi(unittest.TestCase):
 
     def test_get_meal_plan_by_id_api(self):
         """Test GET /api/meal-plans/<id>."""
-        mp = crud.create_meal_plan(name="Test Plan", recipe_ids=[self.recipe1.recipe_id])
+        mp = crud.create_meal_plan(
+            name="Test Plan", recipe_ids=[self.recipe1.recipe_id]
+        )
         response = self.client.get(f"/api/meal-plans/{mp.meal_plan_id}")
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
@@ -176,7 +178,9 @@ class TestMealPlanApi(unittest.TestCase):
         """Test PUT /api/meal-plans/<id>."""
         mp = crud.create_meal_plan(name="Old Name", recipe_ids=[self.recipe1.recipe_id])
         update_data = {"name": "New Name", "recipe_ids": [str(self.recipe2.recipe_id)]}
-        response = self.client.put(f"/api/meal-plans/{mp.meal_plan_id}", json=update_data)
+        response = self.client.put(
+            f"/api/meal-plans/{mp.meal_plan_id}", json=update_data
+        )
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
         self.assertEqual(data["name"], "New Name")

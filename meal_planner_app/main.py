@@ -53,9 +53,7 @@ def parse_ingredients_from_textarea(textarea_content: str) -> list[dict]:
     """
     ingredients = []
     if textarea_content:
-        lines = [
-            line.strip() for line in textarea_content.splitlines() if line.strip()
-        ]
+        lines = [line.strip() for line in textarea_content.splitlines() if line.strip()]
         for line in lines:
             # For MVP: treat the whole line as the name, quantity and unit are empty/default
             ingredients.append({"name": line, "quantity": "", "unit": ""})
@@ -383,9 +381,7 @@ def meal_plan_detail(meal_plan_id: uuid.UUID):
 
     all_recipes = crud.list_recipes()
     available_recipes = [
-        recipe
-        for recipe in all_recipes
-        if recipe.recipe_id not in meal_plan.recipe_ids
+        recipe for recipe in all_recipes if recipe.recipe_id not in meal_plan.recipe_ids
     ]
 
     return render_template(

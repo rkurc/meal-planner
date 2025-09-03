@@ -162,17 +162,23 @@ class TestMealPlanCRUD(unittest.TestCase):
         mp = crud.create_meal_plan(name="My Plan")
 
         # Add valid recipe
-        updated_mp = crud.add_recipe_to_meal_plan(mp.meal_plan_id, self.recipe1.recipe_id)
+        updated_mp = crud.add_recipe_to_meal_plan(
+            mp.meal_plan_id, self.recipe1.recipe_id
+        )
         self.assertIsNotNone(updated_mp)
         self.assertIn(self.recipe1.recipe_id, updated_mp.recipe_ids)
 
         # Add another valid recipe
-        updated_mp = crud.add_recipe_to_meal_plan(mp.meal_plan_id, self.recipe2.recipe_id)
+        updated_mp = crud.add_recipe_to_meal_plan(
+            mp.meal_plan_id, self.recipe2.recipe_id
+        )
         self.assertIn(self.recipe2.recipe_id, updated_mp.recipe_ids)
         self.assertEqual(len(updated_mp.recipe_ids), 2)
 
         # Add existing recipe again (should not duplicate)
-        updated_mp = crud.add_recipe_to_meal_plan(mp.meal_plan_id, self.recipe1.recipe_id)
+        updated_mp = crud.add_recipe_to_meal_plan(
+            mp.meal_plan_id, self.recipe1.recipe_id
+        )
         self.assertEqual(len(updated_mp.recipe_ids), 2)
 
         # Add to non-existent meal plan

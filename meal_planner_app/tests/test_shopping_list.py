@@ -131,7 +131,9 @@ class TestShoppingList(
 
     def test_generate_shopping_list_complex_aggregation(self):
         """Test aggregation with different units and non-numeric quantities."""
-        shopping_list = crud.generate_shopping_list(self.meal_plan2_complex.meal_plan_id)
+        shopping_list = crud.generate_shopping_list(
+            self.meal_plan2_complex.meal_plan_id
+        )
         self.assertIsNotNone(shopping_list)
 
         # Check some key aggregations
@@ -177,7 +179,9 @@ class TestShoppingList(
                 {"name": "Flour", "quantity": "a bit more", "unit": "cup"}
             ],
         )
-        crud.add_recipe_to_meal_plan(self.meal_plan1.meal_plan_id, recipe_extra.recipe_id)
+        crud.add_recipe_to_meal_plan(
+            self.meal_plan1.meal_plan_id, recipe_extra.recipe_id
+        )
         # Now meal_plan1 has:
         # R1: Flour, 2 cup
         # R2: (no flour)
@@ -194,7 +198,9 @@ class TestShoppingList(
 
     def test_shopping_list_empty_meal_plan(self):
         """Test generating a shopping list for a meal plan with no recipes."""
-        shopping_list = crud.generate_shopping_list(self.meal_plan_no_recipes.meal_plan_id)
+        shopping_list = crud.generate_shopping_list(
+            self.meal_plan_no_recipes.meal_plan_id
+        )
         self.assertIsNotNone(shopping_list)
         self.assertEqual(len(shopping_list), 0)
 
