@@ -1,7 +1,0 @@
-Flask
-fpdf2
-
-[dev]
-pylint
-pytest
-black
