@@ -11,6 +11,7 @@ dependencies = [
 dev = [
     "pylint",
     "pytest",
+    "black",
 ]
 
 [build-system]
