@@ -199,15 +199,28 @@ class TestMealPlanCRUD(unittest.TestCase):
         # Delete non-existent
         self.assertFalse(crud.delete_meal_plan(uuid.uuid4()))
 
-    def test_update_meal_plan_name(self):
-        mp = crud.create_meal_plan(name="Old Name")
-        updated_mp = crud.update_meal_plan_name(mp.id, "New Name")
-        self.assertIsNotNone(updated_mp)
-        self.assertEqual(updated_mp.name, "New Name")
-        self.assertEqual(crud.get_meal_plan(mp.id).name, "New Name")
+    def test_update_meal_plan(self):
+        """Test the new update_meal_plan function."""
+        mp = crud.create_meal_plan(name="Old Name", recipe_ids=[self.recipe1.id])
+
+        # Update only the name
+        updated_mp_name = crud.update_meal_plan(mp.id, name="New Name")
+        self.assertEqual(updated_mp_name.name, "New Name")
+        self.assertIn(self.recipe1.id, updated_mp_name.recipe_ids) # Recipes should be unchanged
+
+        # Update only the recipes
+        updated_mp_recipes = crud.update_meal_plan(mp.id, recipe_ids=[self.recipe2.id])
+        self.assertEqual(updated_mp_recipes.name, "New Name") # Name should be unchanged from previous step
+        self.assertNotIn(self.recipe1.id, updated_mp_recipes.recipe_ids)
+        self.assertIn(self.recipe2.id, updated_mp_recipes.recipe_ids)
+
+        # Update both
+        updated_mp_both = crud.update_meal_plan(mp.id, name="Final Name", recipe_ids=[])
+        self.assertEqual(updated_mp_both.name, "Final Name")
+        self.assertEqual(len(updated_mp_both.recipe_ids), 0)
 
         # Update non-existent
-        self.assertIsNone(crud.update_meal_plan_name(uuid.uuid4(), "Doesn't Matter"))
+        self.assertIsNone(crud.update_meal_plan(uuid.uuid4(), name="Doesn't Matter"))
 
 
 class TestRecipeSearch(unittest.TestCase):
