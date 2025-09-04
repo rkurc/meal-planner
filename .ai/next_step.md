@@ -1,8 +1,15 @@
-Now that the core APIs for recipes, meal plans, and shopping lists are in place, the next critical step is to secure them. Please implement a robust authentication system for the backend API. Based on the project's modern stack, a token-based approach like JWT (JSON Web Tokens) would be appropriate.
+The backend APIs for meal plans are now complete. The next step is to build the user interface in the React single-page application (SPA) to manage them.
 
-Your task is to:
-1.  Choose and integrate a suitable Flask library for JWT management (e.g., `Flask-JWT-Extended`).
-2.  Create new API endpoints for user registration (`/api/auth/register`) and login (`/api/auth/login`), which will issue tokens.
-3.  Protect the existing API endpoints (`/api/recipes`, `/api/meal-plans`, `/api/shopping-lists`) so that they require a valid JWT to be accessed.
-4.  Update the tests for the protected endpoints to include authentication headers.
-5.  Provide a plan for these changes before implementation.
+Your task is to implement the **Meal Plan Management** feature in the React frontend.
+
+**Requirements:**
+1.  **Create React Components:** Build the necessary components for:
+    *   Listing all existing meal plans (e.g., a `MealPlanList` component).
+    *   Displaying a single meal plan with its details and associated recipes (e.g., a `MealPlanDetail` component).
+    *   A form for creating and editing meal plans (e.g., a `MealPlanForm` component).
+2.  **API Integration:**
+    *   Fetch data from the `/api/meal-plans` endpoints that are already implemented.
+    *   Implement functionality to create, update, and delete meal plans by making requests to the API.
+3.  **Routing:** Set up client-side routes (e.g., using `react-router-dom`) for `/meal-plans`, `/meal-plans/new`, `/meal-plans/:id`, etc.
+4.  **State Management:** Use appropriate state management to handle the application's data flow.
+5.  **Testing:** While not explicitly defined in the test plan, consider what unit or integration tests could be added for the new components.
