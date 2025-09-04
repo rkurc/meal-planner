@@ -201,7 +201,6 @@ if __name__ == "__main__":
 
 # --- API Routes ---
 
-
 def _meal_plan_to_dict(meal_plan: MealPlan) -> dict:
     """Serializes a MealPlan object to a dictionary."""
     return {
