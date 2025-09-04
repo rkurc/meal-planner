@@ -369,6 +369,7 @@ def _meal_plan_to_dict(meal_plan: MealPlan) -> dict:
     return {
         "id": str(meal_plan.meal_plan_id),
         "name": meal_plan.name,
+        "description": meal_plan.description,
         "recipe_ids": [str(rid) for rid in meal_plan.recipe_ids],
     }
 
@@ -406,10 +407,13 @@ def api_create_meal_plan():
         abort(400, description="Name is required.")
 
     name = data["name"]
+    description = data.get("description", "")
     recipe_ids_str = data.get("recipe_ids", [])
     recipe_ids = [uuid.UUID(rid) for rid in recipe_ids_str]
 
-    created_meal_plan = crud.create_meal_plan(name, recipe_ids)
+    created_meal_plan = crud.create_meal_plan(
+        name, description=description, recipe_ids=recipe_ids
+    )
     return jsonify(_meal_plan_to_dict(created_meal_plan)), 201
 
 
@@ -430,6 +434,7 @@ def api_update_meal_plan(meal_plan_id: uuid.UUID):
         abort(400)
 
     name = data.get("name")
+    description = data.get("description")
     recipe_ids_str = data.get("recipe_ids")
     recipe_ids = (
         [uuid.UUID(rid) for rid in recipe_ids_str]
@@ -438,7 +443,7 @@ def api_update_meal_plan(meal_plan_id: uuid.UUID):
     )
 
     updated_meal_plan = crud.update_meal_plan(
-        meal_plan_id, name=name, recipe_ids=recipe_ids
+        meal_plan_id, name=name, description=description, recipe_ids=recipe_ids
     )
     if not updated_meal_plan:
         abort(404)
