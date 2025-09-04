@@ -9,8 +9,10 @@ The application is partially functional, with a mix of backend APIs, a tradition
 ### Backend & API
 
 *   **Recipe API (`/api/recipes`):** A functional JSON API endpoint exists for fetching all recipes. This is used by the React frontend.
-*   **Database Models:** SQLAlchemy models are in place for `Recipe`, `Ingredient`, and `MealPlan`.
-*   **CRUD Logic:** Basic CRUD (Create, Read, Update, Delete) business logic exists for recipes in `meal_planner_app/crud.py`.
+*   **Meal Plan API (`/api/meal-plans`):** A full suite of CRUD endpoints for managing meal plans.
+*   **Shopping List API (`/api/shopping-lists`):** A full suite of CRUD endpoints for managing persistent shopping lists.
+*   **Database Models:** In-memory `dataclass` models are in place for `Recipe`, `Ingredient`, `MealPlan`, and `ShoppingList`.
+*   **CRUD Logic:** Business logic for all CRUD operations exists in `meal_planner_app/crud.py`.
 
 ### Traditional UI (Jinja2 Templates)
 
