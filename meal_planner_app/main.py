@@ -316,6 +316,10 @@ def api_remove_recipe_from_meal_plan(meal_plan_id: uuid.UUID, recipe_id: uuid.UU
     return jsonify(_meal_plan_to_dict(meal_plan))
 
 
+from dataclasses import asdict
+from meal_planner_app.models.shopping_list import ShoppingList
+
+
 @app.route("/api/meal-plans/<uuid:meal_plan_id>/shopping-list", methods=["GET"])
 def api_get_shopping_list(meal_plan_id: uuid.UUID):
     """API endpoint to generate a shopping list for a meal plan."""
@@ -323,6 +327,77 @@ def api_get_shopping_list(meal_plan_id: uuid.UUID):
     if shopping_list is None:
         abort(404, description="Meal plan not found.")
     return jsonify(shopping_list)
+
+
+# --- Shopping List API Routes ---
+
+
+def _shopping_list_to_dict(shopping_list: ShoppingList) -> dict:
+    """Serializes a ShoppingList object to a dictionary."""
+    sl_dict = asdict(shopping_list)
+    sl_dict["id"] = str(sl_dict["id"])
+    sl_dict["meal_plan_id"] = str(sl_dict["meal_plan_id"])
+    return sl_dict
+
+
+@app.route("/api/shopping-lists", methods=["POST"])
+def api_create_shopping_list():
+    """API endpoint to create a new shopping list from a meal plan."""
+    data = request.get_json()
+    if not data or not data.get("meal_plan_id"):
+        abort(400, description="meal_plan_id is required.")
+
+    try:
+        meal_plan_id = uuid.UUID(data["meal_plan_id"])
+    except ValueError:
+        abort(400, description="Invalid meal_plan_id format.")
+
+    shopping_list = crud.create_shopping_list(meal_plan_id)
+    if not shopping_list:
+        abort(404, description="Meal plan not found.")
+
+    return jsonify(_shopping_list_to_dict(shopping_list)), 201
+
+
+@app.route("/api/shopping-lists", methods=["GET"])
+def api_list_shopping_lists():
+    """API endpoint to get all saved shopping lists."""
+    shopping_lists = crud.list_shopping_lists()
+    return jsonify([_shopping_list_to_dict(sl) for sl in shopping_lists])
+
+
+@app.route("/api/shopping-lists/<uuid:shopping_list_id>", methods=["GET"])
+def api_get_single_shopping_list(shopping_list_id: uuid.UUID):
+    """API endpoint to get a single shopping list by its ID."""
+    shopping_list = crud.get_shopping_list(shopping_list_id)
+    if not shopping_list:
+        abort(404)
+    return jsonify(_shopping_list_to_dict(shopping_list))
+
+
+@app.route("/api/shopping-lists/<uuid:shopping_list_id>", methods=["PUT"])
+def api_update_shopping_list(shopping_list_id: uuid.UUID):
+    """API endpoint to update an existing shopping list."""
+    data = request.get_json()
+    if not data:
+        abort(400)
+
+    # The crud function expects 'name' and 'items' as optional kwargs
+    updated_list = crud.update_shopping_list(
+        shopping_list_id, name=data.get("name"), items=data.get("items")
+    )
+
+    if not updated_list:
+        abort(404)
+    return jsonify(_shopping_list_to_dict(updated_list))
+
+
+@app.route("/api/shopping-lists/<uuid:shopping_list_id>", methods=["DELETE"])
+def api_delete_shopping_list(shopping_list_id: uuid.UUID):
+    """API endpoint to delete a shopping list."""
+    if not crud.delete_shopping_list(shopping_list_id):
+        abort(404)
+    return "", 204
 
 
 # --- React App Route ---

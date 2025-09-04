@@ -12,6 +12,7 @@ dev = [
     "pylint",
     "pytest",
     "black",
+    "pre-commit",
 ]
 
 [build-system]
