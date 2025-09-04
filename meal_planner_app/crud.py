@@ -208,6 +208,8 @@ def update_meal_plan(
     return meal_plan
 
 
+from .models.shopping_list import ShoppingList, ShoppingListItem
+
 # --- Shopping List Generation ---
 
 
@@ -284,6 +286,99 @@ def generate_shopping_list(
                     ] = current_quantity_str
 
     return list(aggregated_ingredients.values())
+
+
+# --- Shopping List CRUD Operations ---
+
+shopping_lists_db: List[ShoppingList] = []
+
+
+def reset_shopping_lists_db():
+    """Helper function to reset the shopping lists database, for testing."""
+    # pylint: disable=global-statement
+    global shopping_lists_db
+    shopping_lists_db = []
+
+
+def create_shopping_list(meal_plan_id: uuid.UUID) -> Optional[ShoppingList]:
+    """
+    Generates a shopping list from a meal plan and saves it to the database.
+    """
+    meal_plan = get_meal_plan(meal_plan_id)
+    if not meal_plan:
+        return None
+
+    # Use the existing generator function
+    generated_items = generate_shopping_list(meal_plan_id)
+    if generated_items is None:
+        return None  # Should not happen if meal_plan exists
+
+    # Convert generated items (dicts) to ShoppingListItem objects
+    list_items = [
+        ShoppingListItem(
+            name=item["name"],
+            quantity=item["quantity"],
+            unit=item["unit"],
+            purchased=False,  # Default to not purchased
+        )
+        for item in generated_items
+    ]
+
+    # Create the new shopping list object
+    new_shopping_list = ShoppingList(
+        name=f"Shopping List for {meal_plan.name}",
+        items=list_items,
+        meal_plan_id=meal_plan_id,
+    )
+
+    shopping_lists_db.append(new_shopping_list)
+    return new_shopping_list
+
+
+def get_shopping_list(shopping_list_id: uuid.UUID) -> Optional[ShoppingList]:
+    """Retrieves a shopping list by its ID."""
+    for sl in shopping_lists_db:
+        if sl.id == shopping_list_id:
+            return sl
+    return None
+
+
+def list_shopping_lists() -> List[ShoppingList]:
+    """Returns all saved shopping lists."""
+    return shopping_lists_db
+
+
+def update_shopping_list(
+    shopping_list_id: uuid.UUID,
+    name: Optional[str] = None,
+    items: Optional[List[Dict]] = None,
+) -> Optional[ShoppingList]:
+    """
+    Updates a shopping list's name and/or its items.
+    'items' should be a list of dictionaries representing ShoppingListItem objects.
+    """
+    shopping_list = get_shopping_list(shopping_list_id)
+    if not shopping_list:
+        return None
+
+    if name is not None:
+        shopping_list.name = name
+
+    if items is not None:
+        # Re-create the list of ShoppingListItem objects from the provided dicts
+        updated_items = [ShoppingListItem(**item_data) for item_data in items]
+        shopping_list.items = updated_items
+
+    return shopping_list
+
+
+def delete_shopping_list(shopping_list_id: uuid.UUID) -> bool:
+    """Deletes a shopping list by its ID."""
+    shopping_list = get_shopping_list(shopping_list_id)
+    if shopping_list:
+        shopping_lists_db.remove(shopping_list)
+        return True
+    return False
 
 
 # --- Recipe Search ---
