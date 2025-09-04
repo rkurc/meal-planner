@@ -88,10 +88,7 @@ const MealPlanForm = () => {
         className="bg-white shadow-md rounded-lg p-6"
       >
         <div className="mb-4">
-          <label
-            htmlFor="name"
-            className="block text-gray-700 font-bold mb-2"
-          >
+          <label htmlFor="name" className="block text-gray-700 font-bold mb-2">
             Name
           </label>
           <input
@@ -120,9 +117,7 @@ const MealPlanForm = () => {
           />
         </div>
         <div className="mb-6">
-          <label className="block text-gray-700 font-bold mb-2">
-            Recipes
-          </label>
+          <label className="block text-gray-700 font-bold mb-2">Recipes</label>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {allRecipes.map((recipe) => (
               <div key={recipe.id} className="flex items-center">
