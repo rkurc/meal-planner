@@ -186,6 +186,7 @@ def delete_recipe_route(recipe_id: uuid.UUID):
         abort(404)  # Or flash a message
     return redirect(url_for("recipe_list"))
 
+
 # --- Meal Plan Routes ---
 
 

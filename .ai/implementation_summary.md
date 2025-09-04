@@ -9,7 +9,7 @@ The application is partially functional, with a mix of backend APIs, a tradition
 ### Backend & API
 
 *   **Recipe API (`/api/recipes`):** A functional JSON API endpoint exists for fetching all recipes. This is used by the React frontend.
-*   **Meal Plan API (`/api/meal-plans`):** A full suite of CRUD endpoints for managing meal plans.
+*   **Meal Plan API (`/api/meal-plans`):** A full suite of CRUD endpoints for managing meal plans is now implemented and functional.
 *   **Shopping List API (`/api/shopping-lists`):** A full suite of CRUD endpoints for managing persistent shopping lists.
 *   **Database Models:** In-memory `dataclass` models are in place for `Recipe`, `Ingredient`, `MealPlan`, and `ShoppingList`.
 *   **CRUD Logic:** Business logic for all CRUD operations exists in `meal_planner_app/crud.py`.
@@ -25,7 +25,9 @@ The following features are fully implemented and accessible via the server-rende
 ### Modern UI (React @ `/ui/`)
 
 *   **Recipe Display:** A basic React single-page application (SPA) is in place that can fetch and display a list of recipes from the `/api/recipes` endpoint.
-*   **Build System:** A modern Vite-based build system is configured for the React application.
+*   **Meal Plan Management UI:** The UI for meal plan management has been implemented, including list, detail, and form views.
+*   **Build System:** A modern Vite-based build system is configured for the React application. The development environment has been fixed and is now stable.
+*   **UI Verification:** The Meal Plan List UI has been visually verified and is rendering correctly.
 
 ## 2. Remaining Work & Future Features
 
@@ -33,19 +35,16 @@ The following is a list of features and tasks that are either partially implemen
 
 ### High-Priority Tasks (Migration & API)
 
-1.  **Expand API Coverage (Backend):**
-    *   **Meal Plans:** Create full CRUD API endpoints (`/api/meal-plans`). Currently, meal plans are only manageable via the Jinja2 templates.
-    *   **Shopping Lists:** Create API endpoints for generating and managing shopping lists (`/api/shopping-lists`).
-    *   **API Authentication:** Implement a robust authentication system (e.g., JWT) for the API to secure it for frontend consumption.
-
-2.  **Achieve Feature Parity (Frontend):**
-    *   **Meal Plan Management:** Rebuild the meal plan management interface in React, using the new API endpoints.
+1.  **Achieve Feature Parity (Frontend):**
+    *   **Meal Plan Management:** Thoroughly test the new Meal Plan Management UI and fix any bugs.
     *   **Shopping List Management:** Rebuild the shopping list generation and editing interface in React.
     *   **Recipe Management:** Implement create, update, and delete functionality for recipes in the React UI (currently it is read-only).
 
-3.  **Testing:**
-    *   **API Tests:** Write comprehensive integration tests for all API endpoints (recipes, meal plans, shopping lists) to ensure they are reliable.
+2.  **Testing:**
+    *   **API Tests:** The existing API tests should be maintained and expanded as new features are added.
     *   **E2E Tests:** Write end-to-end tests for all major user workflows (e.g., creating a recipe, building a meal plan, generating a list) in the new React application to prevent regressions.
+
+3.  **API Authentication:** Implement a robust authentication system (e.g., JWT) for the API to secure it for frontend consumption.
 
 ### New Features (Post-Migration)
 
