@@ -51,7 +51,9 @@ class ShoppingListApiTestCase(unittest.TestCase):
         created_data = response.get_json()
         self.assertIn("id", created_data)
         self.assertIn("name", created_data)
-        self.assertEqual(f"Shopping List for {self.meal_plan.name}", created_data["name"])
+        self.assertEqual(
+            f"Shopping List for {self.meal_plan.name}", created_data["name"]
+        )
         self.assertIn("items", created_data)
         self.assertEqual(len(created_data["items"]), 3)
 
