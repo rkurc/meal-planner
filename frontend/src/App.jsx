@@ -45,7 +45,7 @@ const router = createBrowserRouter(
   ],
   {
     basename: "/static/react_app",
-  }
+  },
 );
 
 function App() {

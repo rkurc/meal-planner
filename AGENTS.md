@@ -34,6 +34,22 @@ pre-commit run --all-files
 
 You are expected to ensure that all linter and formatter checks pass before submitting your code. If a hook fails, it may modify files. You should review these changes and `git add` them before committing again.
 
+### Frontend Code Formatting
+
+The frontend code in the `frontend/` directory is formatted using `prettier`.
+Before submitting your work, you must ensure that the frontend code is formatted correctly.
+
+To check for formatting issues, run the following command from the `frontend/` directory:
+```bash
+npm run format-check
+```
+
+If there are any formatting issues, you can fix them by running:
+```bash
+npm run format
+```
+(Note: You may need to add the `format` script to `frontend/package.json` if it does not exist. It should run `prettier --write .`)
+
 ## Task Management
 
 ### The `.ai/next_step.md` File
