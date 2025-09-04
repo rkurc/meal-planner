@@ -33,3 +33,11 @@ pre-commit run --all-files
 ```
 
 You are expected to ensure that all linter and formatter checks pass before submitting your code. If a hook fails, it may modify files. You should review these changes and `git add` them before committing again.
+
+## Task Management
+
+### The `.ai/next_step.md` File
+
+Before committing your work, you should always update the `.ai/next_step.md` file. This file should contain a summary of the work you have completed and a clear description of the next steps for the project. This ensures a smooth handover to the next agent.
+
+When starting a new task, always read the `.ai/next_step.md` file first to understand the current state of the project and what needs to be done next.
