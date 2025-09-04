@@ -149,11 +149,16 @@ class TestMealPlanApi(unittest.TestCase):
         """Test POST /api/meal-plans to create a new meal plan."""
         response = self.client.post(
             "/api/meal-plans",
-            json={"name": "New API Plan", "recipe_ids": [str(self.recipe1.recipe_id)]},
+            json={
+                "name": "New API Plan",
+                "description": "A plan for the new API.",
+                "recipe_ids": [str(self.recipe1.recipe_id)],
+            },
         )
         self.assertEqual(response.status_code, 201)
         data = json.loads(response.data)
         self.assertEqual(data["name"], "New API Plan")
+        self.assertEqual(data["description"], "A plan for the new API.")
         self.assertIn(str(self.recipe1.recipe_id), data["recipe_ids"])
         self.assertIn("id", data)
 
@@ -161,34 +166,48 @@ class TestMealPlanApi(unittest.TestCase):
         mp = crud.get_meal_plan(uuid.UUID(data["id"]))
         self.assertIsNotNone(mp)
         self.assertEqual(mp.name, "New API Plan")
+        self.assertEqual(mp.description, "A plan for the new API.")
 
     def test_get_meal_plan_by_id_api(self):
         """Test GET /api/meal-plans/<id>."""
         mp = crud.create_meal_plan(
-            name="Test Plan", recipe_ids=[self.recipe1.recipe_id]
+            name="Test Plan",
+            description="Test Description",
+            recipe_ids=[self.recipe1.recipe_id],
         )
         response = self.client.get(f"/api/meal-plans/{mp.meal_plan_id}")
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
         self.assertEqual(data["name"], "Test Plan")
+        self.assertEqual(data["description"], "Test Description")
         self.assertEqual(data["id"], str(mp.meal_plan_id))
         self.assertEqual(data["recipe_ids"], [str(self.recipe1.recipe_id)])
 
     def test_update_meal_plan_api(self):
         """Test PUT /api/meal-plans/<id>."""
-        mp = crud.create_meal_plan(name="Old Name", recipe_ids=[self.recipe1.recipe_id])
-        update_data = {"name": "New Name", "recipe_ids": [str(self.recipe2.recipe_id)]}
+        mp = crud.create_meal_plan(
+            name="Old Name",
+            description="Old Description",
+            recipe_ids=[self.recipe1.recipe_id],
+        )
+        update_data = {
+            "name": "New Name",
+            "description": "New Description",
+            "recipe_ids": [str(self.recipe2.recipe_id)],
+        }
         response = self.client.put(
             f"/api/meal-plans/{mp.meal_plan_id}", json=update_data
         )
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
         self.assertEqual(data["name"], "New Name")
+        self.assertEqual(data["description"], "New Description")
         self.assertEqual(data["recipe_ids"], [str(self.recipe2.recipe_id)])
 
         # Verify changes in DB
         updated_mp = crud.get_meal_plan(mp.meal_plan_id)
         self.assertEqual(updated_mp.name, "New Name")
+        self.assertEqual(updated_mp.description, "New Description")
         self.assertNotIn(self.recipe1.recipe_id, updated_mp.recipe_ids)
         self.assertIn(self.recipe2.recipe_id, updated_mp.recipe_ids)
 
