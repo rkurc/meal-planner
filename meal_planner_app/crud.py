@@ -125,12 +125,14 @@ def reset_meal_plans_db():
 
 
 def create_meal_plan(
-    name: str, recipe_ids: Optional[List[uuid.UUID]] = None
+    name: str,
+    description: str = "",
+    recipe_ids: Optional[List[uuid.UUID]] = None,
 ) -> MealPlan:
     """Creates a new meal plan."""
     if recipe_ids is None:
         recipe_ids = []
-    meal_plan = MealPlan(name=name, recipe_ids=recipe_ids)
+    meal_plan = MealPlan(name=name, description=description, recipe_ids=recipe_ids)
     meal_plans_db.append(meal_plan)
     return meal_plan
 
@@ -191,6 +193,7 @@ def delete_meal_plan(meal_plan_id: uuid.UUID) -> bool:
 def update_meal_plan(
     meal_plan_id: uuid.UUID,
     name: Optional[str] = None,
+    description: Optional[str] = None,
     recipe_ids: Optional[List[uuid.UUID]] = None,
 ) -> Optional[MealPlan]:
     """Updates an existing meal plan's name and/or recipe list."""
@@ -200,6 +203,9 @@ def update_meal_plan(
 
     if name is not None:
         meal_plan.name = name
+
+    if description is not None:
+        meal_plan.description = description
 
     if recipe_ids is not None:
         # Here we replace the entire list of recipe_ids
