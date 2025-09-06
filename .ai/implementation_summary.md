@@ -8,7 +8,7 @@ The application is partially functional, with a mix of backend APIs, a tradition
 
 ### Backend & API
 
-*   **Recipe API (`/api/recipes`):** A functional JSON API endpoint exists for fetching all recipes. This is used by the React frontend.
+*   **Recipe API (`/api/recipes`):** A functional JSON API endpoint exists for fetching all recipes (`GET`) and creating new ones (`POST`). This is used by the React frontend.
 *   **Meal Plan API (`/api/meal-plans`):** A full suite of CRUD endpoints for managing meal plans is now implemented and functional.
 *   **Shopping List API (`/api/shopping-lists`):** A full suite of CRUD endpoints for managing persistent shopping lists.
 *   **Database Models:** In-memory `dataclass` models are in place for `Recipe`, `Ingredient`, `MealPlan`, and `ShoppingList`.
@@ -38,7 +38,7 @@ The following is a list of features and tasks that are either partially implemen
 1.  **Achieve Feature Parity (Frontend):**
     *   **Meal Plan Management:** Thoroughly test the new Meal Plan Management UI and fix any bugs.
     *   **Shopping List Management:** Rebuild the shopping list generation and editing interface in React.
-    *   **Recipe Management:** Implement create, update, and delete functionality for recipes in the React UI (currently it is read-only).
+    *   **Recipe Management:** Implement create, update, and delete functionality for recipes in the React UI (currently it is read-only). The API backend for creating recipes is now complete.
 
 2.  **Testing:**
     *   **API Tests:** The existing API tests should be maintained and expanded as new features are added.
