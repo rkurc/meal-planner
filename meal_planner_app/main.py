@@ -22,6 +22,7 @@ from markupsafe import escape, Markup
 
 from meal_planner_app import crud
 from meal_planner_app.models.meal_plan import MealPlan
+from meal_planner_app.models.recipe import Recipe
 from meal_planner_app.services import generate_shopping_list_pdf
 from dataclasses import asdict
 from meal_planner_app.models.shopping_list import ShoppingList
@@ -364,6 +365,21 @@ def download_shopping_list_pdf(meal_plan_id: uuid.UUID):
 # --- API Routes ---
 
 
+def _recipe_to_dict(recipe: Recipe) -> dict:
+    """Serializes a Recipe object to a dictionary."""
+    return {
+        "id": str(recipe.recipe_id),
+        "name": recipe.name,
+        "description": recipe.description,
+        "instructions": recipe.instructions,
+        "source_url": recipe.source_url,
+        "ingredients": [
+            {"name": ing.name, "quantity": ing.quantity, "unit": ing.unit}
+            for ing in recipe.ingredients
+        ],
+    }
+
+
 def _meal_plan_to_dict(meal_plan: MealPlan) -> dict:
     """Serializes a MealPlan object to a dictionary."""
     return {
@@ -378,18 +394,30 @@ def _meal_plan_to_dict(meal_plan: MealPlan) -> dict:
 def api_get_recipes():
     """API endpoint to get a list of all recipes."""
     recipes = crud.list_recipes()
-    # Convert full recipe objects to simpler dicts for the API
-    recipes_list = [
-        {
-            "id": str(recipe.recipe_id),  # Convert UUID to string
-            "name": recipe.name,
-            "description": recipe.description,
-            # Add other fields if needed by the React component,
-            # e.g., instructions, ingredients
-        }
-        for recipe in recipes
-    ]
-    return jsonify(recipes_list)
+    return jsonify([_recipe_to_dict(recipe) for recipe in recipes])
+
+
+@app.route("/api/recipes", methods=["POST"])
+def api_create_recipe():
+    """API endpoint to create a new recipe."""
+    data = request.get_json()
+    if not data or not data.get("name") or not data.get("instructions"):
+        abort(400, description="`name` and `instructions` are required.")
+
+    # crud.create_recipe expects ingredients_data to be a list of dicts
+    # The client should send ingredients in the correct format, e.g.,
+    # [{"name": "Flour", "quantity": 2, "unit": "cups"}]
+    ingredients_data = data.get("ingredients", [])
+
+    created_recipe = crud.create_recipe(
+        name=data["name"],
+        instructions=data["instructions"],
+        description=data.get("description"),
+        source_url=data.get("source_url"),
+        ingredients_data=ingredients_data,
+    )
+
+    return jsonify(_recipe_to_dict(created_recipe)), 201
 
 
 @app.route("/api/meal-plans", methods=["GET"])

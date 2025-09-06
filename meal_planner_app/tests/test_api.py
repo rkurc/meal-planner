@@ -34,6 +34,45 @@ class TestApi(unittest.TestCase):
         self.assertIsInstance(data, list)
         self.assertEqual(len(data), 1)
         self.assertEqual(data[0]["name"], "API Test Recipe")
+        self.assertIn("ingredients", data[0])  # Check that the full dict is returned
+
+    def test_create_recipe_api(self):
+        """Test the POST /api/recipes endpoint."""
+        recipe_data = {
+            "name": "API Recipe",
+            "instructions": "API instructions",
+            "description": "API description",
+            "source_url": "http://example.com",
+            "ingredients": [
+                {"name": "Sugar", "quantity": 1, "unit": "cup"},
+                {"name": "Spice", "quantity": 1, "unit": "tsp"},
+            ],
+        }
+        response = self.client.post("/api/recipes", json=recipe_data)
+
+        self.assertEqual(response.status_code, 201)
+        data = json.loads(response.data)
+
+        # Check that the returned data matches the sent data (ignoring id)
+        self.assertEqual(data["name"], recipe_data["name"])
+        self.assertEqual(data["instructions"], recipe_data["instructions"])
+        self.assertEqual(data["description"], recipe_data["description"])
+        self.assertEqual(data["source_url"], recipe_data["source_url"])
+        self.assertEqual(len(data["ingredients"]), 2)
+        self.assertEqual(data["ingredients"][0]["name"], "Sugar")
+
+        # Check that the recipe was actually created in the DB
+        recipes = crud.list_recipes()
+        self.assertEqual(len(recipes), 1)
+        self.assertEqual(recipes[0].name, "API Recipe")
+        self.assertEqual(len(recipes[0].ingredients), 2)
+
+        # Check that a subsequent GET request returns the new recipe
+        response = self.client.get("/api/recipes")
+        self.assertEqual(response.status_code, 200)
+        get_data = json.loads(response.data)
+        self.assertEqual(len(get_data), 1)
+        self.assertEqual(get_data[0]["name"], "API Recipe")
 
     def test_create_recipe_via_form(self):
         """Test creating a recipe via the Jinja2 form POST."""
