@@ -59,6 +59,70 @@ This project uses Tailwind CSS for styling and React (with Vite) for building mo
 - Basic React frontend for displaying recipes (accessible at `/ui/`)
 - API endpoint `/api/recipes` to serve recipe data as JSON.
 
+## Getting Started (Manual Setup)
+
+This guide is for setting up the development environment manually, without using the provided Dev Container.
+
+### Prerequisites
+
+*   Python 3.11+
+*   Node.js 18+ and npm
+
+### Backend Setup
+
+1.  **Navigate to the project root directory.**
+
+2.  **Create and activate a Python virtual environment (recommended):**
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # On macOS/Linux
+    # .\\venv\\Scripts\\activate  # On Windows
+    ```
+
+3.  **Install Python dependencies:**
+    The project uses `pyproject.toml` to manage dependencies. Install them using pip:
+    ```bash
+    pip install -e .[dev]
+    ```
+
+4.  **Run the backend server:**
+    The Flask server provides the API for the application.
+    ```bash
+    python -m meal_planner_app.main
+    ```
+    The backend will be running at `http://127.0.0.1:5000`.
+
+5.  **Run backend tests:**
+    The project uses pytest for unit testing.
+    ```bash
+    pytest
+    ```
+
+### Frontend Setup
+
+1.  **Navigate to the frontend directory:**
+    ```bash
+    cd frontend
+    ```
+
+2.  **Install Node.js dependencies:**
+    ```bash
+    npm install
+    ```
+
+3.  **Run the frontend development server:**
+    This server provides hot-reloading for a better development experience.
+    ```bash
+    npm run dev
+    ```
+    The frontend will be available at `http://localhost:5173`. The Vite server is configured to proxy API requests to the backend on port 5000.
+
+4.  **Build frontend for production:**
+    This command compiles the frontend assets into the `meal_planner_app/static/react_app` directory, which allows the Flask app to serve them directly.
+    ```bash
+    npm run build
+    ```
+
 # Meal planning tool that supports:
 (This section describes the overall goals, some of which are covered by Implemented Features)
 1. Storing meal recipies, broken down to ingredients with links to their origin

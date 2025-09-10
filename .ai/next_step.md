@@ -1,9 +1,7 @@
-A JSON API endpoint for creating recipes has been added to improve API consistency.
+Comprehensive setup instructions have been added to the main README.md.
 
 **Work Completed:**
--   **Enhanced Recipe API:** Added a `POST /api/recipes` JSON endpoint for creating recipes. This brings the Recipe API in line with the Meal Plan API.
--   The new endpoint is covered by automated tests.
--   All code quality checks (linting and formatting) are passing.
+- **Added Documentation:** A new "Getting Started (Manual Setup)" section has been added to the main `README.md`. This section provides detailed instructions for setting up the development environment and running the application and its tests without relying on the Dev Container.
 
 **CRITICAL NEXT STEP: Enhance API and Testing**
 
