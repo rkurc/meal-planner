@@ -1,0 +1,30 @@
+name: Integration and E2E Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test-in-container:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Build Dev Container Docker Image
+        run: |
+          docker build -t meal-planner-dev -f .devcontainer/Dockerfile .
+
+      - name: Run all tests in container
+        run: |
+          docker run --rm -v $(pwd):/app -w /app meal-planner-dev /bin/bash -c " \
+            pip install -e .[dev] && \
+            npm install --prefix frontend && \
+            pytest && \
+            npm run build --prefix frontend && \
+            python -m meal_planner_app.main & \
+            sleep 5 && \
+            npx playwright test --prefix frontend \
+          "
