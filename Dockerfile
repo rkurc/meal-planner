@@ -1,37 +1,53 @@
-# Use an official Python runtime as a parent image
-FROM python:3.9-slim
+# Stage 1: Build the frontend assets
+FROM node:18-alpine AS frontend-builder
+WORKDIR /app/frontend
 
-# Set the working directory in the container
-WORKDIR /app
-
-# Install Node.js and npm
-RUN apt-get update && apt-get install -y curl
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-RUN apt-get install -y nodejs
-
-# Copy package.json and install npm dependencies
-COPY package.json ./
+# Copy package files and install dependencies
+COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm install
 
-# Copy frontend package files and install frontend dependencies
-COPY frontend/package.json frontend/package-lock.json* ./frontend/
-RUN npm install --prefix frontend
+# Copy the rest of the frontend source code
+COPY frontend/ ./
 
-# Copy the current directory contents into the container at /app
-COPY . .
-
-# Build CSS and React App
-# This will use the dependencies installed in ./frontend/node_modules
+# Build the React app
 RUN npm run build
 
-# Install any needed packages specified in pyproject.toml
+# Stage 2: Build the Python backend with dependencies
+FROM python:3.9-slim-bullseye AS backend-builder
+WORKDIR /app
+
+# Install Gunicorn
+RUN pip install gunicorn
+
+# Copy pyproject.toml and install production dependencies
+COPY pyproject.toml ./
 RUN pip install --no-cache-dir .
 
-# Make port 5000 available to the world outside this container
+# Stage 3: Final production image
+FROM python:3.9-slim-bullseye AS final
+WORKDIR /app
+
+# Create a non-root user and group
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Copy installed packages from the backend-builder stage
+COPY --from=backend-builder /usr/local/lib/python3.9/site-packages/ /usr/local/lib/python3.9/site-packages/
+COPY --from=backend-builder /usr/local/bin/gunicorn /usr/local/bin/gunicorn
+
+# Copy built frontend assets from the frontend-builder stage
+COPY --from=frontend-builder /app/meal_planner_app/static/react_app/ /app/meal_planner_app/static/react_app/
+
+# Copy the application source code
+COPY meal_planner_app/ ./meal_planner_app/
+
+# Change ownership of the app directory
+RUN chown -R appuser:appuser /app
+
+# Switch to the non-root user
+USER appuser
+
+# Expose the port the app runs on
 EXPOSE 5000
 
-# Define environment variable
-ENV FLASK_APP=meal_planner_app/main.py
-
-# Run app.py when the container launches
-CMD ["flask", "run", "--host=0.0.0.0"]
+# Run the app using Gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "meal_planner_app.main:app"]

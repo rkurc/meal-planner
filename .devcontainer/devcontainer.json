@@ -1,14 +1,29 @@
 {
   "name": "Meal Planner App Dev Container",
-  "dockerFile": "../Dockerfile",
+  "dockerFile": "Dockerfile",
+  "context": "..",
   "settings": {
     "python.pythonPath": "/usr/local/bin/python",
     "python.linting.pylintEnabled": true,
-    "python.linting.enabled": true
+    "python.linting.enabled": true,
+    "editor.formatOnSave": true,
+    "[python]": {
+      "editor.defaultFormatter": "ms-python.black-formatter"
+    },
+    "[javascript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    }
   },
   "extensions": [
-    "ms-python.python"
+    "ms-python.python",
+    "ms-python.black-formatter",
+    "ms-python.pylint",
+    "esbenp.prettier-vscode",
+    "eamodio.gitlens"
   ],
-  "forwardPorts": [5000],
-  "postCreateCommand": "pip install --user -e .[dev]"
+  "forwardPorts": [5000, 5173],
+  "postCreateCommand": "pip install -e .[dev] && npm install && npm install --prefix frontend"
 }
