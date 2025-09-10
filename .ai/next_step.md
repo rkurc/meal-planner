@@ -1,7 +1,9 @@
-Comprehensive setup instructions have been added to the main README.md.
+A JSON API endpoint for creating recipes has been added to improve API consistency.
 
 **Work Completed:**
-- **Added Documentation:** A new "Getting Started (Manual Setup)" section has been added to the main `README.md`. This section provides detailed instructions for setting up the development environment and running the application and its tests without relying on the Dev Container.
+-   **Enhanced Recipe API:** Added a `POST /api/recipes` JSON endpoint for creating recipes. This brings the Recipe API in line with the Meal Plan API.
+-   The new endpoint is covered by automated tests.
+-   All code quality checks (linting and formatting) are passing.
 
 **CRITICAL NEXT STEP: Enhance API and Testing**
 

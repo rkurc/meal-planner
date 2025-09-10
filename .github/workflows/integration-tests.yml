@@ -21,10 +21,10 @@ jobs:
         run: |
           docker run --rm -v $(pwd):/app -w /app meal-planner-dev /bin/bash -c " \
             pip install -e .[dev] && \
-            npm install --prefix frontend && \
+            (cd frontend && npm install) && \
             pytest && \
-            npm run build --prefix frontend && \
+            (cd frontend && npm run build) && \
             python -m meal_planner_app.main & \
             sleep 5 && \
-            npx playwright test --prefix frontend \
+            (cd frontend && npx playwright test) \
           "
