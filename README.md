@@ -1,67 +1,74 @@
-## Development Environment
+# Meal Planner Application
 
-This project includes a Dev Container configuration, making it easy to get started with local development. The Dev Container comes with Python, Flask, Node.js, and npm pre-installed.
+This is a simple web application for managing recipes and meal plans. It features a Flask backend and a React frontend.
 
+## Development
+
+This project is configured to use a **VS Code Dev Container**, which provides a consistent, pre-configured development environment.
 
 ### Prerequisites
 
-- Docker Desktop
-- Visual Studio Code
-- Remote - Containers (VS Code Extension)
+*   [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+*   [Visual Studio Code](https://code.visualstudio.com/)
+*   [Remote - Containers (VS Code Extension)](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 
-### Getting Started (inside Dev Container)
+### Getting Started with the Dev Container
 
-1.  Clone the repository.
-2.  Open the repository in Visual Studio Code.
-3.  When prompted, click "Reopen in Container". This will build the Docker image (including Python and Node.js dependencies) and start the Dev Container.
-4.  **Install/Update Application Dependencies (if needed after initial build or pulling changes)**:
-    *   Python dependencies are typically installed when the container builds (via `pip install .` in `Dockerfile`). If you manually change `pyproject.toml`, you might need to reinstall:
-        ```bash
-        pip install -e .
-        ```
-    *   Frontend dependencies: After cloning for the first time, or pulling new changes that affect `package.json` or `frontend/package.json`, ensure Node.js packages are installed by running the following commands from the project root:
-        ```bash
-        npm install
-        npm install --prefix frontend
-        ```
-5.  Once the container is running and dependencies are set, the application will be available. See the "Accessing the Application" section below.
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository-url>
+    cd <repository-name>
+    ```
 
+2.  **Open in VS Code:**
+    Open the cloned repository folder in Visual Studio Code.
 
-### Frontend Development Workflow (inside Dev Container)
+3.  **Reopen in Container:**
+    You will be prompted to "Reopen in Container". Click it. VS Code will build the development Docker image (as defined in `.devcontainer/Dockerfile`) and start the container.
 
-This project uses Tailwind CSS for styling and React (with Vite) for building modern user interface components.
+4.  **Automatic Setup:**
+    The `postCreateCommand` in the `devcontainer.json` will automatically install all required Python and Node.js dependencies. You can monitor the progress in the terminal.
 
-*   **Building Frontend Assets**:
-    *   To compile Tailwind CSS and build the React application (outputting to `meal_planner_app/static/`), run the following command from the project root:
-        ```bash
-        npm run build
-        ```
-    *   This command is automatically executed when the Docker image is built, so frontend assets are typically up-to-date within the dev container. Run it manually if you make changes to frontend source files and want to produce a static build without using the Vite dev server.
+### Development Workflow
 
-*   **React Development Server (for UI development with Hot Reloading)**:
-    *   For a faster development experience when working on React components, you can use the Vite development server. From the project root, run:
-        ```bash
-        npm --prefix frontend run dev
-        ```
-    *   This will typically start a server on `http://localhost:5173` (check your terminal output). It provides Hot Module Replacement (HMR) for immediate feedback on UI changes made in the `frontend/src` directory.
-    *   **Note**: The main Flask application (including backend APIs) still runs on `http://localhost:5000` (or as configured in the `Dockerfile`). The React development server is specifically for frontend component development. API calls from the React app are configured in `frontend/vite.config.js` (if proxying) or made directly to the Flask server's address (e.g., `fetch('/api/recipes')` will target `http://localhost:5000/api/recipes` when the React app runs on `localhost:5173` due to browser same-origin policy for relative paths, or if Vite proxy is set up).
+Once the Dev Container is running, you can open a new terminal within VS Code (`Terminal > New Terminal`) to run the application.
 
-## Accessing the Application
+*   **Run the Backend Server:**
+    ```bash
+    python -m meal_planner_app.main
+    ```
+    The Flask API server will be available at `http://localhost:5000`.
 
-*   The main Flask application (with traditional Jinja2 templates) is available at: `http://localhost:5000`
-*   The new UI being developed with React is available at: `http://localhost:5000/ui/`
+*   **Run the Frontend Dev Server:**
+    For a better UI development experience with hot-reloading:
+    ```bash
+    npm run dev --prefix frontend
+    ```
+    The frontend will be available at `http://localhost:5173`. The Vite server is configured to proxy API requests to the backend.
 
-## Implemented Features
+*   **Run Backend Tests:**
+    ```bash
+    pytest
+    ```
 
-- Create, Read, Update, and Delete Recipes (via Jinja2 templates and supporting API)
-- Create, Read, Update, and Delete Meal Plans (via Jinja2 templates)
-- Generate Shopping Lists from Meal Plans (via Jinja2 templates)
-- Basic React frontend for displaying recipes (accessible at `/ui/`)
-- API endpoint `/api/recipes` to serve recipe data as JSON.
+*   **Run Frontend E2E Tests:**
+    First, ensure the backend server is running in a separate terminal. Then, run:
+    ```bash
+    npx playwright test --prefix frontend
+    ```
 
-# Meal planning tool that supports:
-(This section describes the overall goals, some of which are covered by Implemented Features)
-1. Storing meal recipies, broken down to ingredients with links to their origin
-2. Searching for new recipies based on a set of preferences (ingredients, taste, meal type, quisine)
-3. Manual preparation of the list of meals and generating the list of all needed ingredients
-4. Exporting to pdf
+## Production Deployment
+
+The project includes a multi-stage `Dockerfile` to build a lean, secure image for production.
+
+1.  **Build the production image:**
+    From the root of the project, run:
+    ```bash
+    docker build -t meal-planner-app .
+    ```
+
+2.  **Run the production container:**
+    ```bash
+    docker run -d -p 5000:5000 --name meal-planner meal-planner-app
+    ```
+    The application will be available at `http://localhost:5000`. It runs using a Gunicorn WSGI server.
