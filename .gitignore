@@ -25,3 +25,7 @@ meal_planner_app/static/css/dist/
 
 # Log files
 *.log
+
+# Test results
+test-results/
+frontend/test-results/
