@@ -22,7 +22,7 @@ jobs:
           docker run --rm -v $(pwd):/app -w /app meal-planner-dev /bin/bash -c " \
             pip install -e .[dev] && \
             (cd frontend && npm install) && \
-            pytest && \
+            pytest meal_planner_app/tests/ && \
             (cd frontend && npm run build) && \
             python -m meal_planner_app.main & \
             sleep 5 && \
