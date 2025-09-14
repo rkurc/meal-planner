@@ -2,6 +2,7 @@
 This module contains the routes for the Meal Planner application.
 It uses a Flask Blueprint to organize the routes.
 """
+
 import re
 import uuid
 from flask import (
@@ -11,19 +12,15 @@ from flask import (
     redirect,
     url_for,
     abort,
-    Response,
     send_from_directory,
     jsonify,
 )
 from markupsafe import escape, Markup
 from . import crud
-from .models.meal_plan import MealPlan
 from .models.recipe import Recipe
-from .services import generate_shopping_list_pdf
-from dataclasses import asdict
-from .models.shopping_list import ShoppingList
 
-bp = Blueprint('main', __name__)
+bp = Blueprint("main", __name__)
+
 
 @bp.app_template_filter("nl2br")
 def nl2br(s):
@@ -32,6 +29,7 @@ def nl2br(s):
         s = escape(s)
         return Markup(re.sub(r"\r\n|\r|\n", "<br>\n", s))
     return ""
+
 
 def parse_ingredients_from_textarea(textarea_content: str) -> list[dict]:
     """
@@ -44,12 +42,14 @@ def parse_ingredients_from_textarea(textarea_content: str) -> list[dict]:
             ingredients.append({"name": line, "quantity": "", "unit": ""})
     return ingredients
 
+
 @bp.route("/")
 @bp.route("/recipes")
 def recipe_list():
     """Displays a list of all recipes."""
     recipes = crud.list_recipes()
     return render_template("recipe_list.html", recipes=recipes)
+
 
 @bp.route("/recipes/new", methods=["GET", "POST"])
 def new_recipe():
@@ -84,12 +84,14 @@ def new_recipe():
         "recipe_form.html", recipe=None, form_action=url_for(".new_recipe")
     )
 
+
 @bp.route("/recipes/<uuid:recipe_id>")
 def recipe_detail(recipe_id: uuid.UUID):
     recipe = crud.get_recipe(str(recipe_id))
     if not recipe:
         abort(404)
     return render_template("recipe_detail.html", recipe=recipe)
+
 
 @bp.route("/recipes/<uuid:recipe_id>/edit", methods=["GET", "POST"])
 def edit_recipe(recipe_id: uuid.UUID):
@@ -135,15 +137,18 @@ def edit_recipe(recipe_id: uuid.UUID):
         form_action=url_for(".edit_recipe", recipe_id=recipe_id),
     )
 
+
 @bp.route("/recipes/<uuid:recipe_id>/delete", methods=["POST", "GET"])
 def delete_recipe_route(recipe_id: uuid.UUID):
     crud.delete_recipe(str(recipe_id))
     return redirect(url_for(".recipe_list"))
 
+
 @bp.route("/meal-plans")
 def meal_plan_list():
     meal_plans = crud.list_meal_plans()
     return render_template("meal_plan_list.html", meal_plans=meal_plans)
+
 
 @bp.route("/meal-plans/new", methods=["GET", "POST"])
 def new_meal_plan():
@@ -151,7 +156,10 @@ def new_meal_plan():
         name = request.form.get("name")
         crud.create_meal_plan(name=name)
         return redirect(url_for(".meal_plan_list"))
-    return render_template("meal_plan_form.html", form_action=url_for(".new_meal_plan"), meal_plan=None)
+    return render_template(
+        "meal_plan_form.html", form_action=url_for(".new_meal_plan"), meal_plan=None
+    )
+
 
 @bp.route("/meal-plans/<uuid:meal_plan_id>")
 def meal_plan_detail(meal_plan_id: uuid.UUID):
@@ -160,10 +168,12 @@ def meal_plan_detail(meal_plan_id: uuid.UUID):
         abort(404)
     return render_template("meal_plan_detail.html", meal_plan=meal_plan)
 
+
 @bp.route("/api/recipes", methods=["GET"])
 def api_get_recipes():
     recipes = crud.list_recipes()
     return jsonify([_recipe_to_dict(recipe) for recipe in recipes])
+
 
 def _recipe_to_dict(recipe: Recipe) -> dict:
     return {
@@ -177,6 +187,7 @@ def _recipe_to_dict(recipe: Recipe) -> dict:
             for ing in recipe.ingredients
         ],
     }
+
 
 # --- React App Route ---
 @bp.route("/ui/")

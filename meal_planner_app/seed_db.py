@@ -1,8 +1,10 @@
 """
 Database seeding script for the Meal Planner App using SQLAlchemy.
 """
+
 from . import create_app
 from .crud import create_recipe, reset_database
+
 
 def seed_database():
     """
@@ -43,7 +45,8 @@ def seed_database():
     )
     print("Database has been seeded with sample recipes.")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app = create_app()
     with app.app_context():
         print("Seeding database...")
