@@ -5,6 +5,8 @@ description = "A simple meal planner application"
 dependencies = [
     "Flask",
     "fpdf2",
+    "Flask-SQLAlchemy",
+    "SQLAlchemy",
 ]
 
 [project.optional-dependencies]

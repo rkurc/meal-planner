@@ -1,37 +1,28 @@
 """
-Defines the MealPlan data model.
+Defines the MealPlan SQLAlchemy model and the association table for the
+many-to-many relationship between meal plans and recipes.
 """
-
 import uuid
-from typing import List, Optional
+from ..database import db
 
+# Association table for the many-to-many relationship between MealPlan and Recipe
+mealplan_recipes = db.Table('mealplan_recipes',
+    db.Column('meal_plan_id', db.String(36), db.ForeignKey('meal_plans.id'), primary_key=True),
+    db.Column('recipe_id', db.String(36), db.ForeignKey('recipes.id'), primary_key=True)
+)
 
-class MealPlan:  # pylint: disable=too-few-public-methods
-    """Represents a meal plan, which is a collection of recipes for a period (e.g., a week)."""
+class MealPlan(db.Model):
+    """
+    Represents a meal plan, which is a collection of recipes.
+    """
+    __tablename__ = 'meal_plans'
 
-    def __init__(
-        self,
-        name: str,
-        description: str = "",
-        recipe_ids: Optional[List[uuid.UUID]] = None,
-        meal_plan_id: Optional[uuid.UUID] = None,
-    ):
-        """
-        Initializes a MealPlan instance.
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.Text, nullable=True)
 
-        Args:
-            name: The name of the meal plan (e.g., "Week 1 Dinners").
-            description: A short description of the meal plan.
-            recipe_ids: A list of recipe UUIDs included in this plan. Defaults to an empty list.
-            meal_plan_id: An optional UUID for the meal plan; one is generated if not provided.
-        """
-        self.meal_plan_id = meal_plan_id if meal_plan_id else uuid.uuid4()
-        self.name = name
-        self.description = description
-        self.recipe_ids = recipe_ids if recipe_ids is not None else []
+    recipes = db.relationship('Recipe', secondary=mealplan_recipes, lazy='subquery',
+                              backref=db.backref('meal_plans', lazy=True))
 
     def __repr__(self):
-        return (
-            f"<MealPlan(id={self.meal_plan_id}, name='{self.name}', "
-            f"recipe_ids_count={len(self.recipe_ids)})>"
-        )
+        return f"<MealPlan {self.name}>"

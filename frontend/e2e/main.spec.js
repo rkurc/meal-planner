@@ -6,10 +6,10 @@ test("homepage has expected title", async ({ page }) => {
   await expect(page).toHaveTitle(/Meal Planner/);
 });
 
-test("should navigate to the recipes page and see no recipes", async ({
+test("should navigate to the recipes page and see the seeded recipes", async ({
   page,
 }) => {
   await page.goto("/");
   await page.click("text=Recipes");
-  await expect(page.getByText("No recipes found.")).toBeVisible();
+  await expect(page.getByText("Spaghetti Bolognese")).toBeVisible();
 });
