@@ -2,28 +2,12 @@
 Tests for the CRUD operations in crud.py, now using a test database.
 """
 
-import unittest
-from meal_planner_app import create_app, db
-from meal_planner_app import crud
+from .base import BaseTestCase
+from meal_planner_app import crud, db
 
 
-class TestRecipeCRUD(unittest.TestCase):
+class TestRecipeCRUD(BaseTestCase):
     """Tests for Recipe CRUD operations with a database."""
-
-    def setUp(self):
-        """Set up a test app and database."""
-        self.app = create_app(
-            {"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"}
-        )
-        self.app_context = self.app.app_context()
-        self.app_context.push()
-        db.create_all()
-
-    def tearDown(self):
-        """Clean up the database after each test."""
-        db.session.remove()
-        db.drop_all()
-        self.app_context.pop()
 
     def test_create_and_get_recipe(self):
         """Test creating a recipe and then retrieving it."""
@@ -41,33 +25,15 @@ class TestRecipeCRUD(unittest.TestCase):
         self.assertEqual(retrieved_recipe.name, "Pancakes")
 
 
-# I will omit the rest of the test cases for brevity, but they would be refactored
-# in a similar way. The key changes are in setUp and tearDown, and in using
-# the new crud functions and asserting against the database session.
-
-
-class TestMealPlanCRUD(unittest.TestCase):
+class TestMealPlanCRUD(BaseTestCase):
     """Tests for MealPlan CRUD operations with a database."""
 
     def setUp(self):
-        """Set up a test app and database."""
-        self.app = create_app(
-            {"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"}
-        )
-        self.app_context = self.app.app_context()
-        self.app_context.push()
-        db.create_all()
-
-        # Create some sample recipes for testing meal plan functions
+        """Override setUp to create some recipes."""
+        super().setUp()
         self.recipe1 = crud.create_recipe(name="R1", instructions="I1")
         self.recipe2 = crud.create_recipe(name="R2", instructions="I2")
         db.session.commit()
-
-    def tearDown(self):
-        """Clean up the database after each test."""
-        db.session.remove()
-        db.drop_all()
-        self.app_context.pop()
 
     def test_create_and_get_meal_plan(self):
         """Test creating a meal plan and then retrieving it."""
@@ -80,7 +46,3 @@ class TestMealPlanCRUD(unittest.TestCase):
         self.assertIsNotNone(retrieved_mp)
         self.assertEqual(retrieved_mp.id, mp.id)
         self.assertEqual(retrieved_mp.name, "Weekly Plan 1")
-
-
-if __name__ == "__main__":
-    unittest.main()

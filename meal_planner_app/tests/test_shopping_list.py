@@ -2,24 +2,16 @@
 Tests for the shopping list generation functionality, now using a test database.
 """
 
-import unittest
-from meal_planner_app import create_app, db
-from meal_planner_app import crud
+from .base import BaseTestCase
+from meal_planner_app import crud, db
 
 
-class TestShoppingList(unittest.TestCase):
+class TestShoppingList(BaseTestCase):
     """Tests for the generate_shopping_list function."""
 
     def setUp(self):
-        """Set up a test app and database."""
-        self.app = create_app(
-            {"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:"}
-        )
-        self.app_context = self.app.app_context()
-        self.app_context.push()
-        db.create_all()
-
-        # Create some sample recipes for testing
+        """Set up a variety of recipes and meal plans for testing."""
+        super().setUp()
         self.recipe1 = crud.create_recipe(
             name="Pancakes",
             instructions="Mix and cook.",
@@ -32,12 +24,6 @@ class TestShoppingList(unittest.TestCase):
             name="Breakfast Week", recipe_ids=[self.recipe1.id]
         )
         db.session.commit()
-
-    def tearDown(self):
-        """Clean up the database after each test."""
-        db.session.remove()
-        db.drop_all()
-        self.app_context.pop()
 
     def find_ingredient(self, shopping_list, name, unit):
         """Helper function to find an ingredient in a shopping list."""
@@ -58,7 +44,3 @@ class TestShoppingList(unittest.TestCase):
         sugar = self.find_ingredient(shopping_list, "Sugar", "cup")
         self.assertIsNotNone(sugar)
         self.assertEqual(sugar["quantity"], "0.5")
-
-
-if __name__ == "__main__":
-    unittest.main()

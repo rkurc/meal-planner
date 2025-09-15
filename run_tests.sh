@@ -4,6 +4,13 @@ set -e
 # Go to the app directory
 cd /app
 
+# Check for Node and npm
+echo "--- Checking Frontend Environment ---"
+if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
+    echo "Node.js and/or npm could not be found. Please install them to run the frontend tests."
+    exit 1
+fi
+
 # Install frontend dependencies
 echo "--- Installing Frontend Dependencies ---"
 (cd frontend && npm install)
