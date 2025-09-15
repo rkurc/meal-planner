@@ -1,22 +1,25 @@
 """
-Defines the Ingredient SQLAlchemy model.
+Defines the Ingredient data model.
 """
 
-from ..database import db
+from typing import Union
 
 
-class Ingredient(db.Model):
-    """
-    Represents a single ingredient for a recipe in the database.
-    """
+class Ingredient:  # pylint: disable=too-few-public-methods
+    """Represents a single ingredient with its quantity and unit."""
 
-    __tablename__ = "ingredients"
+    def __init__(self, name: str, quantity: Union[float, str], unit: str):
+        """
+        Initializes an Ingredient instance.
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(150), nullable=False)
-    quantity = db.Column(db.String(50), nullable=True)
-    unit = db.Column(db.String(50), nullable=True)
-    recipe_id = db.Column(db.String(36), db.ForeignKey("recipes.id"), nullable=False)
+        Args:
+            name: The name of the ingredient (e.g., "Flour", "Sugar").
+            quantity: The amount of the ingredient (e.g., 1, 0.5, "to taste").
+            unit: The unit of measure (e.g., "cup", "g", "tsp").
+        """
+        self.name = name
+        self.quantity = quantity
+        self.unit = unit
 
     def __repr__(self):
-        return f"<Ingredient {self.name}>"
+        return f"<Ingredient(name='{self.name}', quantity={self.quantity}, unit='{self.unit}')>"

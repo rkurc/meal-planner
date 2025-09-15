@@ -4,32 +4,17 @@ set -e
 # Go to the app directory
 cd /app
 
-# Check for Node and npm
-echo "--- Checking Frontend Environment ---"
-if ! command -v node &> /dev/null || ! command -v npm &> /dev/null; then
-    echo "Node.js and/or npm could not be found. Please install them to run the frontend tests."
-    exit 1
-fi
+# Install backend dependencies
+echo "--- Installing Backend Dependencies ---"
+pip install -e .[dev]
 
 # Install frontend dependencies
 echo "--- Installing Frontend Dependencies ---"
-(cd frontend && npm install)
-
-# Remove old database file
-echo "--- Removing Old Database File ---"
-rm -f instance/meal_planner.db
-
-# Create database tables
-echo "--- Creating Database Tables ---"
-python -m meal_planner_app.init_db
-
-# Seed the database
-echo "--- Seeding Database ---"
-python -m meal_planner_app.seed_db
+(cd frontend && rm -rf node_modules package-lock.json && npm install)
 
 # Start the backend server
 echo "--- Starting Backend Server ---"
-python run.py > backend.log 2>&1 &
+python meal_planner_app/main.py > backend.log 2>&1 &
 BACKEND_PID=$!
 echo "Backend server started with PID: $BACKEND_PID"
 
@@ -45,7 +30,7 @@ sleep 15
 
 # Run the tests
 echo "--- Running E2E Tests ---"
-(cd frontend && npm test)
+(cd frontend && npx playwright install && npm test)
 TEST_EXIT_CODE=$?
 
 # Stop the servers
