@@ -57,6 +57,20 @@ Once the Dev Container is running, you can open a new terminal within VS Code (`
     npx playwright test --prefix frontend
     ```
 
+### Running the Full Test Suite (Recommended)
+
+To ensure a consistent environment and run all checks, including backend and frontend tests, use the provided script:
+
+```bash
+./run_tests.sh
+```
+
+This script will handle:
+- Installing all dependencies.
+- Initializing and seeding the database.
+- Starting and stopping the required servers.
+- Running the Playwright E2E tests.
+
 ## Production Deployment
 
 The project includes a multi-stage `Dockerfile` to build a lean, secure image for production.

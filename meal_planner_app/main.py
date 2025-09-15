@@ -194,3 +194,29 @@ def _recipe_to_dict(recipe: Recipe) -> dict:
 @bp.route("/ui/<path:path>")
 def serve_react_app(path=None):
     return send_from_directory("static/react_app", path or "index.html")
+
+
+# --- Shopping List API Routes ---
+
+
+@bp.route("/api/shopping-lists", methods=["POST"])
+def api_create_shopping_list():
+    """API endpoint to create a new shopping list from a meal plan."""
+    data = request.get_json()
+    if not data or not data.get("meal_plan_id"):
+        abort(400, description="meal_plan_id is required.")
+
+    try:
+        meal_plan_id = uuid.UUID(data["meal_plan_id"])
+    except ValueError:
+        abort(400, description="Invalid meal_plan_id format.")
+
+    shopping_list = crud.create_shopping_list(str(meal_plan_id))
+    if not shopping_list:
+        abort(404, description="Meal plan not found.")
+
+    # This is a placeholder for a proper serializer
+    return (
+        jsonify({"id": str(shopping_list.id), "name": shopping_list.name, "items": []}),
+        201,
+    )

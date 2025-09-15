@@ -8,6 +8,7 @@ from .database import db
 from .models.recipe import Recipe
 from .models.ingredient import Ingredient
 from .models.meal_plan import MealPlan
+from .models.shopping_list import ShoppingList, ShoppingListItem
 
 # --- Recipe CRUD Operations ---
 
@@ -182,5 +183,26 @@ def list_meal_plans() -> List[MealPlan]:
     return db.session.query(MealPlan).order_by(MealPlan.name).all()
 
 
-# ... other CRUD operations ...
-# I will omit the rest for brevity, but they would be here.
+def create_shopping_list(meal_plan_id: str) -> Optional[ShoppingList]:
+    """Generates and saves a new shopping list for a meal plan."""
+    meal_plan = get_meal_plan(meal_plan_id)
+    if not meal_plan:
+        return None
+
+    generated_items = generate_shopping_list(meal_plan_id)
+
+    new_shopping_list = ShoppingList(
+        name=f"Shopping List for {meal_plan.name}", meal_plan_id=meal_plan_id
+    )
+
+    for item_data in generated_items:
+        list_item = ShoppingListItem(
+            name=item_data["name"],
+            quantity=str(item_data.get("quantity", "")),
+            unit=item_data.get("unit", ""),
+        )
+        new_shopping_list.items.append(list_item)
+
+    db.session.add(new_shopping_list)
+    db.session.commit()
+    return new_shopping_list
