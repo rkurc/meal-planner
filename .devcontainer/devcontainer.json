@@ -25,5 +25,5 @@
     "eamodio.gitlens"
   ],
   "forwardPorts": [5000, 5173],
-  "postCreateCommand": "pip install -e .[dev] && (cd frontend && npm install)"
+  "postCreateCommand": "pip install -e .[dev] && cd frontend && npm install && npm run build"
 }
