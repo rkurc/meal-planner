@@ -16,8 +16,16 @@ RUN apt-get update && apt-get install -y curl gnupg && \
 # Copy the application files
 COPY . /app/
 
-# The postCreateCommand in devcontainer.json will handle dependency installation.
-# This keeps the image build faster and dependencies can be updated without rebuilding the image.
+# Install Python dependencies
+RUN pip install .[dev]
 
-# Set the default command to keep the container running
+# Install frontend dependencies and build assets
+WORKDIR /app/frontend
+RUN npm install
+RUN npm run build
+
+# Reset WORKDIR for any subsequent commands
+WORKDIR /app
+
+# Set a default command to keep the container running if used interactively
 CMD ["sleep", "infinity"]
