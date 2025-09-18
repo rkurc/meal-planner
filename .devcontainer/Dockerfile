@@ -10,23 +10,14 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Node.js, npm, and other necessary tools
 RUN apt-get update && apt-get install -y curl gnupg && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs
 
 # Copy the application files
 COPY . /app/
 
-# Install Python dependencies
-RUN pip install .[dev]
+# The postCreateCommand in devcontainer.json will handle dependency installation.
+# This keeps the image build faster and dependencies can be updated without rebuilding the image.
 
-# Install frontend dependencies and build assets
-WORKDIR /app/frontend
-RUN npm install
-RUN npx playwright install --with-deps
-RUN npm run build
-
-# Reset WORKDIR for any subsequent commands
-WORKDIR /app
-
-# Set a default command to keep the container running if used interactively
+# Set the default command to keep the container running
 CMD ["sleep", "infinity"]

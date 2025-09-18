@@ -13,7 +13,6 @@ dev = [
     "pytest",
     "black",
     "pre-commit",
-    "gunicorn",
 ]
 
 [build-system]
