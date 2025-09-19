@@ -1,23 +1,42 @@
-# Use an official Python runtime as a parent image
-# Using a -bullseye image for Debian 11 base, which is common and stable.
-FROM python:3.9-bullseye
+# Stage 1: Base image with Python and Node.js
+FROM python:3.9-bullseye AS base
 
-# Set the working directory in the container
+# Install Node.js v20
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y curl gnupg && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    # Upgrade pip
+    pip install --upgrade pip
+
+# Stage 2: Builder with source code and dependencies
+FROM base AS builder
+
 WORKDIR /app
 
-# Avoid prompts from apt
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Install Node.js, npm, and other necessary tools
-RUN apt-get update && apt-get install -y curl gnupg && \
-    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs
-
-# Copy the application files
+# Copy all application files
 COPY . /app/
 
-# The postCreateCommand in devcontainer.json will handle dependency installation.
-# This keeps the image build faster and dependencies can be updated without rebuilding the image.
+# Install Python dependencies
+RUN pip install .[dev]
 
-# Set the default command to keep the container running
+# Install frontend dependencies, playwright browsers, and build assets
+WORKDIR /app/frontend
+RUN npm install
+RUN npx playwright install --with-deps
+RUN npm run build
+
+# Stage 3: Final image for testing
+FROM base AS final
+
+WORKDIR /app
+
+# Copy installed Python packages from the builder stage
+COPY --from=builder /usr/local/lib/python3.9/site-packages/ /usr/local/lib/python3.9/site-packages/
+COPY --from=builder /usr/local/bin/ /usr/local/bin/
+
+# Copy the application source code and built frontend
+COPY --from=builder /app/ /app/
+
+# Set a default command
 CMD ["sleep", "infinity"]
