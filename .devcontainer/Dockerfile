@@ -20,10 +20,9 @@ COPY . /app/
 # Install Python dependencies
 RUN pip install .[dev]
 
-# Install frontend dependencies, playwright browsers, and build assets
+# Install frontend dependencies and build assets
 WORKDIR /app/frontend
 RUN npm install
-RUN npx playwright install --with-deps
 RUN npm run build
 
 # Stage 3: Final image for testing
