@@ -10,6 +10,6 @@ test("should navigate to the recipes page and see no recipes", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.click("text=Recipes");
+  await page.click('a[href="/recipes"]');
   await expect(page.getByText("No recipes found.")).toBeVisible();
 });
