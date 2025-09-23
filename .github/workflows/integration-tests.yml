@@ -13,18 +13,48 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Build Dev Container Docker Image
+      - name: Build E2E test image
         run: |
-          docker build -t meal-planner-dev -f .devcontainer/Dockerfile .
+          docker build -t meal-planner-e2e -f .devcontainer/Dockerfile .
 
-      - name: Run all tests in container
+      - name: Run E2E tests
         run: |
-          docker run --rm -v $(pwd):/app -w /app meal-planner-dev /bin/bash -c " \
-            pip install -e .[dev] && \
-            (cd frontend && npm install) && \
-            pytest meal_planner_app/tests/ && \
-            (cd frontend && npm run build) && \
-            python -m meal_planner_app.main & \
-            sleep 5 && \
-            (cd frontend && npx playwright test) \
-          "
+          # Run the container in detached mode, publishing the backend port
+          docker run -d --rm --name meal-planner-container -p 5000:5000 meal-planner-e2e
+
+          # Install Playwright browsers and OS dependencies inside the container
+          docker exec -w /app/frontend meal-planner-container npx playwright install --with-deps
+
+          # Start the backend server in the background inside the container
+          docker exec -d meal-planner-container gunicorn --bind 0.0.0.0:5000 meal_planner_app.main:app
+
+          # Start a static file server for the built frontend assets in the background
+          docker exec -d -w /app/meal_planner_app/static/react_app meal-planner-container python -m http.server 5173
+
+          # Wait for servers to be ready
+          echo "Waiting for servers to start..."
+          sleep 15
+
+          # Run the Playwright tests inside the container
+          # We use `|| true` to ensure this step doesn't stop the workflow on test failure
+          echo "Running Playwright tests..."
+          docker exec -w /app/frontend meal-planner-container npx playwright test || true
+
+      - name: Copy test results from container
+        if: always()
+        run: |
+          # Copy the test results from the container to the runner host
+          docker cp meal-planner-container:/app/frontend/test-results ./test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: ./test-results/
+          retention-days: 7
+
+      - name: Stop Container
+        if: always()
+        run: |
+          docker stop meal-planner-container

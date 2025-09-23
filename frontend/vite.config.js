@@ -4,7 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [tailwindcss(), react()],
-  base: "/static/react_app/",
+  base: "./",
   build: {
     outDir: "../meal_planner_app/static/react_app",
     assetsDir: "assets",
