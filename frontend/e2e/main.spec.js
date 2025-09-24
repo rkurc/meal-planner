@@ -12,7 +12,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("homepage has expected title", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/static/react_app/");
   await expect(page).toHaveTitle(/Meal Planner/);
 });
 

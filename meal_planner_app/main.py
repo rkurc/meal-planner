@@ -21,6 +21,7 @@ from flask import (
 from markupsafe import escape, Markup
 
 from meal_planner_app import crud
+from meal_planner_app.seed_db import seed_database
 from meal_planner_app.models.meal_plan import MealPlan
 from meal_planner_app.models.recipe import Recipe
 from meal_planner_app.services import generate_shopping_list_pdf
