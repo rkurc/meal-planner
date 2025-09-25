@@ -21,6 +21,7 @@ from flask import (
 from markupsafe import escape, Markup
 
 from meal_planner_app import crud
+from meal_planner_app.seed_db import seed_database
 from meal_planner_app.models.meal_plan import MealPlan
 from meal_planner_app.models.recipe import Recipe
 from meal_planner_app.services import generate_shopping_list_pdf
@@ -589,6 +590,16 @@ def api_delete_shopping_list(shopping_list_id: uuid.UUID):
     if not crud.delete_shopping_list(shopping_list_id):
         abort(404)
     return "", 204
+
+
+# --- Test-only routes ---
+if app.debug:
+
+    @app.route("/api/test/seed-db", methods=["POST"])
+    def api_seed_database():
+        """Seeds the database. For testing purposes only."""
+        seed_database()
+        return jsonify({"message": "Database seeded successfully"}), 200
 
 
 # --- React App Route ---
