@@ -21,6 +21,7 @@ RUN pip install gunicorn
 
 # Copy pyproject.toml and install production dependencies
 COPY pyproject.toml ./
+COPY meal_planner_app/ ./meal_planner_app/
 RUN pip install --no-cache-dir .
 
 # Stage 3: Final production image
