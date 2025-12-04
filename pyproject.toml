@@ -22,3 +22,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
+
+[tool.setuptools.package-data]
+meal_planner_app = ["templates/**/*", "static/**/*"]
+
