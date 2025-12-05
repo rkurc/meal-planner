@@ -47,8 +47,13 @@ RUN chown -R appuser:appuser /app
 # Switch to the non-root user
 USER appuser
 
-# Expose the port the app runs on
-EXPOSE 5000
+# Copy the rest of the application
+WORKDIR /app
+COPY . .
+RUN chmod +x start_and_seed.sh
 
-# Run the app using Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "meal_planner_app.main:app"]
+# Expose ports
+EXPOSE 5000 5173
+
+# Default command (can be overridden)
+CMD ["./start_and_seed.sh"]

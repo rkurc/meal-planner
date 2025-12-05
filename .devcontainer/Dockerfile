@@ -37,5 +37,8 @@ COPY --from=builder /usr/local/bin/ /usr/local/bin/
 # Copy the application source code and built frontend
 COPY --from=builder /app/ /app/
 
+# Make the startup script executable
+RUN chmod +x /app/start_and_seed.sh
+
 # Set a default command
-CMD ["sleep", "infinity"]
+CMD ["/app/start_and_seed.sh"]
