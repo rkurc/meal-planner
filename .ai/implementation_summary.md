@@ -41,8 +41,12 @@ The following is a list of features and tasks that are either partially implemen
     *   **Recipe Management:** Implement create, update, and delete functionality for recipes in the React UI (currently it is read-only). The API backend for creating recipes (`POST`) is now complete, but endpoints for updating (`PUT/PATCH`) and deleting (`DELETE`) are still needed to reach full functionality.
 
 2.  **Testing:**
-    *   **API Tests:** The existing API tests should be maintained and expanded as new features are added.
-    *   **E2E Tests:** Write end-to-end tests for all major user workflows (e.g., creating a recipe, building a meal plan, generating a list) in the new React application to prevent regressions.
+    *   **Backend Tests:** All 59 backend tests are passing. Tests cover CRUD operations, API endpoints, shopping list generation, and recipe search functionality.
+    *   **Frontend E2E Tests:** Playwright is configured and 2 E2E tests are passing. Tests verify homepage title and display of seeded recipes.
+    *   **Database Seeding:** Created `meal_planner_app/seed_db.py` to populate the database with initial test data via API calls. Seeds 3 recipes automatically.
+    *   **Automated Dev Environment:** Created `start_and_seed.sh` to automatically start backend, frontend, and seed the database. Docker containers are fully automated for testing.
+    *   **Next:** Expand E2E test coverage for meal plan creation, recipe detail views, and shopping list workflows.
+
 
 3.  **API Authentication:** Implement a robust authentication system (e.g., JWT) for the API to secure it for frontend consumption.
 
