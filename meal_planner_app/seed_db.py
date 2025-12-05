@@ -18,7 +18,7 @@ def get_recipes():
                 data = json.loads(response.read().decode())
                 return data
     except urllib.error.URLError as e:
-        logger.error(f"Failed to connect to API: {e}")
+        logger.error("Failed to connect to API: %s", e)
         return None
     return []
 
@@ -33,15 +33,15 @@ def create_recipe(recipe_data):
     try:
         with urllib.request.urlopen(req) as response:
             if response.status == 201:
-                logger.info(f"Created recipe: {recipe_data['name']}")
+                logger.info("Created recipe: %s", recipe_data["name"])
                 return True
     except urllib.error.HTTPError as e:
         logger.error(
-            f"Failed to create recipe {recipe_data['name']}: {e.code} {e.reason}"
+            "Failed to create recipe %s: %s %s", recipe_data["name"], e.code, e.reason
         )
         logger.error(e.read().decode())
     except urllib.error.URLError as e:
-        logger.error(f"Failed to connect to API: {e}")
+        logger.error("Failed to connect to API: %s", e)
     return False
 
 
@@ -55,7 +55,8 @@ def seed_database():
 
     if existing_recipes:
         logger.info(
-            f"Database already contains {len(existing_recipes)} recipes. Skipping seed."
+            "Database already contains %d recipes. Skipping seed.",
+            len(existing_recipes),
         )
         return
 
@@ -77,7 +78,9 @@ def seed_database():
         {
             "name": "Grilled Cheese Sandwich",
             "description": "Classic comfort food.",
-            "instructions": "1. Butter bread. 2. Place cheese between slices. 3. Grill until golden.",
+            "instructions": (
+                "1. Butter bread. 2. Place cheese between slices. 3. Grill until golden."
+            ),
             "ingredients": [
                 {"name": "Bread", "quantity": 2, "unit": "slices"},
                 {"name": "Cheddar Cheese", "quantity": 2, "unit": "slices"},
