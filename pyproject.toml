@@ -25,4 +25,3 @@ where = ["."]
 
 [tool.setuptools.package-data]
 meal_planner_app = ["templates/**/*", "static/**/*"]
-

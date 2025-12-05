@@ -11,7 +11,7 @@ The testing infrastructure is now solid and automated. The next priority is to a
 
 **Next Implementation Steps:**
 1.  **Recipe Management UI (React):**
-    - Implement "Create Recipe" form (connect to existing POST `/api/recipes`)  
+    - Implement "Create Recipe" form (connect to existing POST `/api/recipes`)
     - Implement "Edit Recipe" functionality (requires PUT endpoint - see below)
     - Implement "Delete Recipe" functionality (requires DELETE endpoint - see below)
     - Add E2E tests for create/edit/delete workflows

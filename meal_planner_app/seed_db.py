@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 API_BASE_URL = "http://localhost:5000/api"
 
+
 def get_recipes():
     """Fetches existing recipes from the API."""
     try:
@@ -21,35 +22,41 @@ def get_recipes():
         return None
     return []
 
+
 def create_recipe(recipe_data):
     """Creates a recipe via the API."""
     url = f"{API_BASE_URL}/recipes"
-    headers = {'Content-Type': 'application/json'}
-    data = json.dumps(recipe_data).encode('utf-8')
-    
-    req = urllib.request.Request(url, data=data, headers=headers, method='POST')
+    headers = {"Content-Type": "application/json"}
+    data = json.dumps(recipe_data).encode("utf-8")
+
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     try:
         with urllib.request.urlopen(req) as response:
             if response.status == 201:
                 logger.info(f"Created recipe: {recipe_data['name']}")
                 return True
     except urllib.error.HTTPError as e:
-        logger.error(f"Failed to create recipe {recipe_data['name']}: {e.code} {e.reason}")
+        logger.error(
+            f"Failed to create recipe {recipe_data['name']}: {e.code} {e.reason}"
+        )
         logger.error(e.read().decode())
     except urllib.error.URLError as e:
         logger.error(f"Failed to connect to API: {e}")
     return False
 
+
 def seed_database():
     """Seeds the database with initial recipes via API."""
     existing_recipes = get_recipes()
-    
+
     if existing_recipes is None:
         logger.error("Could not verify existing recipes. Is the server running?")
         return
 
     if existing_recipes:
-        logger.info(f"Database already contains {len(existing_recipes)} recipes. Skipping seed.")
+        logger.info(
+            f"Database already contains {len(existing_recipes)} recipes. Skipping seed."
+        )
         return
 
     logger.info("Seeding database with initial recipes via API...")
@@ -65,7 +72,7 @@ def seed_database():
                 {"name": "Olive Oil", "quantity": 2, "unit": "tbsp"},
                 {"name": "Garlic", "quantity": 2, "unit": "cloves"},
             ],
-            "source_url": "http://example.com/tomato-pasta"
+            "source_url": "http://example.com/tomato-pasta",
         },
         {
             "name": "Grilled Cheese Sandwich",
@@ -76,7 +83,7 @@ def seed_database():
                 {"name": "Cheddar Cheese", "quantity": 2, "unit": "slices"},
                 {"name": "Butter", "quantity": 1, "unit": "tbsp"},
             ],
-            "source_url": "http://example.com/grilled-cheese"
+            "source_url": "http://example.com/grilled-cheese",
         },
         {
             "name": "Fruit Salad",
@@ -88,14 +95,15 @@ def seed_database():
                 {"name": "Orange", "quantity": 1, "unit": "whole"},
                 {"name": "Grapes", "quantity": 100, "unit": "g"},
             ],
-            "source_url": "http://example.com/fruit-salad"
-        }
+            "source_url": "http://example.com/fruit-salad",
+        },
     ]
 
     for recipe in recipes_to_create:
         create_recipe(recipe)
 
     logger.info("Database seeding completed.")
+
 
 if __name__ == "__main__":
     seed_database()
