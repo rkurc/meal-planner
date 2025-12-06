@@ -137,7 +137,7 @@
 - Group tracking for future `check` / `/loop 5m /pr-babysit check` resumption via subagent_id 019ecd84-90b8-7742-bf64-97fb3075ffd2 (worktree kept for resume).
 - Per AGENTS.md: todos scaffolded and completed; pre-commit not run (no main workspace changes).
 
-**Work Completed:**
+**Work Completed (combined from #22 review fixes + #23 feat PR):**
 - **Testing Infrastructure:** Successfully configured and verified the E2E testing environment using Playwright within Docker.
 - **Test Fixes:** Fixed backend package data configuration (59/59 backend tests passing) and frontend E2E tests (2/2 passing).
 - **Database Seeding:** Created `seed_db.py` script that populates the database with 3 test recipes via API calls.
