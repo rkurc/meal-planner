@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import ShoppingListView from "./ShoppingListView";
 
 const MealPlanDetail = () => {
   const { id } = useParams();
@@ -87,6 +88,9 @@ const MealPlanDetail = () => {
           </button>
         </div>
       </div>
+
+      {/* Shopping List Section */}
+      <ShoppingListView mealPlanId={id} mealPlanName={mealPlan.name} />
     </div>
   );
 };

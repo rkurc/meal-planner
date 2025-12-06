@@ -1,5 +1,6 @@
 // frontend/src/components/RecipeList.jsx
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import RecipeItem from "./RecipeItem";
 
 const RecipeList = () => {
@@ -41,9 +42,17 @@ const RecipeList = () => {
 
   return (
     <div className="container mx-auto p-4">
-      <h2 className="text-3xl font-bold text-center mb-6 text-gray-800">
-        Recipe List (React)
-      </h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-3xl font-bold text-gray-800">
+          Recipe List (React)
+        </h2>
+        <Link
+          to="/recipes/new"
+          className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
+        >
+          Create New Recipe
+        </Link>
+      </div>
       <ul className="space-y-4">
         {recipes.map((recipe) => (
           <RecipeItem key={recipe.id} recipe={recipe} />

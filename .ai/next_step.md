@@ -1,27 +1,26 @@
 **Work Completed:**
-- **Testing Infrastructure:** Successfully configured and verified the E2E testing environment using Playwright within Docker.
-- **Test Fixes:** Fixed backend package data configuration (59/59 backend tests passing) and frontend E2E tests (2/2 passing).
-- **Database Seeding:** Created `seed_db.py` script that populates the database with 3 test recipes via API calls.
-- **Automated Dev Environment:** Created `start_and_seed.sh` that automatically starts backend, frontend, and seeds the database. Docker containers are fully automated.
-- **Initial Verification:** Confirmed that the application builds, runs, and passes all tests with seeded data.
+- **Recipe Management (React):** Implemented full CRUD (Create, Read, Update, Delete) for recipes, including new API endpoints and React components (`RecipeDetail`, `RecipeForm`).
+- **Shopping List Management (React):** Implemented shopping list generation, editing, and viewing in `MealPlanDetail`, including `ShoppingListView` component.
+- **Backend API:** Added `GET`, `PUT`, `DELETE` endpoints for `/api/recipes/:id`.
+- **Testing:** Added backend tests for new endpoints (passing) and wrote E2E tests for all new workflows (pending execution).
+- **Code Quality:** Formatted `seed_db.py` and verified with pre-commit hooks.
 
-**CURRENT PRIORITY: Expand Frontend Feature Set**
+**CURRENT PRIORITY: Verification & Polish**
 
-The testing infrastructure is now solid and automated. The next priority is to achieve feature parity between the Jinja2 UI and the React UI, focusing on the core user workflows.
+The core features are implemented. The immediate priority is to enable full E2E verification by fixing the Docker build and running the test suite.
 
 **Next Implementation Steps:**
-1.  **Recipe Management UI (React):**
-    - Implement "Create Recipe" form (connect to existing POST `/api/recipes`)
-    - Implement "Edit Recipe" functionality (requires PUT endpoint - see below)
-    - Implement "Delete Recipe" functionality (requires DELETE endpoint - see below)
-    - Add E2E tests for create/edit/delete workflows
+1.  **Fix Docker Build:**
+    - Resolve permission issue in `Dockerfile` to allow container rebuilds.
+    - Verify E2E tests pass in the Docker environment.
 
-2.  **Complete Recipe API:**
-    - Add PUT `/api/recipes/:id` endpoint for updating recipes
-    - Add DELETE `/api/recipes/:id` endpoint for deleting recipes
-    - Update E2E tests to cover API changes
+2.  **Run E2E Tests:**
+    - Install Node.js/npm on host (or rely on fixed Docker container).
+    - Execute Playwright tests to verify all workflows.
 
-3.  **Shopping List Management UI (React):**
-    - Rebuild shopping list generation interface
-    - Add manual editing capability
-    - Test with existing shopping list API endpoints
+3.  **UX Improvements:**
+    - Add loading spinners and toast notifications for better user feedback.
+    - Implement recipe image uploads.
+
+4.  **Cleanup:**
+    - Remove legacy Jinja2 templates if no longer needed (optional).

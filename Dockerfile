@@ -44,13 +44,13 @@ COPY meal_planner_app/ ./meal_planner_app/
 # Change ownership of the app directory
 RUN chown -R appuser:appuser /app
 
-# Switch to the non-root user
-USER appuser
-
 # Copy the rest of the application
 WORKDIR /app
 COPY . .
 RUN chmod +x start_and_seed.sh
+
+# Switch to the non-root user
+USER appuser
 
 # Expose ports
 EXPOSE 5000 5173

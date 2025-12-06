@@ -26,6 +26,7 @@ from meal_planner_app.models.recipe import Recipe
 from meal_planner_app.services import generate_shopping_list_pdf
 from dataclasses import asdict
 from meal_planner_app.models.shopping_list import ShoppingList
+from typing import List, Dict
 
 app = Flask(__name__)
 
@@ -39,7 +40,7 @@ def nl2br(s):
     return ""
 
 
-def parse_ingredients_from_textarea(textarea_content: str) -> list[dict]:
+def parse_ingredients_from_textarea(textarea_content: str) -> List[Dict]:
     """
     Parses ingredient data from a textarea input.
     Each line is expected to be an ingredient.
@@ -418,6 +419,47 @@ def api_create_recipe():
     )
 
     return jsonify(_recipe_to_dict(created_recipe)), 201
+
+
+@app.route("/api/recipes/<uuid:recipe_id>", methods=["GET"])
+def api_get_recipe(recipe_id: uuid.UUID):
+    """API endpoint to get a single recipe by its ID."""
+    recipe = crud.get_recipe(recipe_id)
+    if not recipe:
+        abort(404)
+    return jsonify(_recipe_to_dict(recipe))
+
+
+@app.route("/api/recipes/<uuid:recipe_id>", methods=["PUT"])
+def api_update_recipe(recipe_id: uuid.UUID):
+    """API endpoint to update an existing recipe."""
+    data = request.get_json()
+    if not data:
+        abort(400)
+
+    # Extract ingredients data if provided
+    ingredients_data = data.get("ingredients")
+
+    updated_recipe = crud.update_recipe(
+        recipe_id=recipe_id,
+        name=data.get("name"),
+        description=data.get("description"),
+        instructions=data.get("instructions"),
+        source_url=data.get("source_url"),
+        ingredients_data=ingredients_data,
+    )
+
+    if not updated_recipe:
+        abort(404)
+    return jsonify(_recipe_to_dict(updated_recipe))
+
+
+@app.route("/api/recipes/<uuid:recipe_id>", methods=["DELETE"])
+def api_delete_recipe(recipe_id: uuid.UUID):
+    """API endpoint to delete a recipe."""
+    if not crud.delete_recipe(recipe_id):
+        abort(404)
+    return "", 204
 
 
 @app.route("/api/meal-plans", methods=["GET"])

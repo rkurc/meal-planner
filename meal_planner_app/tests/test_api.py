@@ -161,6 +161,93 @@ class TestApi(unittest.TestCase):
         self.assertIn(b'<h1>Shopping List for "Soup Plan"</h1>', response.data)
         self.assertIn(b"Carrot", response.data)
 
+    def test_get_recipe_by_id_api(self):
+        """Test GET /api/recipes/<id> endpoint."""
+        recipe = crud.create_recipe(
+            name="Test Recipe",
+            instructions="Test instructions",
+            description="Test description",
+            source_url="http://example.com",
+            ingredients_data=[
+                {"name": "Sugar", "quantity": 1, "unit": "cup"},
+                {"name": "Flour", "quantity": 2, "unit": "cups"},
+            ],
+        )
+
+        response = self.client.get(f"/api/recipes/{recipe.recipe_id}")
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertEqual(data["name"], "Test Recipe")
+        self.assertEqual(data["instructions"], "Test instructions")
+        self.assertEqual(data["description"], "Test description")
+        self.assertEqual(data["source_url"], "http://example.com")
+        self.assertEqual(len(data["ingredients"]), 2)
+        self.assertEqual(data["ingredients"][0]["name"], "Sugar")
+
+    def test_get_recipe_by_id_not_found(self):
+        """Test GET /api/recipes/<id> with non-existent recipe."""
+        non_existent_id = uuid.uuid4()
+        response = self.client.get(f"/api/recipes/{non_existent_id}")
+        self.assertEqual(response.status_code, 404)
+
+    def test_update_recipe_api(self):
+        """Test PUT /api/recipes/<id> endpoint."""
+        recipe = crud.create_recipe(
+            name="Original Recipe",
+            instructions="Original instructions",
+            ingredients_data=[{"name": "Sugar", "quantity": 1, "unit": "cup"}],
+        )
+
+        update_data = {
+            "name": "Updated Recipe",
+            "instructions": "Updated instructions",
+            "description": "Updated description",
+            "source_url": "http://updated.com",
+            "ingredients": [
+                {"name": "Flour", "quantity": 3, "unit": "cups"},
+                {"name": "Water", "quantity": 200, "unit": "ml"},
+            ],
+        }
+
+        response = self.client.put(f"/api/recipes/{recipe.recipe_id}", json=update_data)
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertEqual(data["name"], "Updated Recipe")
+        self.assertEqual(data["instructions"], "Updated instructions")
+        self.assertEqual(data["description"], "Updated description")
+        self.assertEqual(len(data["ingredients"]), 2)
+        self.assertEqual(data["ingredients"][0]["name"], "Flour")
+
+        # Verify changes in DB
+        updated_recipe = crud.get_recipe(recipe.recipe_id)
+        self.assertEqual(updated_recipe.name, "Updated Recipe")
+        self.assertEqual(len(updated_recipe.ingredients), 2)
+
+    def test_update_recipe_not_found(self):
+        """Test PUT /api/recipes/<id> with non-existent recipe."""
+        non_existent_id = uuid.uuid4()
+        update_data = {"name": "Updated Name", "instructions": "Updated instructions"}
+        response = self.client.put(f"/api/recipes/{non_existent_id}", json=update_data)
+        self.assertEqual(response.status_code, 404)
+
+    def test_delete_recipe_api(self):
+        """Test DELETE /api/recipes/<id> endpoint."""
+        recipe = crud.create_recipe(name="To Be Deleted", instructions="...")
+        recipe_id = recipe.recipe_id
+
+        response = self.client.delete(f"/api/recipes/{recipe_id}")
+        self.assertEqual(response.status_code, 204)
+
+        # Verify recipe is deleted
+        self.assertIsNone(crud.get_recipe(recipe_id))
+        self.assertEqual(len(crud.list_recipes()), 0)
+
+    def test_delete_recipe_not_found(self):
+        """Test DELETE /api/recipes/<id> with non-existent recipe."""
+        non_existent_id = uuid.uuid4()
+        response = self.client.delete(f"/api/recipes/{non_existent_id}")
+        self.assertEqual(response.status_code, 404)
+
 
 class TestMealPlanApi(unittest.TestCase):
     """Tests specifically for the Meal Plan API endpoints."""
