@@ -89,50 +89,28 @@
     mkdir -p /tmp/ctx && tar --exclude='frontend/package-lock.json' --exclude='.git' -cf - . | (cd /tmp/ctx && tar xf -)
     docker build -f /tmp/ctx/Dockerfile --target final /tmp/ctx
     ```
+- **Recipe Management (React):** Implemented full CRUD (Create, Read, Update, Delete) for recipes, including new API endpoints and React components (`RecipeDetail`, `RecipeForm`).
+- **Shopping List Management (React):** Implemented shopping list generation, editing, and viewing in `MealPlanDetail`, including `ShoppingListView` component.
+- **Backend API:** Added `GET`, `PUT`, `DELETE` endpoints for `/api/recipes/:id`.
+- **Testing:** Added backend tests for new endpoints (passing) and wrote E2E tests for all new workflows (pending execution).
+- **Code Quality:** Formatted `seed_db.py` and verified with pre-commit hooks.
 
-**CURRENT PRIORITY: Expand Frontend Feature Set**
+**CURRENT PRIORITY: Verification & Polish**
 
-The testing infrastructure is now solid and automated. The next priority is to achieve feature parity between the Jinja2 UI and the React UI, focusing on the core user workflows.
+The core features are implemented. The immediate priority is to enable full E2E verification by fixing the Docker build and running the test suite.
 
 **Next Implementation Steps:**
-1.  **Recipe Management UI (React):**
-    - Implement "Create Recipe" form (connect to existing POST `/api/recipes`)
-    - Implement "Edit Recipe" functionality (requires PUT endpoint - see below)
-    - Implement "Delete Recipe" functionality (requires DELETE endpoint - see below)
-    - Add E2E tests for create/edit/delete workflows
+1.  **Fix Docker Build:**
+    - Resolve permission issue in `Dockerfile` to allow container rebuilds.
+    - Verify E2E tests pass in the Docker environment.
 
-2.  **Complete Recipe API:**
-    - Add PUT `/api/recipes/:id` endpoint for updating recipes
-    - Add DELETE `/api/recipes/:id` endpoint for deleting recipes
-    - Update E2E tests to cover API changes
+2.  **Run E2E Tests:**
+    - Install Node.js/npm on host (or rely on fixed Docker container).
+    - Execute Playwright tests to verify all workflows.
 
-3.  **Shopping List Management UI (React):**
-    - Rebuild shopping list generation interface
-    - Add manual editing capability
-    - Test with existing shopping list API endpoints
+3.  **UX Improvements:**
+    - Add loading spinners and toast notifications for better user feedback.
+    - Implement recipe image uploads.
 
-**Automated PR Babysit Fix Cycle (~2026-06-16T00:44Z, fresh subagent for pr-22 group):**
-- Read AGENTS.md + .ai/next_step.md first (as required).
-- git fetch (success), gh pr view/checks confirmed: OPEN, MERGEABLE, backend FAILURE on black (seed_db.py), frontend+test-in-container SUCCESS, reviewDecision="", 0 unresolved reviewThreads.
-- Full required reviewThreads processing: used mktemp + pagination loop + NO_COLOR=1 gh api graphql + sed/re strip ANSI + (python) jq-accumulate; result: 0 nodes, 0 !isResolved threads. No review actions needed.
-- Per CI Failed path + plain git for standalone: git checkout -B feature/seed-db-for-e2e-tests origin/... ; git rebase origin/main (up-to-date, no conflict).
-- Read meal_planner_app/seed_db.py .
-- To fix black (without host pip): used docker (CI-exact python:3.10-bullseye + pip install -e .[dev] + black . with -v "$PWD:/app" volume) -- black 26.5.1 reformatted by removing one extraneous blank line after imports in seed_db.py. (Note: .devcontainer builder 3.9 used older black 25.x which passed already; used matching to ensure CI pass.)
-- Then ran full verifies (per AGENTS + .ai examples, using meal-builder w/ volume for py post-edit accuracy + no-v for frontend to access its node_modules):
-  - black --check (via 3.10 CI sim) : PASS
-  - pylint meal_planner_app --disable=all --enable=E,F : 10.00/10 PASS
-  - pytest -q -k "TestApi or seed or api_seed" : 8 passed PASS
-  - (cd equiv) npm run format-check via meal-builder: "All matched files use Prettier code style!" PASS
-- All linter/formatter pass before push (as mandated).
-- Updated this .ai/next_step.md (per AGENTS before commit).
-- git add -A && git commit -m "fix: address CI failure in backend (black formatting for seed_db.py)"
-- git push --force-with-lease
-- gh pr comment 22 with automated fix note.
-- fix_counter=1 (under cap of 3 this cycle; prior cycle had 3).
-- Post-push: will re-query gh pr / checks for final status.
-- last_status will be "ci_failed" (temp) or "healthy" if new checks green + no other blockers.
-- Per AGENTS.md: pre-commit equivs via docker passed; .ai updated; no main workspace pip/prettier direct.
-- No other code changes (only this 1 black formatting fix this cycle).
-- PR remains OPEN, no merge attempted.
-
-**Status after this cycle:** CI should now pass on re-run (black fixed). Reviews clean (0 threads, no decision). Continue monitoring or next cycle for green + human merge. Current project priority remains: Expand Frontend Feature Set (see above).
+4.  **Cleanup:**
+    - Remove legacy Jinja2 templates if no longer needed (optional).
