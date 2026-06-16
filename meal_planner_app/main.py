@@ -28,9 +28,6 @@ from meal_planner_app.services import generate_shopping_list_pdf
 from dataclasses import asdict
 from meal_planner_app.models.shopping_list import ShoppingList
 
-# Test-support only (small import; the seed util is pure/direct CRUD).
-from meal_planner_app.seed_db import seed_database
-
 app = Flask(__name__)
 
 

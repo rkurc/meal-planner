@@ -1,6 +1,8 @@
 // @ts-check
 import { test, expect } from "@playwright/test";
 
+/* global process */
+
 // Seed the database before each test in this file (enables reliable E2E
 // against gunicorn in the integration test container, which does not use
 // start_and_seed.sh). The URL is configurable for different environments
