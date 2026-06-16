@@ -27,6 +27,9 @@ from meal_planner_app.services import generate_shopping_list_pdf
 from dataclasses import asdict
 from meal_planner_app.models.shopping_list import ShoppingList
 
+# Test-support only (small import; the seed util is pure/direct CRUD).
+from meal_planner_app.seed_db import seed_database
+
 app = Flask(__name__)
 
 
@@ -589,6 +592,18 @@ def api_delete_shopping_list(shopping_list_id: uuid.UUID):
     if not crud.delete_shopping_list(shopping_list_id):
         abort(404)
     return "", 204
+
+
+# --- Test-only routes (always registered so test_client + gunicorn see them;
+# guarded at runtime so they 404 in normal prod runs without debug/TESTING).
+# Used by E2E beforeEach and (optionally) dev; see seed_db.py:RECIPES_TO_SEED.
+@app.route("/api/test/seed-db", methods=["POST"])
+def api_seed_database():
+    """Seeds the database. For testing/E2E purposes only. Returns 404 in normal production runs."""
+    if not (getattr(app, "debug", False) or app.config.get("TESTING")):
+        abort(404)
+    seed_database()
+    return jsonify({"message": "Database seeded successfully"}), 200
 
 
 # --- React App Route ---

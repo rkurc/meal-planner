@@ -35,10 +35,13 @@ jobs:
           echo "Waiting for servers to start..."
           sleep 15
 
-          # Run the Playwright tests inside the container
-          # We use `|| true` to ensure this step doesn't stop the workflow on test failure
+          # Run the Playwright tests inside the container.
+          # We use `|| true` to ensure this step doesn't stop the workflow on test failure.
+          # API_BASE_URL ensures the beforeEach seed POST in main.spec.js reaches
+          # the gunicorn (localhost works inside the container; the E2E spec falls
+          # back gracefully). See plan for PR #22 review recommendations.
           echo "Running Playwright tests..."
-          docker exec -w /app/frontend meal-planner-container npx playwright test || true
+          docker exec -e API_BASE_URL=http://localhost:5000 -w /app/frontend meal-planner-container npx playwright test || true
 
       - name: Copy test results from container
         if: always()

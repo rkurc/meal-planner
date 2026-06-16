@@ -161,6 +161,24 @@ class TestApi(unittest.TestCase):
         self.assertIn(b'<h1>Shopping List for "Soup Plan"</h1>', response.data)
         self.assertIn(b"Carrot", response.data)
 
+    def test_seed_database_endpoint(self):
+        """Test the test-only /api/test/seed-db endpoint (guarded by TESTING)."""
+        # Ensure the route is enabled for this test client invocation.
+        app.config["TESTING"] = True
+
+        # The endpoint should be reachable and should populate via the seed util.
+        response = self.client.post("/api/test/seed-db")
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertEqual(data.get("message"), "Database seeded successfully")
+
+        # Verify data actually landed (uses the RECIPES_TO_SEED from seed_db).
+        recipes = crud.list_recipes()
+        self.assertGreaterEqual(len(recipes), 2)
+        names = {r.name for r in recipes}
+        self.assertIn("Classic Pancakes", names)
+        self.assertIn("Simple Omelette", names)
+
 
 class TestMealPlanApi(unittest.TestCase):
     """Tests specifically for the Meal Plan API endpoints."""

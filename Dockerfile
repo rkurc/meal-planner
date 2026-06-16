@@ -3,7 +3,9 @@ FROM node:18-alpine AS frontend-builder
 WORKDIR /app/frontend
 
 # Copy package files and install dependencies
-COPY frontend/package.json frontend/package-lock.json ./
+# Note: package-lock.json is intentionally not committed (see .gitignore and PR #22).
+# npm install works from package.json alone (generates a transient lock inside the layer).
+COPY frontend/package.json ./
 RUN npm install
 
 # Copy the rest of the frontend source code
