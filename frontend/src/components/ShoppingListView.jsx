@@ -257,7 +257,8 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
 };
 
 ShoppingListView.propTypes = {
-  mealPlanId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  mealPlanId: PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+    .isRequired,
   mealPlanName: PropTypes.string.isRequired,
 };
 

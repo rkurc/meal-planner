@@ -1,3 +1,16 @@
+**PR Babysit Status (rkurc/meal-planner#23) - Prettier Format Fix Pass (post-propTypes, continuation):**
+- Re-queried gh pr view 23: state=OPEN, mergeable=MERGEABLE, mergeStateStatus=UNSTABLE, reviewDecision="", frontend=FAILURE (now on "frontendFormat with prettier" / prettier --check . ; previous lint prop-types was fixed), backend+test-in-container=SUCCESS. Confirmed the failure was due to un-persisted formatting from prior docker-overlay verify (no explicit copy-back of --write results to host worktree source before last commit).
+- Safe checkout: git checkout -B rkurc/further-migration origin/rkurc/further-migration.
+- Read FULL current ShoppingListView.jsx and RecipeItem.jsx with read_file (confirmed propTypes present but ShoppingListView propTypes block not prettier-formatted per CI style).
+- Used established docker meal-builder overlay (baked node_modules + tar overlay of host /frontend-src source into container) + npx prettier --write on the two components, THEN EXPLICIT cp of the formatted files back to /frontend-src (mounted host worktree) to ensure changes persist in $PWD for git.
+- Confirmed on host: git status shows M on ShoppingListView.jsx; git diff shows the formatting change (propTypes line broken for .isRequired to match prettier).
+- Re-verified with docker (volume mount of worktree): npx prettier --check on the files now passes ("All matched files use Prettier code style!").
+- Per AGENTS.md: updated this .ai/next_step.md before commit; used docker for format apply/verify (no host node/npm); ran equiv of format-check before submit.
+- git add -A; git commit -m "fix: apply prettier formatting to ShoppingListView.jsx (and RecipeItem if touched) after propTypes edit"; git push; gh pr comment with the automated body.
+- This pass fix_count_delta=1 (formatting persistence fix).
+- Timestamp: 2026-06-16T18:05Z (new CI will run post-push; combined with prior passes should lead to healthy).
+- Current terminal state (pre this push effects): pending (checks were green on backend/test but frontend format was the blocker).
+
 **PR Babysit Status (rkurc/meal-planner#23) - ESLint PropTypes Fix Pass (continuation):**
 - Re-queried: state=OPEN, mergeable=MERGEABLE, mergeStateStatus=UNSTABLE, reviewDecision="", frontend=FAILURE (eslint react/prop-types on RecipeItem.jsx + ShoppingListView.jsx), backend=SUCCESS, test-in-container=IN_PROGRESS.
 - Confirmed via gh run view 27636173267 --log-failed: exact 14 errors: 12x react/prop-types for 'recipe' / recipe.* in RecipeItem; 2x for 'mealPlanId'/'mealPlanName' in ShoppingListView. (npm run lint = eslint .)
