@@ -1,3 +1,17 @@
+**PR Babysit Status (rkurc/meal-planner#23) - ESLint PropTypes Fix Pass (continuation):**
+- Re-queried: state=OPEN, mergeable=MERGEABLE, mergeStateStatus=UNSTABLE, reviewDecision="", frontend=FAILURE (eslint react/prop-types on RecipeItem.jsx + ShoppingListView.jsx), backend=SUCCESS, test-in-container=IN_PROGRESS.
+- Confirmed via gh run view 27636173267 --log-failed: exact 14 errors: 12x react/prop-types for 'recipe' / recipe.* in RecipeItem; 2x for 'mealPlanId'/'mealPlanName' in ShoppingListView. (npm run lint = eslint .)
+- git checkout -B ... (already on branch).
+- Read FULL files with read_file on both .jsx (and package.json to confirm prop-types dep present, eslint-plugin-react in dev).
+- Also grepped components/ for existing propTypes (none yet, so added consistently).
+- Fixed: added `import PropTypes from 'prop-types';` + RecipeItem.propTypes = { recipe: PropTypes.shape({id: oneOfType(string|number).isRequired, name:..., description:..., ingredients: PropTypes.array }).isRequired }; same for ShoppingListView (mealPlanId oneOfType, mealPlanName string.isRequired).
+- Verified locally via docker (overlay baked node_modules + edited src): `npm run lint` -> LINT PASSED zero errors. Also ran npx prettier --check / --write (format script exists); re-verified clean.
+- (Host had no node, so used meal-builder docker equiv of cd frontend && npm run lint + format, per prior cycles + to satisfy AGENTS/verify reqs.)
+- git add -A; git commit -m "fix: add missing propTypes..."; git push; gh pr comment "Automated fix: addressed remaining frontend eslint prop-types errors in new components..."
+- This pass: +1 fix (prop-types + format); total continuation delta=1 .
+- Updated .ai (per AGENTS) before commit.
+- Timestamp: 2026-06-16T18:00Z (post-push CI will re-run; expect healthy if green).
+
 **PR Babysit Status (rkurc/meal-planner#23) - Conflict + Frontend Format Cycle (pr-23 group):**
 - Fresh query (initial): state=OPEN, mergeable=CONFLICTING, mergeStateStatus=DIRTY, reviewDecision="", frontend=FAILURE (old head), backend+test-in-container=SUCCESS. headRef=rkurc/further-migration, base=main.
 - has_fetched=false -> git fetch; git checkout -B rkurc/further-migration origin/rkurc/further-migration; git rebase origin/main.

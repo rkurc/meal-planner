@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import PropTypes from "prop-types";
 
 const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
   const [shoppingList, setShoppingList] = useState(null);
@@ -253,6 +254,11 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
       )}
     </div>
   );
+};
+
+ShoppingListView.propTypes = {
+  mealPlanId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  mealPlanName: PropTypes.string.isRequired,
 };
 
 export default ShoppingListView;

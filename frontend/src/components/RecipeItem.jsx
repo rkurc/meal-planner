@@ -1,6 +1,7 @@
 // frontend/src/components/RecipeItem.jsx
 import React from "react";
 import { Link } from "react-router-dom";
+import PropTypes from "prop-types";
 
 const RecipeItem = ({ recipe }) => {
   return (
@@ -21,6 +22,15 @@ const RecipeItem = ({ recipe }) => {
       </Link>
     </li>
   );
+};
+
+RecipeItem.propTypes = {
+  recipe: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    name: PropTypes.string.isRequired,
+    description: PropTypes.string,
+    ingredients: PropTypes.array,
+  }).isRequired,
 };
 
 export default RecipeItem;
