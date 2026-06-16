@@ -9,7 +9,6 @@ test-only /api/test/seed-db endpoint.
 
 from meal_planner_app.crud import create_recipe, reset_recipes_db
 
-
 # Single source of truth for seeded recipe data.
 # Keys match the kwargs expected by crud.create_recipe.
 RECIPES_TO_SEED = [
