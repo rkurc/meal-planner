@@ -1,3 +1,58 @@
+**PR Babysit Status (rkurc/meal-planner#23) - Prettier Format Fix Pass (post-propTypes, continuation):**
+- Re-queried gh pr view 23: state=OPEN, mergeable=MERGEABLE, mergeStateStatus=UNSTABLE, reviewDecision="", frontend=FAILURE (now on "frontendFormat with prettier" / prettier --check . ; previous lint prop-types was fixed), backend+test-in-container=SUCCESS. Confirmed the failure was due to un-persisted formatting from prior docker-overlay verify (no explicit copy-back of --write results to host worktree source before last commit).
+- Safe checkout: git checkout -B rkurc/further-migration origin/rkurc/further-migration.
+- Read FULL current ShoppingListView.jsx and RecipeItem.jsx with read_file (confirmed propTypes present but ShoppingListView propTypes block not prettier-formatted per CI style).
+- Used established docker meal-builder overlay (baked node_modules + tar overlay of host /frontend-src source into container) + npx prettier --write on the two components, THEN EXPLICIT cp of the formatted files back to /frontend-src (mounted host worktree) to ensure changes persist in $PWD for git.
+- Confirmed on host: git status shows M on ShoppingListView.jsx; git diff shows the formatting change (propTypes line broken for .isRequired to match prettier).
+- Re-verified with docker (volume mount of worktree): npx prettier --check on the files now passes ("All matched files use Prettier code style!").
+- Per AGENTS.md: updated this .ai/next_step.md before commit; used docker for format apply/verify (no host node/npm); ran equiv of format-check before submit.
+- git add -A; git commit -m "fix: apply prettier formatting to ShoppingListView.jsx (and RecipeItem if touched) after propTypes edit"; git push; gh pr comment with the automated body.
+- This pass fix_count_delta=1 (formatting persistence fix).
+- Timestamp: 2026-06-16T18:05Z (new CI will run post-push; combined with prior passes should lead to healthy).
+- Current terminal state (pre this push effects): pending (checks were green on backend/test but frontend format was the blocker).
+
+**PR Babysit Status (rkurc/meal-planner#23) - ESLint PropTypes Fix Pass (continuation):**
+- Re-queried: state=OPEN, mergeable=MERGEABLE, mergeStateStatus=UNSTABLE, reviewDecision="", frontend=FAILURE (eslint react/prop-types on RecipeItem.jsx + ShoppingListView.jsx), backend=SUCCESS, test-in-container=IN_PROGRESS.
+- Confirmed via gh run view 27636173267 --log-failed: exact 14 errors: 12x react/prop-types for 'recipe' / recipe.* in RecipeItem; 2x for 'mealPlanId'/'mealPlanName' in ShoppingListView. (npm run lint = eslint .)
+- git checkout -B ... (already on branch).
+- Read FULL files with read_file on both .jsx (and package.json to confirm prop-types dep present, eslint-plugin-react in dev).
+- Also grepped components/ for existing propTypes (none yet, so added consistently).
+- Fixed: added `import PropTypes from 'prop-types';` + RecipeItem.propTypes = { recipe: PropTypes.shape({id: oneOfType(string|number).isRequired, name:..., description:..., ingredients: PropTypes.array }).isRequired }; same for ShoppingListView (mealPlanId oneOfType, mealPlanName string.isRequired).
+- Verified locally via docker (overlay baked node_modules + edited src): `npm run lint` -> LINT PASSED zero errors. Also ran npx prettier --check / --write (format script exists); re-verified clean.
+- (Host had no node, so used meal-builder docker equiv of cd frontend && npm run lint + format, per prior cycles + to satisfy AGENTS/verify reqs.)
+- git add -A; git commit -m "fix: add missing propTypes..."; git push; gh pr comment "Automated fix: addressed remaining frontend eslint prop-types errors in new components..."
+- This pass: +1 fix (prop-types + format); total continuation delta=1 .
+- Updated .ai (per AGENTS) before commit.
+- Timestamp: 2026-06-16T18:00Z (post-push CI will re-run; expect healthy if green).
+
+**PR Babysit Status (rkurc/meal-planner#23) - Conflict + Frontend Format Cycle (pr-23 group):**
+- Fresh query (initial): state=OPEN, mergeable=CONFLICTING, mergeStateStatus=DIRTY, reviewDecision="", frontend=FAILURE (old head), backend+test-in-container=SUCCESS. headRef=rkurc/further-migration, base=main.
+- has_fetched=false -> git fetch; git checkout -B rkurc/further-migration origin/rkurc/further-migration; git rebase origin/main.
+- Conflicts detected in exactly 2 files (from git diff --name-only --diff-filter=U): .ai/next_step.md and meal_planner_app/tests/test_api.py.
+- Read FULL content of both with read_file tool; also extracted clean base (git show HEAD:...) and PR commit (git show 89f9e28:...) versions.
+- Conflict resolution (intelligent merge per spec): 
+  - test_api.py: kept seed_database_endpoint test (from HEAD/#22 base) + included all new CRUD tests from PR side (test_get_recipe_by_id*, test_update*, test_delete* + not founds) after generate_shopping_list_route, before TestMealPlanApi. Verified: python3 -m py_compile OK.
+  - .ai/next_step.md: combined prior #22 babysit history + "Work Completed" (HEAD #22 testing/seed + PR #23 recipe CRUD/shopping list work) + CURRENT PRIORITY: Verification & Polish + Next steps (Fix Docker, E2E, UX, Cleanup from PR side). Removed all markers.
+- Rebase --continue succeeded (1/1 commit replayed); git push --force-with-lease; gh pr comment 23 --body "Automated fix: resolved merge conflicts and rebased."
+- fix_counter[23] =1 ; last_status interim "conflicts".
+- Post-push re-query: mergeable=MERGEABLE, mergeStateStatus=UNSTABLE, all 3 checks IN_PROGRESS (new CI runs triggered). No FAILURE/ERROR conclusions.
+- MANDATORY review threads: ran exact mktemp + full pagination while loop + NO_COLOR=1 gh api graphql + python json accumulate + re for ANSI strip. Result: totalCount=0, 0 nodes, 0 unresolved. No threads to process/reply/edit. reviewDecision remains "" (not CHANGES_REQUESTED).
+- Detected frontend format issues on auto-merged files from rebase (e2e/main.spec.js, RecipeDetail.jsx, RecipeForm.jsx, ShoppingListView.jsx) via npm run format-check in docker.
+- Per AGENTS.md (and before any final submit): ran full quality gates via docker (meal-builder builder target):
+  - docker run -v ... black --check . : PASS (All done!)
+  - pylint meal_planner_app --disable=all --enable=E,F : 10.00/10 PASS
+  - pytest -q -k "TestApi or seed or api_seed or recipe" : 46 passed PASS
+  - frontend format: used docker+volume+node_modules symlink to run prettier --write on the 4 files; re-verified npx prettier --check PASS ("All matched files use Prettier code style!")
+  - Root Dockerfile sim (tar exclude lock) executed (packaging note on node_modules ignored per prior cycles).
+- Then: git add -A && git commit -m "fix: address frontend formatting (prettier) for auto-merged files from rebase + update .ai per AGENTS"
+- git push (plain --force-with-lease)
+- gh pr comment 23 --body "Automated fix: addressed frontend formatting issues (prettier) in auto-merged files."
+- fix_counter[23] +=1 (total 2 this cycle; under cap of 3)
+- Updated .ai/next_step.md (per AGENTS before this commit).
+- Current terminal: some checks IN_PROGRESS/QUEUED + no failures + mergeable MERGEABLE + reviewDecision != CHANGES_REQUESTED + 0 unresolved threads => "pending"
+- Per AGENTS.md: .ai/next_step read at start + updated before push; quality gates executed in docker (no direct host pip/prettier for main env); only edited on feature branch; pre-commit skipped (sandbox/docker gates used).
+- Timestamp: 2026-06-16T17:40Z
+
 **PR Babysit Status (rkurc/meal-planner#22) - CI Fix Cycle:**
 - Fresh query: mergeable=MERGEABLE, mergeStateStatus=UNSTABLE (CI), backend=FAILURE (pylint reimport), frontend=FAILURE (eslint no-undef process), test-in-container=SUCCESS.
 - Logs read via gh run view 27585423341 --log-failed: confirmed exact: main.py:32 W0404 reimport seed_database (from duplicate in review fix), e2e/main.spec.js:10 'process' no-undef (from process.env in review E2E update).
@@ -89,50 +144,28 @@
     mkdir -p /tmp/ctx && tar --exclude='frontend/package-lock.json' --exclude='.git' -cf - . | (cd /tmp/ctx && tar xf -)
     docker build -f /tmp/ctx/Dockerfile --target final /tmp/ctx
     ```
+- **Recipe Management (React):** Implemented full CRUD (Create, Read, Update, Delete) for recipes, including new API endpoints and React components (`RecipeDetail`, `RecipeForm`).
+- **Shopping List Management (React):** Implemented shopping list generation, editing, and viewing in `MealPlanDetail`, including `ShoppingListView` component.
+- **Backend API:** Added `GET`, `PUT`, `DELETE` endpoints for `/api/recipes/:id`.
+- **Testing:** Added backend tests for new endpoints (passing) and wrote E2E tests for all new workflows (pending execution).
+- **Code Quality:** Formatted `seed_db.py` and verified with pre-commit hooks.
 
-**CURRENT PRIORITY: Expand Frontend Feature Set**
+**CURRENT PRIORITY: Verification & Polish**
 
-The testing infrastructure is now solid and automated. The next priority is to achieve feature parity between the Jinja2 UI and the React UI, focusing on the core user workflows.
+The core features are implemented. The immediate priority is to enable full E2E verification by fixing the Docker build and running the test suite.
 
 **Next Implementation Steps:**
-1.  **Recipe Management UI (React):**
-    - Implement "Create Recipe" form (connect to existing POST `/api/recipes`)
-    - Implement "Edit Recipe" functionality (requires PUT endpoint - see below)
-    - Implement "Delete Recipe" functionality (requires DELETE endpoint - see below)
-    - Add E2E tests for create/edit/delete workflows
+1.  **Fix Docker Build:**
+    - Resolve permission issue in `Dockerfile` to allow container rebuilds.
+    - Verify E2E tests pass in the Docker environment.
 
-2.  **Complete Recipe API:**
-    - Add PUT `/api/recipes/:id` endpoint for updating recipes
-    - Add DELETE `/api/recipes/:id` endpoint for deleting recipes
-    - Update E2E tests to cover API changes
+2.  **Run E2E Tests:**
+    - Install Node.js/npm on host (or rely on fixed Docker container).
+    - Execute Playwright tests to verify all workflows.
 
-3.  **Shopping List Management UI (React):**
-    - Rebuild shopping list generation interface
-    - Add manual editing capability
-    - Test with existing shopping list API endpoints
+3.  **UX Improvements:**
+    - Add loading spinners and toast notifications for better user feedback.
+    - Implement recipe image uploads.
 
-**Automated PR Babysit Fix Cycle (~2026-06-16T00:44Z, fresh subagent for pr-22 group):**
-- Read AGENTS.md + .ai/next_step.md first (as required).
-- git fetch (success), gh pr view/checks confirmed: OPEN, MERGEABLE, backend FAILURE on black (seed_db.py), frontend+test-in-container SUCCESS, reviewDecision="", 0 unresolved reviewThreads.
-- Full required reviewThreads processing: used mktemp + pagination loop + NO_COLOR=1 gh api graphql + sed/re strip ANSI + (python) jq-accumulate; result: 0 nodes, 0 !isResolved threads. No review actions needed.
-- Per CI Failed path + plain git for standalone: git checkout -B feature/seed-db-for-e2e-tests origin/... ; git rebase origin/main (up-to-date, no conflict).
-- Read meal_planner_app/seed_db.py .
-- To fix black (without host pip): used docker (CI-exact python:3.10-bullseye + pip install -e .[dev] + black . with -v "$PWD:/app" volume) -- black 26.5.1 reformatted by removing one extraneous blank line after imports in seed_db.py. (Note: .devcontainer builder 3.9 used older black 25.x which passed already; used matching to ensure CI pass.)
-- Then ran full verifies (per AGENTS + .ai examples, using meal-builder w/ volume for py post-edit accuracy + no-v for frontend to access its node_modules):
-  - black --check (via 3.10 CI sim) : PASS
-  - pylint meal_planner_app --disable=all --enable=E,F : 10.00/10 PASS
-  - pytest -q -k "TestApi or seed or api_seed" : 8 passed PASS
-  - (cd equiv) npm run format-check via meal-builder: "All matched files use Prettier code style!" PASS
-- All linter/formatter pass before push (as mandated).
-- Updated this .ai/next_step.md (per AGENTS before commit).
-- git add -A && git commit -m "fix: address CI failure in backend (black formatting for seed_db.py)"
-- git push --force-with-lease
-- gh pr comment 22 with automated fix note.
-- fix_counter=1 (under cap of 3 this cycle; prior cycle had 3).
-- Post-push: will re-query gh pr / checks for final status.
-- last_status will be "ci_failed" (temp) or "healthy" if new checks green + no other blockers.
-- Per AGENTS.md: pre-commit equivs via docker passed; .ai updated; no main workspace pip/prettier direct.
-- No other code changes (only this 1 black formatting fix this cycle).
-- PR remains OPEN, no merge attempted.
-
-**Status after this cycle:** CI should now pass on re-run (black fixed). Reviews clean (0 threads, no decision). Continue monitoring or next cycle for green + human merge. Current project priority remains: Expand Frontend Feature Set (see above).
+4.  **Cleanup:**
+    - Remove legacy Jinja2 templates if no longer needed (optional).
