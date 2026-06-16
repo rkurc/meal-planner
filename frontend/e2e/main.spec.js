@@ -1,6 +1,8 @@
 // @ts-check
 import { test, expect } from "@playwright/test";
 
+/* global process */
+
 // Seed the database before each test in this file (enables reliable E2E
 // against gunicorn in the integration test container, which does not use
 // start_and_seed.sh). The URL is configurable for different environments
@@ -12,7 +14,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("homepage has expected title", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/static/react_app/");
   await expect(page).toHaveTitle(/Meal Planner/);
 });
 
