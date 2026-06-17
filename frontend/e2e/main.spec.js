@@ -268,7 +268,7 @@ test("should view recipe details", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Tomato Pasta" }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Edit Recipe" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Edit Recipe" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Delete Recipe" }),
   ).toBeVisible();
@@ -354,6 +354,11 @@ test("should edit shopping list items", async ({ page }) => {
   await page.getByText("Weekly Meal Plan").click();
   await page.waitForURL("**/meal-plans/*");
 
+  // Ensure shopping list section (and its buttons) have loaded
+  await expect(
+    page.getByRole("heading", { name: /Shopping List/ }),
+  ).toBeVisible({ timeout: 5000 });
+
   // Generate shopping list if not already present
   const generateButton = page.getByRole("button", {
     name: "Generate Shopping List",
@@ -361,17 +366,14 @@ test("should edit shopping list items", async ({ page }) => {
   if (await generateButton.isVisible()) {
     await generateButton.click();
     await page.waitForLoadState("networkidle");
-    await page.waitForTimeout(300); // small buffer only if needed for UI update after network
+    await expect(page.getByRole("button", { name: "Edit" })).toBeVisible({
+      timeout: 5000,
+    });
   }
 
-  // Click Edit button for shopping list
-  const editButtons = await page.getByRole("button", { name: "Edit" }).all();
-  // Click the second Edit button (first is for meal plan, second for shopping list)
-  if (editButtons.length > 1) {
-    await editButtons[1].click();
-  } else {
-    await editButtons[0].click();
-  }
+  // Click Edit button for shopping list (robust first match; meal plan edit is a link not button)
+  const editButton = page.getByRole("button", { name: "Edit" }).first();
+  await editButton.click();
 
   // Add a new item
   await page.getByRole("button", { name: "Add Item" }).click();
