@@ -1,3 +1,16 @@
+**PR Babysit Status (rkurc/meal-planner#25) - Re-resolve Conflicts (new cycle after main #28 merge):**
+- Fresh query: state=OPEN, mergeable=CONFLICTING, mergeStateStatus=DIRTY (despite prior SUCCESS checks), reviewDecision="", statusCheckRollup=[all SUCCESS from before: backend, frontend, test-in-container].
+- git fetch origin; git checkout -B pr/fix-meal-plan-react-api-contract origin/pr/fix-meal-plan-react-api-contract; git rebase origin/main.
+- Conflicts in 2 files: frontend/e2e/main.spec.js (whitespace/format in test expects) and .ai/next_step.md (babysit history between #28 on main vs #25 docs/fix commits).
+- Used git ls-files/git status to identify; read FULL files with read_file tool (full content + markers).
+- Resolved by taking HEAD (main) versions for both (current E2E formatting + latest babysit history from #28); removed markers; git add; rebase --continue succeeded (replayed the meal-plan contract fix commits on top of current main).
+- Per AGENTS.md: read .ai/next_step.md at start; all future verify with Docker meal-planner-dev (black/pylint/pytest/prettier/lint/build); update this .ai before commit/push.
+- MANDATORY review threads (exact mktemp + NO_COLOR=1 gh api graphql + pagination + filter isResolved=false): totalCount=0, unresolved=0 (confirmed again).
+- fix_count_delta=0 this cycle (resolution via git; .ai update for handover will be committed).
+- Will verify gates, push --force-with-lease, post comment "Automated fix: resolved merge conflicts and rebased."
+- Timestamp: 2026-06-17 (resume cycle)
+- last_status will be healthy after.
+
 **PR Babysit Status (rkurc/meal-planner#28) - Conflict Resolution (standalone pr/code-quality-gates):**
 - Fresh query: state=OPEN, mergeable=CONFLICTING, mergeStateStatus=DIRTY, reviewDecision="", statusCheckRollup=[], headRefName=pr/code-quality-gates, baseRefName=main.
 - git fetch origin; git checkout -B pr/code-quality-gates origin/pr/code-quality-gates; git rebase origin/main.
