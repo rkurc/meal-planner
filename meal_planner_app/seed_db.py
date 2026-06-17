@@ -62,6 +62,54 @@ def seed_database():
 
     print("Database seeding complete!")
 
+    # Always attempt to seed the Weekly Meal Plan (idempotent inside)
+    # even if recipes were already present (fixes early-return skip).
+    seed_meal_plans()
+
+
+def seed_meal_plans():
+    """Seeds a sample meal plan using existing recipes (idempotent check)."""
+    try:
+        with urllib.request.urlopen(f"{API_BASE_URL}/meal-plans") as response:
+            if response.status == 200:
+                existing = json.loads(response.read().decode())
+                if any("Weekly Meal Plan" in (mp.get("name", "") for mp in existing)):
+                    logger.info(
+                        "Weekly Meal Plan already exists. Skipping meal plan seed."
+                    )
+                    return
+    except Exception:
+        pass
+
+    # Fetch current recipes
+    recipes = get_recipes() or []
+    if not recipes:
+        logger.warning("No recipes found to build meal plan seed.")
+        return
+
+    recipe_ids = [r["id"] for r in recipes[:3]]  # use up to the 3 seeded
+    plan_data = {
+        "name": "Weekly Meal Plan",
+        "description": "E2E test plan containing seeded recipes.",
+        "recipe_ids": recipe_ids,
+    }
+
+    url = f"{API_BASE_URL}/meal-plans"
+    headers = {"Content-Type": "application/json"}
+    data = json.dumps(plan_data).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req) as response:
+            if response.status == 201:
+                created = json.loads(response.read().decode())
+                logger.info(
+                    "Seeded meal plan: %s (id=%s)",
+                    created.get("name"),
+                    created.get("id"),
+                )
+    except Exception as e:
+        logger.error("Failed to seed meal plan: %s", e)
+
 
 if __name__ == "__main__":
     seed_database()
