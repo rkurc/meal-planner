@@ -7,7 +7,13 @@ used by the E2E tests (see frontend/e2e/main.spec.js) and the
 test-only /api/test/seed-db endpoint.
 """
 
-from meal_planner_app.crud import create_recipe, reset_recipes_db
+from meal_planner_app.crud import (
+    create_recipe,
+    reset_recipes_db,
+    list_recipes,
+    list_meal_plans,
+    create_meal_plan,
+)
 
 # Single source of truth for seeded recipe data.
 # Keys match the kwargs expected by crud.create_recipe.
@@ -69,46 +75,26 @@ def seed_database():
 
 def seed_meal_plans():
     """Seeds a sample meal plan using existing recipes (idempotent check)."""
-    try:
-        with urllib.request.urlopen(f"{API_BASE_URL}/meal-plans") as response:
-            if response.status == 200:
-                existing = json.loads(response.read().decode())
-                if any("Weekly Meal Plan" in (mp.get("name", "") for mp in existing)):
-                    logger.info(
-                        "Weekly Meal Plan already exists. Skipping meal plan seed."
-                    )
-                    return
-    except Exception:
-        pass
-
-    # Fetch current recipes
-    recipes = get_recipes() or []
-    if not recipes:
-        logger.warning("No recipes found to build meal plan seed.")
+    existing_plans = list_meal_plans()
+    if any(
+        "Weekly Meal Plan" in (getattr(mp, "name", "") or "") for mp in existing_plans
+    ):
+        print("Weekly Meal Plan already exists. Skipping meal plan seed.")
         return
 
-    recipe_ids = [r["id"] for r in recipes[:3]]  # use up to the 3 seeded
-    plan_data = {
-        "name": "Weekly Meal Plan",
-        "description": "E2E test plan containing seeded recipes.",
-        "recipe_ids": recipe_ids,
-    }
+    # Fetch current recipes (use local crud, not API)
+    recipes = list_recipes() or []
+    if not recipes:
+        print("No recipes found to build meal plan seed.")
+        return
 
-    url = f"{API_BASE_URL}/meal-plans"
-    headers = {"Content-Type": "application/json"}
-    data = json.dumps(plan_data).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    try:
-        with urllib.request.urlopen(req) as response:
-            if response.status == 201:
-                created = json.loads(response.read().decode())
-                logger.info(
-                    "Seeded meal plan: %s (id=%s)",
-                    created.get("name"),
-                    created.get("id"),
-                )
-    except Exception as e:
-        logger.error("Failed to seed meal plan: %s", e)
+    recipe_ids = [r.recipe_id for r in recipes[:2]]  # use up to the seeded ones
+    plan = create_meal_plan(
+        name="Weekly Meal Plan",
+        description="E2E test plan containing seeded recipes.",
+        recipe_ids=recipe_ids,
+    )
+    print(f"Seeded meal plan: {plan.name} (id={plan.meal_plan_id})")
 
 
 if __name__ == "__main__":

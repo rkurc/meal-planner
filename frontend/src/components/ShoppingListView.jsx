@@ -262,5 +262,4 @@ ShoppingListView.propTypes = {
   mealPlanName: PropTypes.string.isRequired,
 };
 
-
 export default ShoppingListView;
