@@ -1,6 +1,13 @@
 # Meal Planner Application
 
-This is a simple web application for managing recipes and meal plans. It features a Flask backend and a React frontend.
+This is a web application for managing recipes and meal plans. It features a Flask backend (full REST API) + dual UIs (complete legacy Jinja2 + modern React SPA with feature parity for recipes, meal plans, and shopping lists).
+
+**Current reality (as of 2026-06-16):** 
+- Full CRUD APIs + React for recipes, meal plans, shopping lists.
+- 65 backend tests passing; 8 E2E.
+- No Automatic Recipe Discovery or standalone ingredient master list (future).
+- Dev via Docker strongly preferred for all checks (see AGENTS.md).
+- Legacy UI coexists with React.
 
 ## Development
 
@@ -46,16 +53,18 @@ Once the Dev Container is running, you can open a new terminal within VS Code (`
     ```
     The frontend will be available at `http://localhost:5173`. The Vite server is configured to proxy API requests to the backend.
 
-*   **Run Backend Tests:**
+*   **Run Backend Tests:** (All verifications via Docker dev image recommended)
     ```bash
-    pytest
+    docker run --rm -v $(pwd):/app -w /app meal-planner-dev python -m pytest meal_planner_app/tests/ -q
     ```
+    (65 tests currently pass.)
 
 *   **Run Frontend E2E Tests:**
-    First, ensure the backend server is running in a separate terminal. Then, run:
+    Use Docker or ensure servers up. From project root:
     ```bash
-    npx playwright test --prefix frontend
+    docker run --rm -v $(pwd)/frontend:/app/frontend -w /app/frontend meal-planner-dev npm run test
     ```
+    (8 E2E tests for React flows.)
 
 ## Production Deployment
 
