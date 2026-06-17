@@ -9,6 +9,7 @@ const MealPlanDetail = () => {
   const [mealPlan, setMealPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [recipesInPlan, setRecipesInPlan] = useState([]);
 
   useEffect(() => {
     axios
@@ -22,6 +23,24 @@ const MealPlanDetail = () => {
         setLoading(false);
       });
   }, [id]);
+
+  useEffect(() => {
+    if (!mealPlan || !mealPlan.recipe_ids || mealPlan.recipe_ids.length === 0) {
+      setRecipesInPlan([]);
+      return;
+    }
+    // Fetch all recipes then filter (small dataset; keeps one request)
+    axios
+      .get("/api/recipes")
+      .then((res) => {
+        const byId = Object.fromEntries(res.data.map((r) => [r.id, r]));
+        const resolved = mealPlan.recipe_ids
+          .map((rid) => byId[rid])
+          .filter(Boolean);
+        setRecipesInPlan(resolved);
+      })
+      .catch(() => setRecipesInPlan([]));
+  }, [mealPlan]);
 
   const handleDelete = () => {
     if (window.confirm("Are you sure you want to delete this meal plan?")) {
@@ -61,9 +80,9 @@ const MealPlanDetail = () => {
         <p className="text-gray-600 mb-6">{mealPlan.description}</p>
 
         <h3 className="text-2xl font-semibold text-gray-700 mb-4">Recipes</h3>
-        {mealPlan.recipes && mealPlan.recipes.length > 0 ? (
+        {recipesInPlan.length > 0 ? (
           <ul className="space-y-2">
-            {mealPlan.recipes.map((recipe) => (
+            {recipesInPlan.map((recipe) => (
               <li key={recipe.id} className="bg-gray-100 p-3 rounded-md">
                 <span className="font-medium">{recipe.name}</span>
               </li>

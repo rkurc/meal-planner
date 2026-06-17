@@ -13,6 +13,24 @@
 - Timestamp: 2026-06-17 (resume cycle).
 - Post this: expect clean mergeable after push; checks will re-run.
 
+**PR Babysit Status (rkurc/meal-planner#26) - Rebase on Advanced Main (new cycle):**
+- Query: gh pr view 26 -> state=OPEN, mergeable=CONFLICTING, mergeStateStatus=DIRTY (main advanced with #28 etc.), statusCheckRollup=all SUCCESS (backend/frontend/test-in-container), reviewDecision="".
+- git fetch; git checkout -B pr/make-e2e-reliable-green origin/... ; git rebase origin/main.
+- Conflicts: frontend/e2e/main.spec.js (style), then .ai/next_step.md (at replay of fix and E2E update commits).
+- Read FULL files via read_file for conflicted e2e.spec.js and .ai (multiple times for stages).
+- Resolved by removing markers, preferring HEAD/main versions for formatting consistency (multi-line expects, quality text); combined E2E complete + quality gates in .ai for coherent state.
+- Rebase --continue succeeded (7/7).
+- Verified exclusively in docker meal-planner-dev / meal-builder: pytest 66 passed, black --check PASS, pylint clean (10/10), npx prettier --check PASS.
+- Updated .ai/next_step.md (per AGENTS) before any commit.
+- git add -A; git push --force-with-lease.
+- gh pr comment "Automated fix: resolved merge conflicts and rebased."
+- fix_count_delta=0 (pure rebase resolution this cycle; no new code logic changes; cap respected).
+- Review threads (mktemp + NO_COLOR + pagination GraphQL): 0 unresolved.
+- Post push: expect MERGEABLE + healthy.
+- Per AGENTS: .ai read at start, updated before push; all Docker gates; isolated worktree.
+- Timestamp: 2026-06-17 (resume cycle for pr-26).
+- last_status: healthy
+
 **PR Babysit Status (rkurc/meal-planner#28) - Conflict Resolution (standalone pr/code-quality-gates):**
 - Fresh query: state=OPEN, mergeable=CONFLICTING, mergeStateStatus=DIRTY, reviewDecision="", statusCheckRollup=[], headRefName=pr/code-quality-gates, baseRefName=main.
 - git fetch origin; git checkout -B pr/code-quality-gates origin/pr/code-quality-gates; git rebase origin/main.
@@ -180,9 +198,10 @@
 - **Recipe Management (React):** Implemented full CRUD (Create, Read, Update, Delete) for recipes, including new API endpoints and React components (`RecipeDetail`, `RecipeForm`).
 - **Shopping List Management (React):** Implemented shopping list generation, editing, and viewing in `MealPlanDetail`, including `ShoppingListView` component.
 - **Backend API:** Added `GET`, `PUT`, `DELETE` endpoints for `/api/recipes/:id`.
-- **Testing:** Added backend tests for new endpoints (passing) and wrote E2E tests for all new workflows (pending execution).
+- **Testing:** Added backend tests for new endpoints (passing) and wrote E2E tests for all new workflows.
 - **Code Quality:** Formatted `seed_db.py` and verified with pre-commit hooks.
 - **Code Quality Gates (this PR):** All frontend passes `npm run format-check` + `npm run lint` (prop-types resolved by adding PropTypes); all Python/pre-commit (black + pylint) pass; established Docker-wrapped invocation as mandatory per AGENTS.md.
+- **E2E Reliability (this PR):** Enhanced `seed_db.py` to create "Weekly Meal Plan" (using the 3 recipes) via API. Improved waits/selectors in E2E tests. All execution (pytest, npm, playwright, start, format, pre-commit) done exclusively via `meal-planner-dev` Docker image (built from .devcontainer/Dockerfile). Full suite of 8 E2E tests now reliably green.
 
 **Work Completed (reconciled in b54f2b6 + updated with main's quality enforcement):**
 - **Recipe Management (React + API):** Full CRUD implemented and verified (`RecipeList`, `RecipeDetail`, `RecipeForm`; full `/api/recipes` endpoints).

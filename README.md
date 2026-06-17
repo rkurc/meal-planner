@@ -68,16 +68,21 @@ Once the Dev Container is running, you can open a new terminal within VS Code (`
 
 ## Production Deployment
 
-The project includes a multi-stage `Dockerfile` to build a lean, secure image for production.
+The project includes a multi-stage `Dockerfile` to build a lean, secure image for production. The final image runs as non-root, contains no Node.js, and serves both the Flask API and the built React SPA.
 
 1.  **Build the production image:**
     From the root of the project, run:
     ```bash
-    docker build -t meal-planner-app .
+    docker build -t meal-planner-prod .
     ```
 
 2.  **Run the production container:**
     ```bash
-    docker run -d -p 5000:5000 --name meal-planner meal-planner-app
+    docker run -d -p 5000:5000 --name meal-planner-prod meal-planner-prod
     ```
-    The application will be available at `http://localhost:5000`. It runs using a Gunicorn WSGI server.
+    The API will be available at `http://localhost:5000` (e.g. `/api/recipes`).
+    The React UI is served at `http://localhost:5000/ui/` (catch-all for client-side routes).
+
+    The container uses gunicorn (4 workers) and runs as the non-root `appuser`.
+
+For full development with hot module replacement (HMR), use the VS Code Dev Container or run `./start_and_seed.sh` (requires Node.js on host or use the `meal-planner-dev` image).

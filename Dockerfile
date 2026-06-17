@@ -18,8 +18,8 @@ RUN npm run build
 FROM python:3.9-slim-bullseye AS backend-builder
 WORKDIR /app
 
-# Install Gunicorn
-RUN pip install gunicorn
+# Install Gunicorn (prod WSGI server, not in base deps)
+RUN pip install --no-cache-dir gunicorn
 
 # Copy pyproject.toml and install production dependencies
 COPY pyproject.toml ./
@@ -33,29 +33,29 @@ WORKDIR /app
 # Create a non-root user and group
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Copy installed packages from the backend-builder stage
+# Copy python packages and gunicorn binary from backend-builder
 COPY --from=backend-builder /usr/local/lib/python3.9/site-packages/ /usr/local/lib/python3.9/site-packages/
 COPY --from=backend-builder /usr/local/bin/gunicorn /usr/local/bin/gunicorn
 
-# Copy built frontend assets from the frontend-builder stage
+# Copy built React assets from the frontend-builder stage
 COPY --from=frontend-builder /app/meal_planner_app/static/react_app/ /app/meal_planner_app/static/react_app/
 
-# Copy the application source code
+# Copy only the app package (source layout for runtime paths + templates + static base)
+# NO broad "COPY . ." which would pull in frontend/ node_modules, dev files, and cause root ownership
 COPY meal_planner_app/ ./meal_planner_app/
 
-# Change ownership of the app directory
+# Explicitly copy start script (dev-only override, do NOT rely on broad copy)
+COPY start_and_seed.sh ./start_and_seed.sh
+
+# NOW fix ownership of everything (after ALL copies)
 RUN chown -R appuser:appuser /app
+RUN chmod +x /app/start_and_seed.sh || true
 
-# Copy the rest of the application
-WORKDIR /app
-COPY . .
-RUN chmod +x start_and_seed.sh
-
-# Switch to the non-root user
+# Switch to the non-root user (AFTER copies + chown)
 USER appuser
 
-# Expose ports
-EXPOSE 5000 5173
+# Expose only the prod port
+EXPOSE 5000
 
-# Default command (can be overridden)
-CMD ["./start_and_seed.sh"]
+# Prod CMD: gunicorn serving the Flask app (no npm, no dev server, no debug)
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "meal_planner_app.main:app"]
