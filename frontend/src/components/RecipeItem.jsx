@@ -1,7 +1,7 @@
 // frontend/src/components/RecipeItem.jsx
 import React from "react";
-import { Link } from "react-router-dom";
 import PropTypes from "prop-types";
+import { Link } from "react-router-dom";
 
 const RecipeItem = ({ recipe }) => {
   return (

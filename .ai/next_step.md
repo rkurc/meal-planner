@@ -1,3 +1,21 @@
+**PR Babysit Status (rkurc/meal-planner#28) - Conflict Resolution (standalone pr/code-quality-gates):**
+- Fresh query: state=OPEN, mergeable=CONFLICTING, mergeStateStatus=DIRTY, reviewDecision="", statusCheckRollup=[], headRefName=pr/code-quality-gates, baseRefName=main.
+- git fetch origin; git checkout -B pr/code-quality-gates origin/pr/code-quality-gates; git rebase origin/main.
+- Conflicts detected in 6 files (UU/AA): .ai/next_step.md, frontend/src/components/RecipeDetail.jsx, RecipeForm.jsx, RecipeItem.jsx, ShoppingListView.jsx, meal_planner_app/tests/test_api.py. (Also modify/delete on package-lock.json in next replay commit.)
+- Read FULL conflicting files using read_file tool (all sections inspected including markers).
+- Resolution strategy (combining intent): preferred HEAD/main versions for feature files (main already has #23 merged + prior quality fixes like propTypes + 2-space prettier formatting); for package-lock accepted delete (not present in main at frontend/package-lock.json); for propTypes hunks kept isRequired variants from HEAD (more correct for eslint); cleaned duplicate imports.
+- Used git checkout --ours + git add for initial, then search_replace to strip remaining <<< === >>> markers on 2 files during subsequent replay commits; rebase --continue x3 succeeded.
+- Post-rebase verification (per instructions + AGENTS.md): 
+  - docker run --rm -v $(pwd):/app -w /app meal-planner-dev : black --check PASS, pylint 10/10, pytest 66 passed.
+  - Frontend verify via docker overlay (baked node_modules + host src copy to /tmp): prettier --check PASS ("All matched files use Prettier code style!"), eslint PASS, npm run build succeeded.
+- Then: git push --force-with-lease; gh pr comment 28 --body "Automated fix: resolved merge conflicts and rebased."
+- fix_count_delta=1 (conflicts resolution counts as the cycle fix; under cap of 3; no additional code fixes).
+- MANDATORY review threads step (exact: mktemp + NO_COLOR=1 gh api graphql full pagination while loop + python accumulate): totalCount=0, 0 nodes, 0 unresolved. reviewDecision remains "".
+- Post-push re-query: mergeable=MERGEABLE, mergeStateStatus=UNSTABLE, all checks QUEUED (backend/frontend/test-in-container; no FAILURE/ERROR yet).
+- Per AGENTS.md: .ai/next_step.md read at task start + updated here before finalizing; all verify in Docker (no bare host node/pip); only edits in isolated worktree; pre-commit not auto but gates passed in docker.
+- Timestamp: 2026-06-17
+- last_status: conflicts (resolved+verified)
+
 **PR Babysit Status (rkurc/meal-planner#23) - Prettier Format Fix Pass (post-propTypes, continuation):**
 - Re-queried gh pr view 23: state=OPEN, mergeable=MERGEABLE, mergeStateStatus=UNSTABLE, reviewDecision="", frontend=FAILURE (now on "frontendFormat with prettier" / prettier --check . ; previous lint prop-types was fixed), backend+test-in-container=SUCCESS. Confirmed the failure was due to un-persisted formatting from prior docker-overlay verify (no explicit copy-back of --write results to host worktree source before last commit).
 - Safe checkout: git checkout -B rkurc/further-migration origin/rkurc/further-migration.
@@ -149,10 +167,14 @@
 - **Backend API:** Added `GET`, `PUT`, `DELETE` endpoints for `/api/recipes/:id`.
 - **Testing:** Added backend tests for new endpoints (passing) and wrote E2E tests for all new workflows (pending execution).
 - **Code Quality:** Formatted `seed_db.py` and verified with pre-commit hooks.
+- **Code Quality Gates (this PR):** All frontend passes `npm run format-check` + `npm run lint` (prop-types resolved by adding PropTypes); all Python/pre-commit (black + pylint) pass; established Docker-wrapped invocation as mandatory per AGENTS.md.
 
-**CURRENT PRIORITY: Verification & Polish**
+**CURRENT PRIORITY: Verification & Polish (with Docker enforcement)**
 
-The core features are implemented. The immediate priority is to enable full E2E verification by fixing the Docker build and running the test suite.
+The code quality gates are now in place (see AGENTS.md). All future work **MUST** invoke format, lint, pre-commit, pytest etc. via the `meal-planner-dev` Docker image:
+`docker run --rm -v $(pwd):/app -w /app meal-planner-dev ...` (or frontend equiv). Direct calls only if tools locally match.
+
+The immediate priority is to enable full E2E verification by fixing the Docker build and running the test suite.
 
 **Next Implementation Steps:**
 1.  **Fix Docker Build:**
@@ -160,8 +182,8 @@ The core features are implemented. The immediate priority is to enable full E2E 
     - Verify E2E tests pass in the Docker environment.
 
 2.  **Run E2E Tests:**
-    - Install Node.js/npm on host (or rely on fixed Docker container).
-    - Execute Playwright tests to verify all workflows.
+    - Execute Playwright tests inside meal-planner-dev Docker.
+    - Verify all workflows.
 
 3.  **UX Improvements:**
     - Add loading spinners and toast notifications for better user feedback.
