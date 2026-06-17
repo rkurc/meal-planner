@@ -1,4 +1,8 @@
 // @ts-check
+// IMPORTANT: All E2E execution (npm, playwright) MUST go through the meal-planner-dev Docker image.
+// Example:
+//   docker run --rm -v $(pwd):/app -w /app/frontend --network host meal-planner-dev sh -c 'npm ci && npx playwright install --with-deps && npx playwright test'
+// (Servers started via start_and_seed.sh in another container or use container network + baseURL adjustment.)
 import { test, expect } from "@playwright/test";
 
 /* global process */
@@ -264,7 +268,7 @@ test("should view recipe details", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Tomato Pasta" }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Edit Recipe" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Edit Recipe" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Delete Recipe" }),
   ).toBeVisible();
@@ -337,11 +341,9 @@ test("should generate shopping list from meal plan", async ({ page }) => {
     // Generate the shopping list
     await generateButton.click();
 
-    // Wait for the list to be generated
-    await page.waitForTimeout(1000);
-
-    // Verify the shopping list is now visible
-    await expect(editButton).toBeVisible();
+    // Wait for the list to be generated (use network + explicit visible wait for reliability)
+    await page.waitForLoadState("networkidle");
+    await expect(editButton).toBeVisible({ timeout: 5000 });
   }
 });
 
@@ -352,23 +354,26 @@ test("should edit shopping list items", async ({ page }) => {
   await page.getByText("Weekly Meal Plan").click();
   await page.waitForURL("**/meal-plans/*");
 
+  // Ensure shopping list section (and its buttons) have loaded
+  await expect(
+    page.getByRole("heading", { name: /Shopping List/ }),
+  ).toBeVisible({ timeout: 5000 });
+
   // Generate shopping list if not already present
   const generateButton = page.getByRole("button", {
     name: "Generate Shopping List",
   });
   if (await generateButton.isVisible()) {
     await generateButton.click();
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("button", { name: "Edit" })).toBeVisible({
+      timeout: 5000,
+    });
   }
 
-  // Click Edit button for shopping list
-  const editButtons = await page.getByRole("button", { name: "Edit" }).all();
-  // Click the second Edit button (first is for meal plan, second for shopping list)
-  if (editButtons.length > 1) {
-    await editButtons[1].click();
-  } else {
-    await editButtons[0].click();
-  }
+  // Click Edit button for shopping list (robust first match; meal plan edit is a link not button)
+  const editButton = page.getByRole("button", { name: "Edit" }).first();
+  await editButton.click();
 
   // Add a new item
   await page.getByRole("button", { name: "Add Item" }).click();
@@ -391,8 +396,10 @@ test("should edit shopping list items", async ({ page }) => {
 
   // Wait for save confirmation
   page.on("dialog", (dialog) => dialog.accept());
-  await page.waitForTimeout(500);
+  await page.waitForLoadState("networkidle");
 
   // Verify the item is in the list
-  await expect(page.getByText("5 kg E2E Test Item")).toBeVisible();
+  await expect(page.getByText("5 kg E2E Test Item")).toBeVisible({
+    timeout: 5000,
+  });
 });

@@ -1,6 +1,14 @@
 #!/bin/bash
 set -e
 
+# NOTE: This script is for DEVELOPMENT only.
+# It starts Flask (debug) + Vite dev server (npm run dev) then seeds data.
+# The production image (built from root Dockerfile) does NOT use this:
+#   - no Node/npm at runtime
+#   - uses gunicorn directly
+#   - serves React SPA from /ui/
+# For dev with full HMR use the devcontainer or run this on host with Node.
+
 # Start the backend in the background
 echo "Starting Flask backend..."
 python -m meal_planner_app.main &

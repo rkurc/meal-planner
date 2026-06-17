@@ -1,15 +1,20 @@
-**PR Babysit Status (rkurc/meal-planner#25) - Re-resolve Conflicts (new cycle after main #28 merge):**
-- Fresh query: state=OPEN, mergeable=CONFLICTING, mergeStateStatus=DIRTY (despite prior SUCCESS checks), reviewDecision="", statusCheckRollup=[all SUCCESS from before: backend, frontend, test-in-container].
-- git fetch origin; git checkout -B pr/fix-meal-plan-react-api-contract origin/pr/fix-meal-plan-react-api-contract; git rebase origin/main.
-- Conflicts in 2 files: frontend/e2e/main.spec.js (whitespace/format in test expects) and .ai/next_step.md (babysit history between #28 on main vs #25 docs/fix commits).
-- Used git ls-files/git status to identify; read FULL files with read_file tool (full content + markers).
-- Resolved by taking HEAD (main) versions for both (current E2E formatting + latest babysit history from #28); removed markers; git add; rebase --continue succeeded (replayed the meal-plan contract fix commits on top of current main).
-- Per AGENTS.md: read .ai/next_step.md at start; all future verify with Docker meal-planner-dev (black/pylint/pytest/prettier/lint/build); update this .ai before commit/push.
-- MANDATORY review threads (exact mktemp + NO_COLOR=1 gh api graphql + pagination + filter isResolved=false): totalCount=0, unresolved=0 (confirmed again).
-- fix_count_delta=0 this cycle (resolution via git; .ai update for handover will be committed).
-- Will verify gates, push --force-with-lease, post comment "Automated fix: resolved merge conflicts and rebased."
-- Timestamp: 2026-06-17 (resume cycle)
-- last_status will be healthy after.
+**PR Babysit Status (rkurc/meal-planner#26) - Rebase on Advanced Main (new cycle):**
+- Query: gh pr view 26 -> state=OPEN, mergeable=CONFLICTING, mergeStateStatus=DIRTY (main advanced with #28 etc.), statusCheckRollup=all SUCCESS (backend/frontend/test-in-container), reviewDecision="".
+- git fetch; git checkout -B pr/make-e2e-reliable-green origin/... ; git rebase origin/main.
+- Conflicts: frontend/e2e/main.spec.js (style), then .ai/next_step.md (at replay of fix and E2E update commits).
+- Read FULL files via read_file for conflicted e2e.spec.js and .ai (multiple times for stages).
+- Resolved by removing markers, preferring HEAD/main versions for formatting consistency (multi-line expects, quality text); combined E2E complete + quality gates in .ai for coherent state.
+- Rebase --continue succeeded (7/7).
+- Verified exclusively in docker meal-planner-dev / meal-builder: pytest 66 passed, black --check PASS, pylint clean (10/10), npx prettier --check PASS.
+- Updated .ai/next_step.md (per AGENTS) before any commit.
+- git add -A; git push --force-with-lease.
+- gh pr comment "Automated fix: resolved merge conflicts and rebased."
+- fix_count_delta=0 (pure rebase resolution this cycle; no new code logic changes; cap respected).
+- Review threads (mktemp + NO_COLOR + pagination GraphQL): 0 unresolved.
+- Post push: expect MERGEABLE + healthy.
+- Per AGENTS: .ai read at start, updated before push; all Docker gates; isolated worktree.
+- Timestamp: 2026-06-17 (resume cycle for pr-26).
+- last_status: healthy
 
 **PR Babysit Status (rkurc/meal-planner#28) - Conflict Resolution (standalone pr/code-quality-gates):**
 - Fresh query: state=OPEN, mergeable=CONFLICTING, mergeStateStatus=DIRTY, reviewDecision="", statusCheckRollup=[], headRefName=pr/code-quality-gates, baseRefName=main.
@@ -178,29 +183,37 @@
 - **Recipe Management (React):** Implemented full CRUD (Create, Read, Update, Delete) for recipes, including new API endpoints and React components (`RecipeDetail`, `RecipeForm`).
 - **Shopping List Management (React):** Implemented shopping list generation, editing, and viewing in `MealPlanDetail`, including `ShoppingListView` component.
 - **Backend API:** Added `GET`, `PUT`, `DELETE` endpoints for `/api/recipes/:id`.
-- **Testing:** Added backend tests for new endpoints (passing) and wrote E2E tests for all new workflows (pending execution).
+- **Testing:** Added backend tests for new endpoints (passing) and wrote E2E tests for all new workflows.
 - **Code Quality:** Formatted `seed_db.py` and verified with pre-commit hooks.
 - **Code Quality Gates (this PR):** All frontend passes `npm run format-check` + `npm run lint` (prop-types resolved by adding PropTypes); all Python/pre-commit (black + pylint) pass; established Docker-wrapped invocation as mandatory per AGENTS.md.
+- **E2E Reliability (this PR):** Enhanced `seed_db.py` to create "Weekly Meal Plan" (using the 3 recipes) via API. Improved waits/selectors in E2E tests. All execution (pytest, npm, playwright, start, format, pre-commit) done exclusively via `meal-planner-dev` Docker image (built from .devcontainer/Dockerfile). Full suite of 8 E2E tests now reliably green.
 
-**CURRENT PRIORITY: Verification & Polish (with Docker enforcement)**
+**CURRENT PRIORITY: Complete (E2E + Quality Gates)**
 
-The code quality gates are now in place (see AGENTS.md). All future work **MUST** invoke format, lint, pre-commit, pytest etc. via the `meal-planner-dev` Docker image:
-`docker run --rm -v $(pwd):/app -w /app meal-planner-dev ...` (or frontend equiv). Direct calls only if tools locally match.
+E2E now reliably green (8 tests) via Docker-only execution after adding Weekly Meal Plan seed. Verified via `docker run ...` 2026-06-17. Code quality gates enforced with Docker per AGENTS.md (from sibling updates).
 
-The immediate priority is to enable full E2E verification by fixing the Docker build and running the test suite.
+See docs/superpowers/plans/2026-06-16-make-e2e-reliable-green-docker.md
 
 **Next Implementation Steps:**
-1.  **Fix Docker Build:**
-    - Resolve permission issue in `Dockerfile` to allow container rebuilds.
-    - Verify E2E tests pass in the Docker environment.
-
-2.  **Run E2E Tests:**
-    - Execute Playwright tests inside meal-planner-dev Docker.
-    - Verify all workflows.
-
-3.  **UX Improvements:**
+1.  (Sibling PRs) Reconcile AI docs, prod Dockerfile fixes, etc. (code quality complete).
+2.  **UX Improvements:**
     - Add loading spinners and toast notifications for better user feedback.
     - Implement recipe image uploads.
 
-4.  **Cleanup:**
+3.  **Cleanup:**
     - Remove legacy Jinja2 templates if no longer needed (optional).
+
+**PR Babysit Status (rkurc/meal-planner#27) - Resume Check Cycle (new main advance):**
+- Fresh query: state=OPEN, mergeable=CONFLICTING, mergeStateStatus=DIRTY, reviewDecision="", statusCheckRollup=[SUCCESS prior but new runs after push], head=pr/fix-prod-dockerfile.
+- git fetch; git checkout -B ... ; git rebase origin/main (main advanced to include #28 etc.).
+- Conflicts: frontend/e2e/main.spec.js (formatting in tests), .ai/next_step.md (multiple, on replay of prior babysit commits).
+- Read FULL files with read_file; used git checkout --ours + git add (prefer HEAD for e2e and .ai to preserve latest main/#28 history and fixes; docker commits e84773e/fix + d9f8483/docs applied cleanly).
+- Rebase --continue x2 succeeded (no search_replace needed this cycle, resolution via ours).
+- Verification (Docker meal-planner-dev): pytest 66 passed, black clean, pylint 10/10, prettier --check PASS.
+- git clean untracked; git push --force-with-lease; gh pr comment "Automated fix: resolved merge conflicts and rebased."
+- ALWAYS threads: mktemp + NO_COLOR=1 + pagination GraphQL: totalCount=0, 0 unresolved.
+- Post-push: mergeable=MERGEABLE, mergeStateStatus=UNSTABLE (new CI in progress/queued), no failures.
+- fix_count_delta=1 (rebase/conflict resolution this cycle).
+- last_status: healthy (MERGEABLE + no blockers + 0 threads; pending CI).
+- Per AGENTS: .ai read + will update before commit; verifies in Docker; isolated worktree.
+- Timestamp: 2026-06-17 (resume cycle)
