@@ -191,3 +191,18 @@ The immediate priority is to enable full E2E verification by fixing the Docker b
 
 4.  **Cleanup:**
     - Remove legacy Jinja2 templates if no longer needed (optional).
+
+**PR Babysit Status (rkurc/meal-planner#27) - Resume Check Cycle (new main advance):**
+- Fresh query: state=OPEN, mergeable=CONFLICTING, mergeStateStatus=DIRTY, reviewDecision="", statusCheckRollup=[SUCCESS prior but new runs after push], head=pr/fix-prod-dockerfile.
+- git fetch; git checkout -B ... ; git rebase origin/main (main advanced to include #28 etc.).
+- Conflicts: frontend/e2e/main.spec.js (formatting in tests), .ai/next_step.md (multiple, on replay of prior babysit commits).
+- Read FULL files with read_file; used git checkout --ours + git add (prefer HEAD for e2e and .ai to preserve latest main/#28 history and fixes; docker commits e84773e/fix + d9f8483/docs applied cleanly).
+- Rebase --continue x2 succeeded (no search_replace needed this cycle, resolution via ours).
+- Verification (Docker meal-planner-dev): pytest 66 passed, black clean, pylint 10/10, prettier --check PASS.
+- git clean untracked; git push --force-with-lease; gh pr comment "Automated fix: resolved merge conflicts and rebased."
+- ALWAYS threads: mktemp + NO_COLOR=1 + pagination GraphQL: totalCount=0, 0 unresolved.
+- Post-push: mergeable=MERGEABLE, mergeStateStatus=UNSTABLE (new CI in progress/queued), no failures.
+- fix_count_delta=1 (rebase/conflict resolution this cycle).
+- last_status: healthy (MERGEABLE + no blockers + 0 threads; pending CI).
+- Per AGENTS: .ai read + will update before commit; verifies in Docker; isolated worktree.
+- Timestamp: 2026-06-17 (resume cycle)
