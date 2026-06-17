@@ -244,7 +244,9 @@ test("should create a new recipe", async ({ page }) => {
   await page.waitForURL("**/recipes/*", { waitUntil: "networkidle" });
 
   // Verify recipe details are displayed
-  await expect(page.getByRole("heading", { name: "E2E Test Recipe" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "E2E Test Recipe" }),
+  ).toBeVisible();
   await expect(page.getByText("A recipe created by E2E test")).toBeVisible();
   await expect(page.getByText("2 cups Test Ingredient")).toBeVisible();
 });
@@ -259,9 +261,13 @@ test("should view recipe details", async ({ page }) => {
   await page.waitForURL("**/recipes/*");
 
   // Verify recipe details are visible
-  await expect(page.getByRole("heading", { name: "Tomato Pasta" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Tomato Pasta" }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Edit Recipe" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Delete Recipe" })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Delete Recipe" }),
+  ).toBeVisible();
 });
 
 test("should edit an existing recipe", async ({ page }) => {
@@ -317,10 +323,14 @@ test("should generate shopping list from meal plan", async ({ page }) => {
   await page.waitForURL("**/meal-plans/*");
 
   // Verify shopping list section is visible
-  await expect(page.getByRole("heading", { name: /Shopping List/ })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Shopping List/ }),
+  ).toBeVisible();
 
   // Check if "Generate Shopping List" button exists (if not already generated)
-  const generateButton = page.getByRole("button", { name: "Generate Shopping List" });
+  const generateButton = page.getByRole("button", {
+    name: "Generate Shopping List",
+  });
   const editButton = page.getByRole("button", { name: "Edit" });
 
   if (await generateButton.isVisible()) {
@@ -343,7 +353,9 @@ test("should edit shopping list items", async ({ page }) => {
   await page.waitForURL("**/meal-plans/*");
 
   // Generate shopping list if not already present
-  const generateButton = page.getByRole("button", { name: "Generate Shopping List" });
+  const generateButton = page.getByRole("button", {
+    name: "Generate Shopping List",
+  });
   if (await generateButton.isVisible()) {
     await generateButton.click();
     await page.waitForTimeout(1000);
@@ -384,4 +396,3 @@ test("should edit shopping list items", async ({ page }) => {
   // Verify the item is in the list
   await expect(page.getByText("5 kg E2E Test Item")).toBeVisible();
 });
-
