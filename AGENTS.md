@@ -50,6 +50,21 @@ npm run format
 ```
 (Note: You may need to add the `format` script to `frontend/package.json` if it does not exist. It should run `prettier --write .`)
 
+### Running All Checks via the meal-planner-dev Docker Image (Required)
+
+For consistency (especially in sandboxed or CI-like environments), invoke **every** format, lint, pre-commit, pytest, and playwright command through the Docker dev image:
+
+```bash
+# All checks via Docker dev image (required)
+docker run --rm -v $(pwd):/app -w /app meal-planner-dev python -m pytest meal_planner_app/tests/ -q --tb=no
+docker run --rm -v $(pwd)/frontend:/app/frontend -w /app/frontend meal-planner-dev npm run format-check
+docker run --rm -v $(pwd)/frontend:/app/frontend -w /app/frontend meal-planner-dev npm run lint
+docker run --rm -v $(pwd):/app -w /app meal-planner-dev pre-commit run --all-files
+docker run --rm -v $(pwd)/frontend:/app/frontend -w /app/frontend meal-planner-dev npm test
+```
+
+See also the `.devcontainer/Dockerfile` and docs/superpowers plans for details. Direct host runs are for convenience only when tools are locally available.
+
 ## Task Management
 
 ### The `.ai/next_step.md` File
