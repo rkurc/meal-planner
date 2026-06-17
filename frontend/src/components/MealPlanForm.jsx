@@ -16,17 +16,20 @@ const MealPlanForm = () => {
 
   useEffect(() => {
     const fetchRecipes = axios.get("/api/recipes");
-    const fetchMealPlan = id ? axios.get(`/api/meal-plans/${id}`) : null;
+    const fetches = [fetchRecipes];
+    if (id) {
+      fetches.push(axios.get(`/api/meal-plans/${id}`));
+    }
 
-    Promise.all([fetchRecipes, fetchMealPlan])
+    Promise.all(fetches)
       .then(([recipesResponse, mealPlanResponse]) => {
         setAllRecipes(recipesResponse.data);
         if (mealPlanResponse) {
-          const { name, description, recipes } = mealPlanResponse.data;
+          const data = mealPlanResponse.data;
           setFormData({
-            name,
-            description,
-            recipe_ids: recipes.map((r) => r.id),
+            name: data.name || "",
+            description: data.description || "",
+            recipe_ids: Array.isArray(data.recipe_ids) ? data.recipe_ids : [],
           });
         }
         setLoading(false);
@@ -44,7 +47,7 @@ const MealPlanForm = () => {
 
   const handleRecipeChange = (e) => {
     const { value, checked } = e.target;
-    const recipeId = parseInt(value, 10);
+    const recipeId = value; // keep as string UUID from API
     setFormData((prev) => {
       const newRecipeIds = checked
         ? [...prev.recipe_ids, recipeId]
