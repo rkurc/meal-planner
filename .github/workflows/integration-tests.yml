@@ -13,9 +13,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Build E2E test image
+      - name: Build E2E test image using bake (for version sync)
         run: |
-          docker build -t meal-planner-e2e -f .devcontainer/Dockerfile .
+          docker buildx bake --load ci -t meal-planner-e2e
+          # Tag for compatibility with existing steps
+          docker tag meal-planner-e2e meal-planner-e2e
 
       - name: Run E2E tests
         run: |

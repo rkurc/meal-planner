@@ -14,7 +14,8 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          # Keep in sync with docker-bake.hcl default
+          python-version: '3.9'
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -36,10 +37,24 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          # Keep in sync with docker-bake.hcl default (Vite 7 + Tailwind 4 require >=20.19)
+          node-version: '20'
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Lint with eslint
         run: npm run lint
       - name: Format with prettier
         run: npm run format-check
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Validate docker-bake configuration
+        run: docker buildx bake --print
+      - name: Build prod image (smoke test)
+        run: docker buildx bake prod --load
+      - name: Build ci image (smoke test)
+        run: docker buildx bake ci --load

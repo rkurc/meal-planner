@@ -32,6 +32,26 @@ from typing import List, Dict
 app = Flask(__name__)
 
 
+@app.before_request
+def remove_trailing_slash():
+    """Normalize URLs: collapse multiple slashes and redirect trailing slash versions.
+    e.g. /recipes//edit -> /recipes/edit , /recipes/ -> /recipes
+    This prevents 404s from common typing / copy-paste errors on legacy routes.
+
+    We skip /ui paths so the React SPA and its client-side router aren't interfered with.
+    """
+    if request.path.startswith("/ui"):
+        return None
+
+    if request.path != "/":
+        # Collapse //+ to single / and strip trailing /
+        normalized = re.sub(r"/+", "/", request.path).rstrip("/")
+        if not normalized:
+            normalized = "/"
+        if normalized != request.path:
+            return redirect(normalized, code=308)
+
+
 @app.template_filter("nl2br")
 def nl2br(s):
     """Converts newlines in a string to HTML <br> tags."""
@@ -647,11 +667,12 @@ def api_seed_database():
 
 
 # --- React App Route ---
-@app.route("/ui/")
+@app.route("/ui", defaults={"path": ""}, strict_slashes=False)
+@app.route("/ui/", defaults={"path": ""}, strict_slashes=False)
 @app.route("/ui/<path:path>")  # Catch-all for client-side routing
-def serve_react_app(path=None):
+def serve_react_app(path=""):
     """Serves the React frontend application."""
-    if path is None or "." not in path:
+    if not path or "." not in path:
         return send_from_directory("static/react_app", "index.html")
     return send_from_directory("static/react_app", path)
 
@@ -667,4 +688,5 @@ if __name__ == "__main__":
     # ingredients_data=[{'name': 'Lettuce', 'quantity': '1', 'unit': 'head'}])
 
     # crud.reset_meal_plans_db() # Optional: clear meal plans on start
-    app.run(debug=True)
+    # app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

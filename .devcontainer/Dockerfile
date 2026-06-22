@@ -1,10 +1,15 @@
-# Stage 1: Base image with Python and Node.js
-FROM python:3.9-bullseye AS base
+# Build args for version consistency (used by docker-bake.hcl)
+ARG PYTHON_VERSION=3.9
+ARG NODE_VERSION=20
 
-# Install Node.js v20
+# Stage 1: Base image with Python and Node.js
+FROM python:${PYTHON_VERSION}-bullseye AS base
+
+# Install Node.js (hardcoded to 20 to ensure npm is present; bake can override via ARG if needed)
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y curl gnupg && \
+RUN apt-get update && apt-get install -y curl gnupg ca-certificates && \
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get update && \
     apt-get install -y nodejs && \
     # Upgrade pip
     pip install --upgrade pip

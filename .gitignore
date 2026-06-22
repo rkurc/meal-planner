@@ -10,7 +10,7 @@ venv/
 *.egg-info
 
 # Docker
-.dockerignore
+# (note: .dockerignore should be committed, not listed here)
 
 # VS Code
 .vscode/
@@ -30,3 +30,5 @@ meal_planner_app/static/css/dist/
 # Test results
 test-results/
 frontend/test-results/
+.worktrees/
+worktrees/

@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Build outputs / generated
+meal_planner_app/static/css/dist/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Version control and editors
+.git/
+.gitignore
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment and secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Logs and temp
+*.log
+npm-debug.log*
+logs/
+tmp/
+temp/
+
+# Test outputs
+test-results/
+frontend/test-results/
+playwright-report/
+playwright/.cache/
+
+# OS / misc
+.DS_Store
+Thumbs.db
+*.md
+LICENSE
