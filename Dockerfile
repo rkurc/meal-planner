@@ -35,8 +35,8 @@ FROM python:${PYTHON_VERSION}-slim-bullseye AS final
 # Re-declare ARGs for clarity in this stage (matching how NODE_VERSION is handled).
 # This ensures PYTHON_VERSION from docker-bake.hcl / CLI overrides fully controls
 # the base image and any references (though COPY below uses version-agnostic paths).
-ARG PYTHON_VERSION=3.9
 ARG NODE_VERSION=20
+ARG PYTHON_VERSION=3.9
 WORKDIR /app
 
 # Install Node.js using the (major part of) ARG. Nodesource setup scripts only support

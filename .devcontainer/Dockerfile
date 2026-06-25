@@ -1,6 +1,6 @@
 # Build args for version consistency (used by docker-bake.hcl)
-ARG PYTHON_VERSION=3.9
 ARG NODE_VERSION=20
+ARG PYTHON_VERSION=3.9
 
 # Stage 1: Base image with Python and Node.js
 FROM python:${PYTHON_VERSION}-bullseye AS base

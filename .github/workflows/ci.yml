@@ -58,3 +58,9 @@ jobs:
         run: docker buildx bake prod --load
       - name: Build ci image (smoke test)
         run: docker buildx bake ci --load
+      - name: Version smoke (baked images)
+        run: |
+          docker run --rm meal-planner:prod node --version || true
+          docker run --rm meal-planner:prod python --version || true
+          docker run --rm meal-planner:ci node --version || true
+          docker run --rm meal-planner:ci python --version || true

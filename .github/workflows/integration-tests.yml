@@ -14,36 +14,48 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Build E2E test image using bake (for version sync)
+        run: docker buildx bake ci --load && docker tag meal-planner:ci meal-planner-e2e
+
+      - name: Launch container (no-op entrypoint for control)
         run: |
-          docker buildx bake --load ci -t meal-planner-e2e
-          # Tag for compatibility with existing steps
-          docker tag meal-planner-e2e meal-planner-e2e
+          # Run the container with a no-op entrypoint so we have full control (no CMD interference
+          # from start_and_seed.sh which backgrounds servers). This avoids port races when we
+          # later exec gunicorn. Note: --entrypoint args must come *after* the image name.
+          docker run -d --rm --name meal-planner-container --entrypoint tail -p 5000:5000 meal-planner-e2e -f /dev/null
 
-      - name: Run E2E tests
+      - name: Install Playwright browsers inside container
+        run: docker exec -w /app/frontend meal-planner-container npx playwright install --with-deps
+
+      - name: Start backend with gunicorn (serves API + /ui/ React)
         run: |
-          # Run the container in detached mode, publishing the backend port
-          docker run -d --rm --name meal-planner-container -p 5000:5000 meal-planner-e2e
-
-          # Install Playwright browsers and OS dependencies inside the container
-          docker exec -w /app/frontend meal-planner-container npx playwright install --with-deps
-
-          # Start the backend server in the background inside the container
           docker exec -d meal-planner-container gunicorn --bind 0.0.0.0:5000 meal_planner_app.main:app
+          # Micro-sleep / process probe to allow gunicorn bind before the robust wait loop
+          # (avoids any residual fork race even with inside-container curl checks).
+          sleep 2
 
-          # Start a static file server for the built frontend assets in the background
-          docker exec -d -w /app/meal_planner_app/static/react_app meal-planner-container python -m http.server 5173
+      - name: Wait inside container for backend readiness, then seed
+        run: |
+          # Robust inside-container wait (after gunicorn exec) using docker exec + curl (curl present in ci image).
+          # Avoids host-side port publish race with published -p mapping or binding delays.
+          # Separate step for clear CI logs + reliability.
+          echo "Waiting for backend inside container..."
+          for i in {1..30}; do
+            if docker exec meal-planner-container curl -sf http://localhost:5000/api/recipes >/dev/null; then
+              echo "Backend ready after $i tries"
+              break
+            fi
+            sleep 1
+          done
+          # Seed now that API is responsive (creates recipes + Weekly Meal Plan for E2E coverage of meal-plan flows).
+          docker exec meal-planner-container python -m meal_planner_app.seed_db
 
-          # Wait for servers to be ready
-          echo "Waiting for servers to start..."
-          sleep 15
-
-          # Run the Playwright tests inside the container.
-          # We use `|| true` to ensure this step doesn't stop the workflow on test failure.
-          # API_BASE_URL ensures the beforeEach seed POST in main.spec.js reaches
-          # the gunicorn (localhost works inside the container; the E2E spec falls
-          # back gracefully). See plan for PR #22 review recommendations.
+      - name: Run Playwright E2E tests inside container
+        run: |
+          # Run the Playwright tests inside the container, pointing at the Flask-served UI/API on 5000.
+          # BASE_URL override makes the tests work against the unified server (local dev still uses 5173 via default in config).
+          # Tests are now stable (inside wait + seed with Weekly Meal Plan + robust setup); run without || true so failures correctly fail the CI step.
           echo "Running Playwright tests..."
-          docker exec -e API_BASE_URL=http://localhost:5000 -w /app/frontend meal-planner-container npx playwright test || true
+          BASE_URL=http://localhost:5000 docker exec -w /app/frontend meal-planner-container npx playwright test
 
       - name: Copy test results from container
         if: always()

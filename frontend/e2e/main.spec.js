@@ -18,7 +18,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("homepage has expected title", async ({ page }) => {
-  await page.goto("/static/react_app/");
+  // Use /ui/ (React app) to align with all other E2E tests (BASE_URL now serves /ui/ React; legacy root is no longer primary target).
+  await page.goto("/ui/");
   await expect(page).toHaveTitle(/Meal Planner/);
 });
 
@@ -150,6 +151,7 @@ test("should delete a recipe", async ({ page }) => {
 
 test("should generate shopping list from meal plan", async ({ page }) => {
   await page.goto("/ui/meal-plans");
+  await page.waitForSelector('text=Weekly Meal Plan');
 
   // Click on the first meal plan
   await page.getByText("Weekly Meal Plan").click();
@@ -180,6 +182,7 @@ test("should generate shopping list from meal plan", async ({ page }) => {
 
 test("should edit shopping list items", async ({ page }) => {
   await page.goto("/ui/meal-plans");
+  await page.waitForSelector('text=Weekly Meal Plan');
 
   // Click on the first meal plan
   await page.getByText("Weekly Meal Plan").click();
