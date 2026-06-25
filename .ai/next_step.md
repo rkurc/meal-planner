@@ -878,3 +878,24 @@ See README for details.
 - Next: user can place real `przepisy_tmp.odb`, `docker buildx bake ...`, mount legacy volume; full E2E/docs as before.
 
 Process: read next_step first, only Docker for checks, updated this file, quality 10/10 + tests green. Branch ready.
+
+**Update 2026-06-25 (Rebase + new branch for migration fix):**
+- **Action taken per request:**
+  - `git fetch origin main`
+  - Attempted full `git rebase origin/main` on the old long-running branch (had many conflicts across Dockerfiles, CI ymls, AGENTS.md, frontend, main.py, and our migrate file because prior docker-bake history diverged from newer main merges like #29).
+  - Aborted the rebase (to avoid re-resolving old unrelated conflicts).
+  - Created clean branch directly from latest main: `git checkout -b fix/migration-polish-signs origin/main`
+  - Cherry-picked only the migration fix commit: `git cherry-pick 992bdf7` (clean, no conflicts).
+  - Result: New isolated branch `fix/migration-polish-signs` with migration fix cleanly on top of main.
+- New commit on this branch: **67bbb06** fix(migration): handle Polish signs correctly + improve extracted values from .odb
+- Updated this file with the rebase/branch change note.
+- Will push the new branch with upstream set.
+- Old branch `feat/docker-bake-for-env-sync` (with full history) left on remote; the new branch carries forward only the needed migration change + this note.
+- Per AGENTS: read .ai/next_step first, git ops completed, will update + push.
+
+**Current branch state:**
+- `fix/migration-polish-signs` (new)
+- Based on main `8d9477b`
+- Contains the verified Polish migration fix on top.
+
+Process: read next_step first, Docker checks previously passed (66 tests, black clean, pylint 10/10), updated this file. Ready to push new branch.
