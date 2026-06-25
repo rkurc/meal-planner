@@ -930,3 +930,25 @@ Process reminders followed (read next_step, container for black, etc.). Ready fo
 - All per AGENTS.md (read first, Docker-only checks, update before commit).
 - Now committing changes + this update, then pushing the new branch.
 - Old branch `fix/migration-polish-signs` remains for prior Polish-signs-only state.
+
+**Update 2026-06-25 (PR babysitter conflict resolution cycle for #31 "Fix/migration ingredients"):**
+- **PR state at start of cycle:** OPEN, mergeable=CONFLICTING, mergeStateStatus=DIRTY. Conflict because main had bff5c34 "Fix/migration polish signs (#30)" touching .ai/next_step.md and meal_planner_app/migrate_legacy.py.
+- **Step-by-step per instructions (in isolated worktree):**
+  - `git fetch origin`
+  - `git checkout -B fix/migration-ingredients origin/fix/migration-ingredients`
+  - `git rebase origin/main` -> stopped at conflict in .ai/next_step.md during apply of polish commit (1/3)
+  - Used `read_file` on full .ai/next_step.md (with markers); HEAD= main's rebase note section, other side= older branch version of polish update.
+  - Intelligently resolved: kept main (HEAD) rebase note + polish section (combined history); removed ALL conflict markers using search_replace.
+  - No py conflict hit during polish apply (py had polish already in base); later ingredients commit applied cleanly on top.
+  - `git add .ai/next_step.md`; `git rebase --continue` -> dropped redundant "docs update after rebase" (already upstream), successfully rebased ingredients commit.
+  - Current: top commit on fix/migration-ingredients is rebased b03f13b with combined polish signs (_safe_decode + regex) + ingredients (_extract_ingredients heuristic + updated LEGACY_RECIPES in migrate_legacy.py and next_step).
+- **Verification inside Docker (meal-planner:dev image, strictly per AGENTS.md + task):**
+  - `docker run --rm -v ... meal-planner:dev ... black --check meal_planner_app/migrate_legacy.py` → "All done! 1 file would be left unchanged."
+  - `docker run ... pylint meal_planner_app/migrate_legacy.py` → "rated at 10.00/10"
+  - `docker run ... pytest ... -q --tb=no` → 43+ passed (full suite relevant)
+  - `python -m py_compile` inside → "Syntax OK"
+  - `git log` confirmed rebase onto bff5c34
+- **Next:** `git add -A`; commit; `git push --force-with-lease`; post gh pr comment.
+- **fix_count_delta:** 1 (this conflict resolution)
+- last_status will be toward healthy once CI re-runs.
+- All safety followed: no force without lease, full file reads, Docker-only for checks (no host python etc), updated this next_step before commit.
