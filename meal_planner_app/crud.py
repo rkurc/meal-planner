@@ -4,6 +4,7 @@ using in-memory data structures. Also includes shopping list generation and reci
 """
 
 import uuid
+from collections import defaultdict
 from typing import List, Dict, Optional, Union
 from .models.recipe import Recipe
 from .models.ingredient import Ingredient
@@ -223,6 +224,7 @@ from .models.shopping_list import ShoppingList, ShoppingListItem
 # --- Shopping List Generation ---
 
 
+# pylint: disable=too-many-locals,too-many-branches
 def generate_shopping_list(
     meal_plan_id: uuid.UUID,
 ) -> Optional[Dict[str, List[Dict[str, Union[str, float, List[str]]]]]]:
@@ -301,8 +303,6 @@ def generate_shopping_list(
                     ] = current_quantity_str
 
     # Group by location for easy grouping by lokalizacje (aisle/category)
-    from collections import defaultdict
-
     grouped: Dict[str, List[Dict[str, Union[str, float, List[str]]]]] = defaultdict(
         list
     )

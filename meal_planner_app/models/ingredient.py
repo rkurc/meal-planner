@@ -19,7 +19,7 @@ class Ingredient:  # pylint: disable=too-few-public-methods
       - name/unit/location_id are denormalized from the linked produkt
     """
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments,too-many-positional-arguments
         self,
         name: str,
         quantity: Union[float, str],
@@ -44,4 +44,7 @@ class Ingredient:  # pylint: disable=too-few-public-methods
         self.location = location
 
     def __repr__(self):
-        return f"<Ingredient(name='{self.name}', quantity={self.quantity}, unit='{self.unit}', location={self.location}, location_id={self.location_id})>"
+        return (
+            f"<Ingredient(name='{self.name}', quantity={self.quantity}, "
+            f"unit='{self.unit}', location={self.location}, location_id={self.location_id})>"
+        )

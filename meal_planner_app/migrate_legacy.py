@@ -25,6 +25,7 @@ import urllib.error
 import zipfile
 import re
 import os
+from collections import defaultdict
 from typing import List, Dict, Any
 
 logging.basicConfig(level=logging.INFO)
@@ -476,7 +477,10 @@ def extract_from_csv(csv_path: str) -> List[Dict[str, Any]]:
     return recs
 
 
-def extract_from_csvs(base_dir: str = "/app/legacy") -> List[Dict[str, Any]]:
+# pylint: disable=too-many-branches,too-many-statements
+def extract_from_csvs(
+    base_dir: str = "/app/legacy",
+) -> List[Dict[str, Any]]:
     """Import from the detailed relational CSV export (przepisy + skladniki + produkty + jednostki).
 
     This is the proper normalized export from the legacy Base DB:
@@ -488,8 +492,8 @@ def extract_from_csvs(base_dir: str = "/app/legacy") -> List[Dict[str, Any]]:
     The app model has no global product table, so we denormalize product name + its default unit
     into each recipe's ingredient list.
 
-    URLs are frequently stored inside the "przepis" text field; we extract the first one to source_url
-    and provide a clean placeholder for instructions when the field was only a URL.
+    URLs are frequently stored inside the "przepis" text field; we extract the first one to
+    source_url and provide a clean placeholder for instructions when the field was only a URL.
     """
     files = {
         "przepisy": os.path.join(base_dir, "przepisy.csv"),
@@ -507,108 +511,103 @@ def extract_from_csvs(base_dir: str = "/app/legacy") -> List[Dict[str, Any]]:
         # Units
         jednostki = {}
         if os.path.exists(files["jednostki"]):
-            for row in csv.DictReader(
-                open(files["jednostki"], newline="", encoding="utf-8")
-            ):
-                jednostki[row["idJednostki"]] = row["nazwa"]
+            with open(files["jednostki"], newline="", encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    jednostki[row["idJednostki"]] = row["nazwa"]
 
         # Locations (for grouping by lokalizacje)
         lokalizacje = {}
         lok_path = os.path.join(base_dir, "lokalizacje.csv")
         if os.path.exists(lok_path):
-            for row in csv.DictReader(open(lok_path, newline="", encoding="utf-8")):
-                lokalizacje[row["idLokalizacji"]] = row["lokalizacja"]
+            with open(lok_path, newline="", encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    lokalizacje[row["idLokalizacji"]] = row["lokalizacja"]
 
         # Products
         produkty = {}
-        for row in csv.DictReader(
-            open(files["produkty"], newline="", encoding="utf-8")
-        ):
-            pid = row["id"]
-            jid = row.get("idJednostki", "")
-            lid = row.get("idLokalizacji", "")
-            produkty[pid] = {
-                # Master ingredient/product from produkty.csv:
-                #   id = unique key
-                #   nazwa = name
-                #   idJednostki = unit reference (look up in jednostki.csv)
-                #   idLokalizacji = location id (from lokalizacje.csv)
-                "nazwa": row.get("nazwa", "").strip(),
-                "idJednostki": jid,
-                "jednostka": jednostki.get(jid, ""),
-                "idLokalizacji": lid,
-                "location": lokalizacje.get(lid, ""),
-            }
+        with open(files["produkty"], newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                pid = row["id"]
+                jid = row.get("idJednostki", "")
+                lid = row.get("idLokalizacji", "")
+                produkty[pid] = {
+                    # Master ingredient/product from produkty.csv:
+                    #   id = unique key
+                    #   nazwa = name
+                    #   idJednostki = unit reference (look up in jednostki.csv)
+                    #   idLokalizacji = location id (from lokalizacje.csv)
+                    "nazwa": row.get("nazwa", "").strip(),
+                    "idJednostki": jid,
+                    "jednostka": jednostki.get(jid, ""),
+                    "idLokalizacji": lid,
+                    "location": lokalizacje.get(lid, ""),
+                }
 
         # Skladniki grouped by recipe
-        from collections import defaultdict
-
         sklad_by_rid: Dict[str, List[Dict]] = defaultdict(list)
-        for row in csv.DictReader(
-            open(files["skladniki"], newline="", encoding="utf-8")
-        ):
-            sklad_by_rid[row["idPrzepisu"]].append(row)
+        with open(files["skladniki"], newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                sklad_by_rid[row["idPrzepisu"]].append(row)
 
         # Recipes
         recs: List[Dict[str, Any]] = []
         url_re = re.compile(r"https?://[^\s,)]+")
-        for row in csv.DictReader(
-            open(files["przepisy"], newline="", encoding="utf-8")
-        ):
-            rid = row.get("id", "")
-            name = (row.get("nazwa") or "").strip()
-            if not name:
-                continue
+        with open(files["przepisy"], newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                rid = row.get("id", "")
+                name = (row.get("nazwa") or "").strip()
+                if not name:
+                    continue
 
-            instr = row.get("przepis", "") or ""
-            porcje = (row.get("liczbaPorcji") or "").strip()
+                instr = row.get("przepis", "") or ""
+                porcje = (row.get("liczbaPorcji") or "").strip()
 
-            # Extract first URL (common pattern in this export)
-            m = url_re.search(instr)
-            source_url = m.group(0).rstrip(".,") if m else ""
+                # Extract first URL (common pattern in this export)
+                m = url_re.search(instr)
+                source_url = m.group(0).rstrip(".,") if m else ""
 
-            # Clean instructions if the field was primarily/only the source URL
-            instructions = instr
-            if source_url and instr.strip().startswith("http"):
-                instructions = "See source_url for full original instructions. (auto-migrated from przepisy CSV)"
+                # Clean instructions if the field was primarily/only the source URL
+                instructions = instr
+                if source_url and instr.strip().startswith("http"):
+                    instructions = "See source_url for full original instructions. (auto-migrated from przepisy CSV)"  # pylint: disable=line-too-long
 
-            description = "Migrated from legacy przepisy CSV export"
-            if porcje:
-                description += f" (porcje: {porcje})"
+                description = "Migrated from legacy przepisy CSV export"
+                if porcje:
+                    description += f" (porcje: {porcje})"
 
-            # Build ingredients via join
-            # Each recipe ingredient (from skladniki.csv) links a recipe to a product:
-            #   - name = produkt.nazwa
-            #   - quantity = skladniki.liczba   (the amount; not stored on the master produkt)
-            #   - unit = resolved from produkt.idJednostki via jednostki.csv
-            #   - location_id = produkt.idLokalizacji
-            ingredients: List[Dict[str, Any]] = []
-            for s in sklad_by_rid.get(rid, []):
-                pid = s.get("idProduktu", "")
-                p = produkty.get(pid, {})
-                qty = (s.get("liczba") or "").strip()
-                unit = p.get("jednostka", "")
-                iname = p.get("nazwa", "")
-                if iname:
-                    ingredients.append(
-                        {
-                            "name": iname,
-                            "quantity": qty,
-                            "unit": unit,
-                            "location_id": p.get("idLokalizacji") or None,
-                            "location": p.get("location") or None,
-                        }
-                    )
+                # Build ingredients via join
+                # Each recipe ingredient (from skladniki.csv) links a recipe to a product:
+                #   - name = produkt.nazwa
+                #   - quantity = skladniki.liczba   (the amount; not stored on the master produkt)
+                #   - unit = resolved from produkt.idJednostki via jednostki.csv
+                #   - location_id = produkt.idLokalizacji
+                ingredients: List[Dict[str, Any]] = []
+                for s in sklad_by_rid.get(rid, []):
+                    pid = s.get("idProduktu", "")
+                    p = produkty.get(pid, {})
+                    qty = (s.get("liczba") or "").strip()
+                    unit = p.get("jednostka", "")
+                    iname = p.get("nazwa", "")
+                    if iname:
+                        ingredients.append(
+                            {
+                                "name": iname,
+                                "quantity": qty,
+                                "unit": unit,
+                                "location_id": p.get("idLokalizacji") or None,
+                                "location": p.get("location") or None,
+                            }
+                        )
 
-            recs.append(
-                {
-                    "name": name,
-                    "source_url": source_url,
-                    "description": description,
-                    "instructions": instructions,
-                    "ingredients": ingredients,
-                }
-            )
+                recs.append(
+                    {
+                        "name": name,
+                        "source_url": source_url,
+                        "description": description,
+                        "instructions": instructions,
+                        "ingredients": ingredients,
+                    }
+                )
 
         if recs:
             logger.info(
@@ -681,7 +680,7 @@ def seed_from_legacy(
         if recipes:
             logger.warning(
                 "Used direct .odb extraction (heuristic). "
-                "For best results use the relational CSV export (przepisy.csv + skladniki + produkty)."
+                "For best results use the relational CSV export (przepisy.csv + skladniki + produkty)."  # pylint: disable=line-too-long
             )
 
     # 4. Final fallback
