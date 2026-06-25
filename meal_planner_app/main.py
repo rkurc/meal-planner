@@ -4,6 +4,7 @@ Handles web routes, request processing, and rendering HTML templates.
 Integrates with CRUD operations and other services.
 """
 
+import os
 import re
 import uuid  # Required for recipe_id conversion
 
@@ -50,6 +51,8 @@ def remove_trailing_slash():
             normalized = "/"
         if normalized != request.path:
             return redirect(normalized, code=308)
+
+    return None
 
 
 @app.template_filter("nl2br")
@@ -656,11 +659,16 @@ def api_delete_shopping_list(shopping_list_id: uuid.UUID):
 
 # --- Test-only routes (always registered so test_client + gunicorn see them;
 # guarded at runtime so they 404 in normal prod runs without debug/TESTING).
+# Enabled via TESTING=true env (passed to gunicorn in E2E) or app.config["TESTING"].
 # Used by E2E beforeEach and (optionally) dev; see seed_db.py:RECIPES_TO_SEED.
 @app.route("/api/test/seed-db", methods=["POST"])
 def api_seed_database():
     """Seeds the database. For testing/E2E purposes only. Returns 404 in normal production runs."""
-    if not (getattr(app, "debug", False) or app.config.get("TESTING")):
+    if not (
+        getattr(app, "debug", False)
+        or app.config.get("TESTING")
+        or os.environ.get("TESTING", "").lower() in ("1", "true", "yes")
+    ):
         abort(404)
     seed_database()
     return jsonify({"message": "Database seeded successfully"}), 200

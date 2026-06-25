@@ -256,4 +256,9 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
   );
 };
 
+ShoppingListView.propTypes = {
+  mealPlanId: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
+  mealPlanName: PropTypes.string,
+};
+
 export default ShoppingListView;

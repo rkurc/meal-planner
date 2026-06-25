@@ -50,7 +50,7 @@ def create_recipe(recipe: Dict[str, Any]) -> None:
                 logger.info(
                     "Created recipe: %s", created.get("name", recipe.get("name"))
                 )
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.warning("Failed to create recipe %s: %s", recipe.get("name"), e)
 
 
@@ -89,7 +89,7 @@ LEGACY_RECIPES: List[Dict[str, Any]] = [
     },
     {
         "name": "Szybkie curry pomidorowe z kurczakiem",
-        "source_url": "https://alaantkoweblw.pl/szybkie-curry-pomidorowe-z-kurczakiem-alaantkoweblw/",
+        "source_url": "https://alaantkoweblw.pl/szybkie-curry-pomidorowe-z-kurczakiem-alaantkoweblw/",  # pylint: disable=line-too-long
         "instructions": "See full recipe at source_url. (Migrated from przepisy_tmp.odb)",
         "description": "",
         "ingredients": [],
@@ -124,7 +124,7 @@ def extract_from_odb(
                 try:
                     raw = z.read(member)
                     text = raw.decode("latin1", errors="ignore")
-                except Exception:
+                except Exception:  # pylint: disable=broad-exception-caught
                     continue
 
                 # Heuristic: Title-like string followed later by a URL
@@ -145,12 +145,12 @@ def extract_from_odb(
                             {
                                 "name": title,
                                 "source_url": url,
-                                "instructions": "See source_url for full original instructions. (auto-migrated from .odb)",
+                                "instructions": "See source_url for full original instructions. (auto-migrated from .odb)",  # pylint: disable=line-too-long
                                 "description": "Migrated from legacy przepisy_tmp.odb",
                                 "ingredients": [],
                             }
                         )
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         logger.warning("Could not parse ODB %s: %s", odb_path, e)
         return []
 

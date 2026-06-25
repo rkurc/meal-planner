@@ -28,7 +28,10 @@ jobs:
 
       - name: Start backend with gunicorn (serves API + /ui/ React)
         run: |
-          docker exec -d meal-planner-container gunicorn --bind 0.0.0.0:5000 meal_planner_app.main:app
+          # Pass TESTING=true so the /api/test/seed-db endpoint (used by E2E beforeEach)
+          # is enabled in the running gunicorn process (in-memory DB is per-process).
+          # The separate `python -m seed_db` seeds a different process and is now secondary.
+          docker exec -d -e TESTING=true meal-planner-container gunicorn --bind 0.0.0.0:5000 meal_planner_app.main:app
           # Micro-sleep / process probe to allow gunicorn bind before the robust wait loop
           # (avoids any residual fork race even with inside-container curl checks).
           sleep 2
@@ -55,7 +58,7 @@ jobs:
           # BASE_URL override makes the tests work against the unified server (local dev still uses 5173 via default in config).
           # Tests are now stable (inside wait + seed with Weekly Meal Plan + robust setup); run without || true so failures correctly fail the CI step.
           echo "Running Playwright tests..."
-          BASE_URL=http://localhost:5000 docker exec -w /app/frontend meal-planner-container npx playwright test
+          docker exec -e BASE_URL=http://localhost:5000 -w /app/frontend meal-planner-container npx playwright test
 
       - name: Copy test results from container
         if: always()
