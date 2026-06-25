@@ -26,13 +26,18 @@ RECIPES_TO_SEED = [
             "3. Combine and cook on a griddle."
         ),
         "ingredients_data": [
-            {"name": "Flour", "quantity": 1.5, "unit": "cups"},
-            {"name": "Sugar", "quantity": 1, "unit": "tbsp"},
-            {"name": "Baking Powder", "quantity": 2, "unit": "tsp"},
-            {"name": "Salt", "quantity": 0.5, "unit": "tsp"},
-            {"name": "Milk", "quantity": 1.25, "unit": "cups"},
-            {"name": "Egg", "quantity": 1, "unit": ""},
-            {"name": "Butter", "quantity": 2, "unit": "tbsp"},
+            {"name": "Flour", "quantity": 1.5, "unit": "cups", "location_id": None},
+            {"name": "Sugar", "quantity": 1, "unit": "tbsp", "location_id": None},
+            {
+                "name": "Baking Powder",
+                "quantity": 2,
+                "unit": "tsp",
+                "location_id": None,
+            },
+            {"name": "Salt", "quantity": 0.5, "unit": "tsp", "location_id": None},
+            {"name": "Milk", "quantity": 1.25, "unit": "cups", "location_id": None},
+            {"name": "Egg", "quantity": 1, "unit": "", "location_id": None},
+            {"name": "Butter", "quantity": 2, "unit": "tbsp", "location_id": None},
         ],
     },
     {
@@ -43,11 +48,11 @@ RECIPES_TO_SEED = [
             "2. Pour into a heated, oiled pan. 3. Cook until set, then fold."
         ),
         "ingredients_data": [
-            {"name": "Eggs", "quantity": 2, "unit": ""},
-            {"name": "Water", "quantity": 2, "unit": "tbsp"},
-            {"name": "Salt", "quantity": 1, "unit": "pinch"},
-            {"name": "Pepper", "quantity": 1, "unit": "pinch"},
-            {"name": "Cheese", "quantity": 0.25, "unit": "cup"},
+            {"name": "Eggs", "quantity": 2, "unit": "", "location_id": None},
+            {"name": "Water", "quantity": 2, "unit": "tbsp", "location_id": None},
+            {"name": "Salt", "quantity": 1, "unit": "pinch", "location_id": None},
+            {"name": "Pepper", "quantity": 1, "unit": "pinch", "location_id": None},
+            {"name": "Cheese", "quantity": 0.25, "unit": "cup", "location_id": None},
         ],
     },
 ]

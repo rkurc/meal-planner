@@ -11,7 +11,7 @@ const RecipeForm = () => {
     description: "",
     source_url: "",
     instructions: "",
-    ingredients: [{ name: "", quantity: "", unit: "" }],
+    ingredients: [{ name: "", quantity: "", unit: "", location_id: "" }],
   });
 
   const [loading, setLoading] = useState(isEditing);
@@ -34,8 +34,11 @@ const RecipeForm = () => {
             instructions: data.instructions || "",
             ingredients:
               data.ingredients && data.ingredients.length > 0
-                ? data.ingredients
-                : [{ name: "", quantity: "", unit: "" }],
+                ? data.ingredients.map((ing) => ({
+                    ...ing,
+                    location_id: ing.location_id || "",
+                  }))
+                : [{ name: "", quantity: "", unit: "", location_id: "" }],
           });
           setLoading(false);
         })
@@ -66,7 +69,10 @@ const RecipeForm = () => {
   const addIngredient = () => {
     setFormData((prev) => ({
       ...prev,
-      ingredients: [...prev.ingredients, { name: "", quantity: "", unit: "" }],
+      ingredients: [
+        ...prev.ingredients,
+        { name: "", quantity: "", unit: "", location_id: "" },
+      ],
     }));
   };
 
@@ -249,6 +255,16 @@ const RecipeForm = () => {
                     handleIngredientChange(index, "unit", e.target.value)
                   }
                   className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Location ID"
+                  value={ingredient.location_id || ""}
+                  onChange={(e) =>
+                    handleIngredientChange(index, "location_id", e.target.value)
+                  }
+                  className="w-28 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  title="Legacy location/aisle ID"
                 />
                 <button
                   type="button"
