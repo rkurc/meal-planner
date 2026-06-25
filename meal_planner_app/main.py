@@ -84,7 +84,9 @@ def parse_ingredients_from_textarea(textarea_content: str) -> List[Dict]:
         lines = [line.strip() for line in textarea_content.splitlines() if line.strip()]
         for line in lines:
             # For MVP: treat the whole line as the name, quantity and unit are empty/default
-            ingredients.append({"name": line, "quantity": "", "unit": ""})
+            ingredients.append(
+                {"name": line, "quantity": "", "unit": "", "location_id": None}
+            )
     return ingredients
 
 
@@ -346,9 +348,17 @@ def shopping_list_detail_route(meal_plan_id: uuid.UUID):
     if not meal_plan:
         abort(404)
 
-    shopping_list_items = crud.generate_shopping_list(meal_plan_id)
-    # generate_shopping_list itself returns None if plan not found, but we check above.
-    # It will return [] if plan exists but has no ingredients.
+    generated = crud.generate_shopping_list(meal_plan_id)
+    # generate now returns grouped {location: [items...]} or None
+    if generated is None:
+        abort(404)
+    # Flatten for legacy template (grouped support in API / future UI)
+    if isinstance(generated, dict):
+        shopping_list_items = []
+        for items in generated.values():  # pylint: disable=no-member
+            shopping_list_items.extend(items)
+    else:
+        shopping_list_items = generated or []
 
     return render_template(
         "shopping_list_detail.html",
@@ -365,17 +375,18 @@ def download_shopping_list_pdf(meal_plan_id: uuid.UUID):
     if not meal_plan:
         abort(404)
 
-    shopping_list_items = crud.generate_shopping_list(meal_plan_id)
-    if (
-        shopping_list_items is None
-    ):  # Should not happen if meal_plan exists, but good practice
-        # This case implies meal_plan was found, but generate_shopping_list failed
-        # internally (e.g. if it could return None for other reasons)
-        # However, our current generate_shopping_list returns [] for an existing
-        # plan with no items.
+    generated = crud.generate_shopping_list(meal_plan_id)
+    if generated is None:
         return redirect(
             url_for("shopping_list_detail_route", meal_plan_id=meal_plan_id)
         )
+    # Flatten for PDF (legacy)
+    if isinstance(generated, dict):
+        shopping_list_items = []
+        for items in generated.values():  # pylint: disable=no-member
+            shopping_list_items.extend(items)
+    else:
+        shopping_list_items = generated or []
 
     pdf_bytes = generate_shopping_list_pdf(meal_plan.name, shopping_list_items)
 
@@ -399,7 +410,13 @@ def _recipe_to_dict(recipe: Recipe) -> dict:
         "instructions": recipe.instructions,
         "source_url": recipe.source_url,
         "ingredients": [
-            {"name": ing.name, "quantity": ing.quantity, "unit": ing.unit}
+            {
+                "name": ing.name,
+                "quantity": ing.quantity,
+                "unit": ing.unit,
+                "location_id": getattr(ing, "location_id", None),
+                "location": getattr(ing, "location", None),
+            }
             for ing in recipe.ingredients
         ],
     }
@@ -583,6 +600,7 @@ def api_get_shopping_list(meal_plan_id: uuid.UUID):
     shopping_list = crud.generate_shopping_list(meal_plan_id)
     if shopping_list is None:
         abort(404, description="Meal plan not found.")
+    # Returns grouped dict {location_name: [items...]} for easy grouping by lokalizacje
     return jsonify(shopping_list)
 
 

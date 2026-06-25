@@ -98,7 +98,11 @@ This ensures the same Node 20+ (required by Vite 7 + Tailwind) and Python 3.9 ar
 
 The container auto-starts the Flask backend (port 5000) + Vite frontend dev server (port 5173) and seeds the database.
 
-To populate from your legacy `przepisy_tmp.odb` (the migration script looks for it at `/app/legacy/przepisy_tmp.odb`):
+To populate from legacy data, place either:
+- `recipes.csv` (or `przepisy.csv`) — **recommended** (see section 5), or
+- `przepisy_tmp.odb`
+
+in your legacy folder (the script looks for files at `/app/legacy/...`):
 
 ```powershell
 # Mount your legacy directory (replace with your actual path)
@@ -146,17 +150,67 @@ npm run dev
 - UI: http://localhost:5173/ui/
 - API: http://localhost:5000
 
-### 5. Migration from Legacy .odb (Advanced/One-off)
+### 5. Recommended: 2-Step Legacy Migration (Reliable CSV Export)
 
-If you want to run the migration script manually inside a running container (after start):
+The direct `.odb` reader is a heuristic (it reads raw binary HSQL data inside the ZIP). For clean, editable results we recommend the **2-step process**:
+
+#### Step 1: Export from Windows (LibreOffice Base / OpenOffice Base)
+
+1. Open your `przepisy_tmp.odb` file in LibreOffice Base.
+2. In the left sidebar under **Tables**, locate the main recipes table (common names: `PRZEPISY`, `PRZEPIS`, `RECIPES`, `PRZEPISY_TMP`).
+3. **Easiest method**:
+   - Right-click the table → **Copy**.
+   - Open LibreOffice Calc → Paste.
+4. Or run a query: **Tools → SQL**, e.g. `SELECT * FROM PRZEPISY`, then copy the result grid to Calc.
+5. In Calc:
+   - Review / clean the data (fix names, make sure Polish characters look good).
+   - Put ingredients in one column (recommended name: `ingredients`). One ingredient per line inside the cell (use Alt+Enter). Example cell content:
+     ```
+     500 g kurczak
+     400 g dynia
+     1 szt cebula
+     ```
+   - File → Save As → **Text CSV (.csv)**
+     - **Character set**: UTF-8 (very important!)
+     - Field delimiter: `,` (comma) or `;` (semicolon)
+     - Text delimiter: `"`
+     - Check **"Save column names"** / "Edit filter settings" if prompted.
+
+Useful column names (the importer is flexible):
+- `name`, `tytul`, `tytuł`, `nazwa`
+- `source_url`, `url`, `zrodlo`, `źródło`
+- `description`, `opis`
+- `instructions`, `instrukcje`
+- `ingredients`, `skladniki`, `składniki`
+
+Save the file as `recipes.csv` (or `przepisy.csv`).
+
+#### Step 2: Ingest the CSV
+
+Mount your legacy folder and the CSV will be automatically picked up on container start (preferred over .odb):
+
+```powershell
+docker run -d `
+  -p 5000:5000 -p 5173:5173 `
+  -v "C:\path\to\your\legacy:/app/legacy:ro" `
+  meal-planner:dev
+```
+
+Or run manually inside a running container:
+```powershell
+docker exec -it meal-planner-dev python -m meal_planner_app.migrate_legacy C:/.../recipes.csv
+# or just the module name (it auto-detects common names)
+```
+
+The CSV route produces clean structured data (proper ingredients list with quantity/unit when possible).
+
+### Direct .odb (still supported but not recommended)
 
 ```powershell
 docker exec -it meal-planner-dev python -m meal_planner_app.migrate_legacy
 ```
 
-(Or edit `start_and_seed.sh` / `seed_db.py` if you need custom logic.)
-
-The legacy data includes Polish recipes from your old Base DB (titles, sources, etc.). The script extracts what it can or falls back to sample data.
+This still works via heuristics but can produce truncated names and noisy ingredients from the binary storage format. Use CSV for production data.
 
 ### 6. Production Image
 
@@ -188,7 +242,7 @@ Access:
 - **npm not found or Node version error during build:** Always use `docker buildx bake` (it enforces Node 20+). Avoid plain `docker build` on the root Dockerfile if versions drift.
 - **Hot reload not working:** Make sure you mounted the source volume for dev image: `-v "$(pwd):/app"`.
 - **WSL2 issues:** Restart Docker Desktop or `wsl --shutdown`.
-- **Legacy data not seeding:** Confirm the .odb file is at `your-legacy-dir/przepisy_tmp.odb` and mounted to `/app/legacy`.
+- **Legacy data not seeding:** Put `recipes.csv` (preferred) or `przepisy_tmp.odb` in the mounted legacy folder. See "Recommended: 2-Step Legacy Migration".
 - **Build fails on Tailwind native bindings:** Use the bake command + Node 20 image (already handled in this setup).
 
 For VS Code Dev Container (alternative to manual Docker):
