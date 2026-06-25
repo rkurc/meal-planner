@@ -32,11 +32,9 @@ fi
 echo "Waiting for backend to start..."
 sleep 10
 
-# Migrate from legacy data if present.
-# Preferred: place a clean UTF-8 recipes.csv (exported from Base via Calc).
-# Fallback: przepisy_tmp.odb (heuristic).
-if [ -f /app/legacy/recipes.csv ] || [ -f /app/legacy/przepisy.csv ] || [ -f /app/legacy/przepisy_tmp.odb ]; then
-  echo "Legacy data found - running migration (prefers CSV if present)..."
+# Migrate from legacy .odb if present, else default seed
+if [ -f /app/legacy/przepisy_tmp.odb ]; then
+  echo "Legacy .odb found - running migration..."
   python -m meal_planner_app.migrate_legacy || python -m meal_planner_app.seed_db
 else
   echo "Seeding database with defaults..."

@@ -96,9 +96,5 @@ USER appuser
 # Expose only the prod port
 EXPOSE 5000
 
-# Prod CMD: gunicorn serving the Flask app (no npm, no dev server, no debug).
-# NOTE: -w 1 (single worker) is REQUIRED. The app uses process-local in-memory
-# lists (recipes_db etc in crud.py). Multiple workers would have independent
-# state, causing recipes to appear in list but 404 on detail fetches (load-balanced
-# across workers) and other inconsistency bugs.
-CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:5000", "meal_planner_app.main:app"]
+# Prod CMD: gunicorn serving the Flask app (no npm, no dev server, no debug)
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "meal_planner_app.main:app"]

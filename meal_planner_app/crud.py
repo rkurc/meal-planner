@@ -22,7 +22,7 @@ def create_recipe(
     """
     Creates a new recipe and stores it in the in-memory database.
     ingredients_data should be a list of dicts like:
-    [{'name': 'sugar', 'quantity': 1, 'unit': 'cup', 'location_id': '4'}]
+    [{'name': 'sugar', 'quantity': 1, 'unit': 'cup'}]
     """
     parsed_ingredients = []
     if ingredients_data:
@@ -32,8 +32,6 @@ def create_recipe(
                     name=ing_data["name"],
                     quantity=ing_data["quantity"],
                     unit=ing_data["unit"],
-                    location_id=ing_data.get("location_id"),
-                    location=ing_data.get("location"),
                 )
             )
 
@@ -86,8 +84,6 @@ def update_recipe(  # pylint: disable=too-many-arguments, too-many-positional-ar
                     name=ing_data["name"],
                     quantity=ing_data["quantity"],
                     unit=ing_data["unit"],
-                    location_id=ing_data.get("location_id"),
-                    location=ing_data.get("location"),
                 )
             )
         recipe.ingredients = parsed_ingredients
@@ -225,12 +221,10 @@ from .models.shopping_list import ShoppingList, ShoppingListItem
 
 def generate_shopping_list(
     meal_plan_id: uuid.UUID,
-) -> Optional[Dict[str, List[Dict[str, Union[str, float, List[str]]]]]]:
+) -> Optional[List[Dict[str, Union[str, float, List[str]]]]]:
     """
     Generates an aggregated shopping list for a given meal plan.
-    Returns a dict grouped by location (from lokalizacje): {location_name: [items...], ...}
-    or None if the meal plan is not found.
-    Items without a location use key "".
+    Returns a list of ingredient dictionaries, or None if the meal plan is not found.
     """
     meal_plan = get_meal_plan(meal_plan_id)
     if not meal_plan:
@@ -244,8 +238,7 @@ def generate_shopping_list(
             continue  # Skip if a recipe ID in the plan doesn't exist
 
         for ingredient in recipe.ingredients:
-            loc = getattr(ingredient, "location", None) or ""
-            ingredient_key = f"{ingredient.name}_{ingredient.unit}_{loc}"
+            ingredient_key = f"{ingredient.name}_{ingredient.unit}"
             current_quantity_str = str(
                 ingredient.quantity
             )  # Ensure it's a string for consistency first
@@ -287,8 +280,6 @@ def generate_shopping_list(
                         else current_quantity_str
                     ),
                     "unit": ingredient.unit,
-                    "location": getattr(ingredient, "location", None),
-                    "location_id": getattr(ingredient, "location_id", None),
                 }
                 # If quantity was empty string and we tried to make it float, it would be None.
                 # Ensure it's stored as original string if not numeric.
@@ -300,26 +291,7 @@ def generate_shopping_list(
                         "quantity"
                     ] = current_quantity_str
 
-    # Group by location for easy grouping by lokalizacje (aisle/category)
-    from collections import defaultdict
-
-    grouped: Dict[str, List[Dict[str, Union[str, float, List[str]]]]] = defaultdict(
-        list
-    )
-    for item in aggregated_ingredients.values():
-        loc = item.get("location") or ""
-        grouped[loc].append(item)
-
-    # Sort locations alphabetically, "Other"/empty last; sort items inside each group by name
-    def _loc_key(l):
-        return (l == "", l)  # empty/unknown at end
-
-    result = {}
-    for loc in sorted(grouped.keys(), key=_loc_key):
-        items = sorted(grouped[loc], key=lambda x: str(x.get("name", "")))
-        result[loc] = items
-
-    return result
+    return list(aggregated_ingredients.values())
 
 
 # --- Shopping List CRUD Operations ---
@@ -343,18 +315,9 @@ def create_shopping_list(meal_plan_id: uuid.UUID) -> Optional[ShoppingList]:
         return None
 
     # Use the existing generator function
-    generated = generate_shopping_list(meal_plan_id)
-    if generated is None:
+    generated_items = generate_shopping_list(meal_plan_id)
+    if generated_items is None:
         return None  # Should not happen if meal_plan exists
-
-    # generated is now grouped {loc: [items...]} ; flatten for persisted ShoppingList
-    if isinstance(generated, dict):
-        flat = []
-        for loc_items in generated.values():
-            flat.extend(loc_items)
-        generated_items = flat
-    else:
-        generated_items = generated or []
 
     # Convert generated items (dicts) to ShoppingListItem objects
     list_items = [
@@ -363,8 +326,6 @@ def create_shopping_list(meal_plan_id: uuid.UUID) -> Optional[ShoppingList]:
             quantity=item["quantity"],
             unit=item["unit"],
             purchased=False,  # Default to not purchased
-            location=item.get("location"),
-            location_id=item.get("location_id"),
         )
         for item in generated_items
     ]

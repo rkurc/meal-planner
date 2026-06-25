@@ -67,7 +67,7 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
   const handleAddItem = () => {
     setEditedItems([
       ...editedItems,
-      { name: "", quantity: "", unit: "", location: "", purchased: false },
+      { name: "", quantity: "", unit: "", purchased: false },
     ]);
   };
 
@@ -210,16 +210,6 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
                   }
                   className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <input
-                  type="text"
-                  placeholder="Location"
-                  value={item.location || ""}
-                  onChange={(e) =>
-                    handleItemChange(index, "location", e.target.value)
-                  }
-                  className="w-28 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  title="Location / aisle for grouping"
-                />
                 <button
                   onClick={() => handleRemoveItem(index)}
                   className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded"
@@ -257,7 +247,6 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
                   : item.quantity
                     ? `${item.quantity} ${item.name}`
                     : item.name}
-                {item.location ? ` (${item.location})` : ""}
               </span>
             </li>
           ))}

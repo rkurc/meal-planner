@@ -84,23 +84,11 @@ class TestShoppingList(
         self.meal_plan_no_recipes = crud.create_meal_plan(name="No Recipes Plan")
 
     def find_ingredient(self, shopping_list, name, unit):
-        """Helper function to find an ingredient in a (now grouped) shopping list."""
-        if isinstance(shopping_list, dict):
-            for loc_items in shopping_list.values():
-                for item in loc_items:
-                    if item["name"] == name and item["unit"] == unit:
-                        return item
-        else:
-            for item in shopping_list or []:
-                if item["name"] == name and item["unit"] == unit:
-                    return item
+        """Helper function to find an ingredient in a shopping list."""
+        for item in shopping_list:
+            if item["name"] == name and item["unit"] == unit:
+                return item
         return None
-
-    def get_total_items(self, shopping_list):
-        """Return total number of items across groups (or list)."""
-        if isinstance(shopping_list, dict):
-            return sum(len(v) for v in shopping_list.values())
-        return len(shopping_list or [])
 
     def test_generate_shopping_list_basic_aggregation(self):
         """Test basic aggregation of numeric quantities for the same ingredient."""
@@ -138,7 +126,7 @@ class TestShoppingList(
         self.assertEqual(pepper["quantity"], "a pinch")
 
         self.assertEqual(
-            self.get_total_items(shopping_list), 6
+            len(shopping_list), 6
         )  # Flour, Sugar (cup), Egg, Cheese, Salt, Pepper
 
     def test_generate_shopping_list_complex_aggregation(self):
@@ -179,7 +167,7 @@ class TestShoppingList(
         # R2: Egg_pc (exists), Cheese_g, Salt_, Pepper_sprinkle (3 new)
         # R3: Milk_ml, Sugar_tbsp, Ice Cream_ (3 new)
         # Total = 3 + 3 + 3 = 9
-        self.assertEqual(self.get_total_items(shopping_list), 9)
+        self.assertEqual(len(shopping_list), 9)
 
     def test_shopping_list_with_mixed_numeric_non_numeric(self):
         """Test aggregation when an ingredient has both numeric and non-numeric quantities."""
@@ -214,7 +202,7 @@ class TestShoppingList(
             self.meal_plan_no_recipes.meal_plan_id
         )
         self.assertIsNotNone(shopping_list)
-        self.assertEqual(self.get_total_items(shopping_list), 0)
+        self.assertEqual(len(shopping_list), 0)
 
     def test_shopping_list_meal_plan_with_empty_recipes(self):
         """Test generating a shopping list for a meal plan with recipes that have no ingredients."""
@@ -222,7 +210,7 @@ class TestShoppingList(
             self.meal_plan_empty_recipes.meal_plan_id
         )
         self.assertIsNotNone(shopping_list)
-        self.assertEqual(self.get_total_items(shopping_list), 0)
+        self.assertEqual(len(shopping_list), 0)
 
     def test_shopping_list_non_existent_meal_plan(self):
         """Test generating a shopping list for a non-existent meal plan ID."""
