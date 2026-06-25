@@ -2,8 +2,9 @@
 """Legacy migration from przepisy_tmp.odb (or fallback to bundled recipes).
 
 This module is called by start_and_seed.sh when /app/legacy/przepisy_tmp.odb exists.
-It extracts recipe titles + source URLs from the legacy HSQL/ODB file using
-zip + heuristics (no Java/DB tools needed), then seeds them via the API.
+It extracts recipe titles + source URLs + best-effort ingredients from the
+legacy HSQL/ODB file using zip + heuristics (no Java/DB tools needed), then
+seeds them via the API.
 
 Falls back to a small bundled LEGACY_RECIPES list if extraction yields nothing.
 """
@@ -71,28 +72,42 @@ LEGACY_RECIPES: List[Dict[str, Any]] = [
         "source_url": "https://aniagotuje.pl/przepis/kurczak-z-dynia",
         "instructions": "See full recipe at source_url. (Migrated from przepisy_tmp.odb)",
         "description": "",
-        "ingredients": [],
+        "ingredients": [
+            {"name": "Kurczak", "quantity": "500", "unit": "g"},
+            {"name": "Dynia", "quantity": "400", "unit": "g"},
+            {"name": "Cebula", "quantity": "1", "unit": "szt"},
+        ],
     },
     {
         "name": "Zapiekanka z kaszą jęczmienną i warzywami",
         "source_url": "http://naszakasza.pl/przepisy/zapiekanka-kasza-jeczmienna-warzywami/",
         "instructions": "See full recipe at source_url. (Migrated from przepisy_tmp.odb)",
         "description": "",
-        "ingredients": [],
+        "ingredients": [
+            {"name": "Kasza jęczmienna", "quantity": "1", "unit": "szklanka"},
+            {"name": "Marchew", "quantity": "2", "unit": "szt"},
+            {"name": "Cukinia", "quantity": "1", "unit": "szt"},
+        ],
     },
     {
         "name": "Zupa jesienna",
         "source_url": "https://www.dorotasmakuje.com/2014/10/zupa-jesienna/",
         "instructions": "See full recipe at source_url. (Migrated from przepisy_tmp.odb)",
         "description": "",
-        "ingredients": [],
+        "ingredients": [
+            {"name": "Dynia", "quantity": "500", "unit": "g"},
+            {"name": "Marchew", "quantity": "3", "unit": "szt"},
+        ],
     },
     {
         "name": "Szybkie curry pomidorowe z kurczakiem",
         "source_url": "https://alaantkoweblw.pl/szybkie-curry-pomidorowe-z-kurczakiem-alaantkoweblw/",  # pylint: disable=line-too-long
         "instructions": "See full recipe at source_url. (Migrated from przepisy_tmp.odb)",
         "description": "",
-        "ingredients": [],
+        "ingredients": [
+            {"name": "Kurczak", "quantity": "400", "unit": "g"},
+            {"name": "Pomidory", "quantity": "400", "unit": "g"},
+        ],
     },
 ]
 
@@ -113,15 +128,61 @@ def _safe_decode(raw: bytes) -> str:
     return raw.decode("latin1", errors="ignore")
 
 
+def _extract_ingredients(
+    text: str, start_pos: int = 0, max_ingredients: int = 12
+) -> List[Dict[str, Any]]:
+    """Heuristic extraction of ingredients from the decoded ODB text.
+
+    Looks for common quantity + unit + name patterns (supports Polish units and
+    diacritics). This is best-effort because the legacy .odb is just a raw
+    HSQL dump without a proper schema parser.
+    """
+    window = text[start_pos : start_pos + 3000]
+    # Patterns like: 400 g mielone indyk , 2 łyżki mąki , 1,5 szklanki mleka
+    # Supports Polish units and accented names.
+    ing_re = re.compile(
+        r"(\d+[\.,]?\d*)\s*"
+        r"(g|kg|ml|l|łyżk[aię]|łyżeczki|szklank[ai]|szt|opak|kostk[ai]|pęczek|ząbek|plaster)?\s*"
+        r"([A-Za-ząćęłńóśźż][A-Za-ząćęłńóśźż0-9 \-]{2,40})",
+        re.IGNORECASE,
+    )
+    ingredients: List[Dict[str, Any]] = []
+    seen_names = set()
+    for m in ing_re.finditer(window):
+        qty = m.group(1).replace(",", ".")
+        unit = (m.group(2) or "").strip()
+        name = m.group(3).strip()
+        # Clean up cases where the pattern over-captured (e.g. next qty got attached)
+        name = re.sub(r"\s+\d.*$", "", name).strip()
+        key = name.lower()
+        if (
+            len(name) > 2
+            and key not in seen_names
+            and not key.startswith(("http", "www", "insert"))
+        ):
+            seen_names.add(key)
+            ingredients.append(
+                {
+                    "name": name,
+                    "quantity": qty,
+                    "unit": unit,
+                }
+            )
+            if len(ingredients) >= max_ingredients:
+                break
+    return ingredients
+
+
 # pylint: disable=too-many-locals
 def extract_from_odb(
     odb_path: str = "/app/legacy/przepisy_tmp.odb",
 ) -> List[Dict[str, Any]]:
-    """Best-effort extraction of title + URL from the .odb zip file.
+    """Best-effort extraction of title + URL + ingredients from the .odb zip file.
 
     The legacy Base DB stores content in a zip. We look for a 'data' (or script)
     member, try proper encodings for Polish signs, and use an improved regex
     heuristic that supports Polish diacritics in titles + http urls.
+    Ingredients are extracted with a secondary heuristic for qty + unit + name.
     """
     if not os.path.exists(odb_path):
         return []
@@ -191,13 +252,15 @@ def extract_from_odb(
                         continue
                     if url not in seen:
                         seen.add(url)
+                        # Try to pull ingredients from context after this recipe entry
+                        ingredients = _extract_ingredients(text, m.end())
                         recs.append(
                             {
                                 "name": title,
                                 "source_url": url,
                                 "instructions": "See source_url for full original instructions. (auto-migrated from .odb)",  # pylint: disable=line-too-long
                                 "description": "Migrated from legacy przepisy_tmp.odb",
-                                "ingredients": [],
+                                "ingredients": ingredients,
                             }
                         )
     except Exception as e:  # pylint: disable=broad-exception-caught
