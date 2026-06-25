@@ -97,13 +97,31 @@ LEGACY_RECIPES: List[Dict[str, Any]] = [
 ]
 
 
+def _safe_decode(raw: bytes) -> str:
+    """Decode legacy ODB data trying Polish-friendly encodings first.
+
+    HSQL/OO Base .odb content (often in 'data' or 'script' members) may be
+    UTF-8, Windows-1250 or ISO-8859-2 for Polish diacritics (ąęłńóśźż etc.).
+    Falls back to latin1 ignore to avoid total failure.
+    """
+    encodings = ["utf-8", "utf-8-sig", "cp1250", "windows-1250", "iso-8859-2", "latin1"]
+    for enc in encodings:
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("latin1", errors="ignore")
+
+
+# pylint: disable=too-many-locals
 def extract_from_odb(
     odb_path: str = "/app/legacy/przepisy_tmp.odb",
 ) -> List[Dict[str, Any]]:
     """Best-effort extraction of title + URL from the .odb zip file.
 
-    The legacy Base DB stores content in a zip. We look for a 'data' member,
-    decode as latin1, and use a regex heuristic for Polish titles + http urls.
+    The legacy Base DB stores content in a zip. We look for a 'data' (or script)
+    member, try proper encodings for Polish signs, and use an improved regex
+    heuristic that supports Polish diacritics in titles + http urls.
     """
     if not os.path.exists(odb_path):
         return []
@@ -113,9 +131,12 @@ def extract_from_odb(
 
     try:
         with zipfile.ZipFile(odb_path, "r") as z:
-            # Look for a data file (common locations inside HSQL/ODB)
+            # Look for a data file (common locations inside HSQL/ODB). Also consider 'script'.
             candidates = [
-                n for n in z.namelist() if "data" in n.lower() or n.endswith("data")
+                n
+                for n in z.namelist()
+                if any(k in n.lower() for k in ("data", "script"))
+                or n.endswith(("data", "script"))
             ]
             if not candidates:
                 candidates = z.namelist()[:3]  # fallback
@@ -123,23 +144,52 @@ def extract_from_odb(
             for member in candidates:
                 try:
                     raw = z.read(member)
-                    text = raw.decode("latin1", errors="ignore")
+                    text = _safe_decode(raw)
                 except Exception:  # pylint: disable=broad-exception-caught
                     continue
 
-                # Heuristic: Title-like string followed later by a URL
+                # Heuristic: Title-like string (supporting Polish letters) followed later by a URL.
+                # Polish letter support prevents truncation/mangling on ąęł etc.
+                polish = "AĄBCĆDEĘFGHIJKLŁMNŃOÓPRSŚTUWYZŹŻa-ząćęłńóśźż"
+                control = "\x00-\x1f"
+                # Build pattern avoiding f-string {N,M} quantifier conflict with format {}
+                title_re = (
+                    "(["
+                    + polish
+                    + "]["
+                    + polish
+                    + "0-9 ,.\\-':()]{4,100}["
+                    + polish
+                    + "0-9])"
+                )
+                url_re = "(https?://[^\\s" + control + ",]{15,150})"
                 pattern = re.compile(
-                    r"([A-Z][a-z0-9 ,\-']{4,60}[a-z0-9])\s*.*?(https?://[^\s\x00-\x1f,]{15,120})",
+                    title_re + r"\s*.*?" + url_re,
                     re.IGNORECASE,
                 )
                 for m in pattern.finditer(text):
                     title = m.group(1).strip()
                     url = m.group(2).strip()
 
-                    # Clean control chars
-                    title = re.sub(r"[\x00-\x1f]", " ", title).strip()
+                    # Clean control chars + collapse whitespace
+                    title = re.sub(r"[\x00-\x1f]", " ", title)
+                    title = re.sub(r"\s+", " ", title).strip()
 
-                    if len(title) > 5 and url not in seen:
+                    # Skip junk captures (binary fragments, SQL keywords, urls as title, too short)
+                    low = title.lower()
+                    if len(title) < 6 or low.startswith(
+                        (
+                            "http",
+                            "www",
+                            "insert",
+                            "select",
+                            "create",
+                            "update",
+                            "delete",
+                        )
+                    ):
+                        continue
+                    if url not in seen:
                         seen.add(url)
                         recs.append(
                             {
