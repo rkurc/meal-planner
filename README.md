@@ -66,23 +66,135 @@ Once the Dev Container is running, you can open a new terminal within VS Code (`
     ```
     (8 E2E tests for React flows.)
 
-## Production Deployment
+## Running with Docker on Windows (Recommended)
 
-The project includes a multi-stage `Dockerfile` to build a lean, secure image for production. The final image runs as non-root, contains no Node.js, and serves both the Flask API and the built React SPA.
+This project uses Docker for consistent builds and runs across environments. We use `docker buildx bake` (via `docker-bake.hcl`) to keep Node.js and Python versions in sync between the production `Dockerfile`, dev container, and CI.
 
-1.  **Build the production image:**
-    From the root of the project, run:
-    ```bash
-    docker build -t meal-planner-prod .
-    ```
+### Prerequisites (Windows)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (enable WSL2 backend recommended)
+- Git for Windows
+- (Optional) [Visual Studio Code](https://code.visualstudio.com/) with Dev Containers extension for one-click dev
 
-2.  **Run the production container:**
-    ```bash
-    docker run -d -p 5000:5000 --name meal-planner-prod meal-planner-prod
-    ```
-    The API will be available at `http://localhost:5000` (e.g. `/api/recipes`).
-    The React UI is served at `http://localhost:5000/ui/` (catch-all for client-side routes).
+**Note on paths:** Use Windows-style paths with quotes for volume mounts, e.g. `C:\Users\YourName\path\to\legacy`.
 
-    The container uses gunicorn (4 workers) and runs as the non-root `appuser`.
+### 1. Build the Image
 
-For full development with hot module replacement (HMR), use the VS Code Dev Container or run `./start_and_seed.sh` (requires Node.js on host or use the `meal-planner-dev` image).
+From the project root:
+
+```powershell
+# Build the development image (includes dev tools, hot-reload, full dependencies)
+docker buildx bake dev
+
+# Or build the production image
+docker buildx bake prod
+
+# Override versions if needed (e.g. to match your CI)
+NODE_VERSION=20.19 PYTHON_VERSION=3.10 docker buildx bake dev
+```
+
+This ensures the same Node 20+ (required by Vite 7 + Tailwind) and Python 3.9 are used everywhere.
+
+### 2. Start the App (with Legacy Data Migration)
+
+The container auto-starts the Flask backend (port 5000) + Vite frontend dev server (port 5173) and seeds the database.
+
+To populate from your legacy `przepisy_tmp.odb` (the migration script looks for it at `/app/legacy/przepisy_tmp.odb`):
+
+```powershell
+# Mount your legacy directory (replace with your actual path)
+docker run -d `
+  -p 5000:5000 `
+  -p 5173:5173 `
+  -v "C:\Users\YourName\path\to\your\legacy:/app/legacy:ro" `
+  --name meal-planner-dev `
+  meal-planner:dev
+```
+
+- Without the volume mount, it uses built-in seed data.
+- The migration/seed runs automatically on start (via `start_and_seed.sh`).
+
+View logs:
+```powershell
+docker logs -f meal-planner-dev
+```
+
+Stop:
+```powershell
+docker stop meal-planner-dev && docker rm meal-planner-dev
+```
+
+### 3. Connect from Windows Browser
+
+- **React UI (recommended, with hot reload):** http://localhost:5173/ui/
+- **API directly:** http://localhost:5000/api/recipes
+- **React via backend (if using prod image static assets):** http://localhost:5000/ui/
+
+The frontend proxies `/api/*` requests to the backend.
+
+### 4. Running Natively (Without Docker, for Quick Local Dev)
+
+```powershell
+# Terminal 1: Backend
+python -m meal_planner_app.main
+
+# Terminal 2: Frontend
+cd frontend
+npm install
+npm run dev
+```
+
+- UI: http://localhost:5173/ui/
+- API: http://localhost:5000
+
+### 5. Migration from Legacy .odb (Advanced/One-off)
+
+If you want to run the migration script manually inside a running container (after start):
+
+```powershell
+docker exec -it meal-planner-dev python -m meal_planner_app.migrate_legacy
+```
+
+(Or edit `start_and_seed.sh` / `seed_db.py` if you need custom logic.)
+
+The legacy data includes Polish recipes from your old Base DB (titles, sources, etc.). The script extracts what it can or falls back to sample data.
+
+### 6. Production Image
+
+The `prod` target now installs Node.js + frontend dependencies in the final stage (to match the shared `start_and_seed.sh`).
+
+```powershell
+docker buildx bake prod
+docker run -d `
+  -p 5000:5000 `
+  -p 5173:5173 `
+  -v "C:\path\to\legacy:/app/legacy:ro" `
+  --name meal-planner-prod `
+  meal-planner:prod
+```
+
+This makes the default start script succeed (it will run both the Flask backend and Vite on 5173).
+
+Access:
+- React (via Vite): http://localhost:5173
+- React (static assets via Flask): http://localhost:5000/ui/
+- API: http://localhost:5000/api/recipes
+
+**Note:** The prod image is now larger because it includes Node + dev dependencies. For a leaner true production deployment you can still override the command to use only gunicorn + the pre-built static files at `/ui/`.
+
+### Troubleshooting (Windows + Docker)
+
+- **Ports in use:** Stop other servers or change ports (`-p 5001:5000` etc.).
+- **Volume mount not working:** Use full absolute Windows path in quotes. Ensure Docker Desktop has file sharing enabled for the drive.
+- **npm not found or Node version error during build:** Always use `docker buildx bake` (it enforces Node 20+). Avoid plain `docker build` on the root Dockerfile if versions drift.
+- **Hot reload not working:** Make sure you mounted the source volume for dev image: `-v "$(pwd):/app"`.
+- **WSL2 issues:** Restart Docker Desktop or `wsl --shutdown`.
+- **Legacy data not seeding:** Confirm the .odb file is at `your-legacy-dir/przepisy_tmp.odb` and mounted to `/app/legacy`.
+- **Build fails on Tailwind native bindings:** Use the bake command + Node 20 image (already handled in this setup).
+
+For VS Code Dev Container (alternative to manual Docker):
+- Install "Dev Containers" extension.
+- Open the folder in VS Code → "Reopen in Container".
+- It uses `.devcontainer/Dockerfile` + `postCreateCommand` for deps.
+- Run commands inside the container terminal as above.
+
+See `docker-bake.hcl` for how versions are centralized. Run `docker buildx bake --print` to inspect effective config.

@@ -58,7 +58,7 @@ const router = createBrowserRouter(
     },
   ],
   {
-    basename: "/static/react_app",
+    basename: "/ui",
   },
 );
 

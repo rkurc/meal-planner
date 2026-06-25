@@ -4,6 +4,7 @@ Handles web routes, request processing, and rendering HTML templates.
 Integrates with CRUD operations and other services.
 """
 
+import os
 import re
 import uuid  # Required for recipe_id conversion
 
@@ -30,6 +31,28 @@ from meal_planner_app.models.shopping_list import ShoppingList
 from typing import List, Dict
 
 app = Flask(__name__)
+
+
+@app.before_request
+def remove_trailing_slash():
+    """Normalize URLs: collapse multiple slashes and redirect trailing slash versions.
+    e.g. /recipes//edit -> /recipes/edit , /recipes/ -> /recipes
+    This prevents 404s from common typing / copy-paste errors on legacy routes.
+
+    We skip /ui paths so the React SPA and its client-side router aren't interfered with.
+    """
+    if request.path.startswith("/ui"):
+        return None
+
+    if request.path != "/":
+        # Collapse //+ to single / and strip trailing /
+        normalized = re.sub(r"/+", "/", request.path).rstrip("/")
+        if not normalized:
+            normalized = "/"
+        if normalized != request.path:
+            return redirect(normalized, code=308)
+
+    return None
 
 
 @app.template_filter("nl2br")
@@ -636,22 +659,28 @@ def api_delete_shopping_list(shopping_list_id: uuid.UUID):
 
 # --- Test-only routes (always registered so test_client + gunicorn see them;
 # guarded at runtime so they 404 in normal prod runs without debug/TESTING).
+# Enabled via TESTING=true env (passed to gunicorn in E2E) or app.config["TESTING"].
 # Used by E2E beforeEach and (optionally) dev; see seed_db.py:RECIPES_TO_SEED.
 @app.route("/api/test/seed-db", methods=["POST"])
 def api_seed_database():
     """Seeds the database. For testing/E2E purposes only. Returns 404 in normal production runs."""
-    if not (getattr(app, "debug", False) or app.config.get("TESTING")):
+    if not (
+        getattr(app, "debug", False)
+        or app.config.get("TESTING")
+        or os.environ.get("TESTING", "").lower() in ("1", "true", "yes")
+    ):
         abort(404)
     seed_database()
     return jsonify({"message": "Database seeded successfully"}), 200
 
 
 # --- React App Route ---
-@app.route("/ui/")
+@app.route("/ui", defaults={"path": ""}, strict_slashes=False)
+@app.route("/ui/", defaults={"path": ""}, strict_slashes=False)
 @app.route("/ui/<path:path>")  # Catch-all for client-side routing
-def serve_react_app(path=None):
+def serve_react_app(path=""):
     """Serves the React frontend application."""
-    if path is None or "." not in path:
+    if not path or "." not in path:
         return send_from_directory("static/react_app", "index.html")
     return send_from_directory("static/react_app", path)
 
@@ -667,4 +696,5 @@ if __name__ == "__main__":
     # ingredients_data=[{'name': 'Lettuce', 'quantity': '1', 'unit': 'head'}])
 
     # crud.reset_meal_plans_db() # Optional: clear meal plans on start
-    app.run(debug=True)
+    # app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)

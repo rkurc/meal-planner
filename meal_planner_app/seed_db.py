@@ -88,13 +88,19 @@ def seed_meal_plans():
         print("No recipes found to build meal plan seed.")
         return
 
-    recipe_ids = [r.recipe_id for r in recipes[:2]]  # use up to the seeded ones
-    plan = create_meal_plan(
-        name="Weekly Meal Plan",
-        description="E2E test plan containing seeded recipes.",
-        recipe_ids=recipe_ids,
-    )
-    print(f"Seeded meal plan: {plan.name} (id={plan.meal_plan_id})")
+    # Use .recipe_id from Recipe objects (UUIDs)
+    recipe_ids = [r.recipe_id for r in recipes if getattr(r, "recipe_id", None)]
+
+    # Seed a "Weekly Meal Plan" for E2E tests (Critical from prior review)
+    if recipe_ids:
+        print("Creating Weekly Meal Plan for E2E tests...")
+        create_meal_plan(
+            name="Weekly Meal Plan",
+            description="Seeded weekly plan for E2E tests",
+            recipe_ids=recipe_ids,
+        )
+    else:
+        print("No recipe IDs available; skipping meal plan seed.")
 
 
 if __name__ == "__main__":

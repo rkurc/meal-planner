@@ -14,20 +14,36 @@ echo "Starting Flask backend..."
 python -m meal_planner_app.main &
 BACKEND_PID=$!
 
-# Start the frontend dev server in the background
+# Start the frontend dev server in the background (only if npm is available).
+# In prod-style images without Node (or lean prod), we just serve the prebuilt
+# React assets via Flask at /ui/.
 echo "Starting Vite frontend..."
-cd /app/frontend
-npm run dev -- --host 0.0.0.0 &
-FRONTEND_PID=$!
-cd /app
+if command -v npm >/dev/null 2>&1; then
+  cd /app/frontend
+  npm run dev -- --host 0.0.0.0 &
+  FRONTEND_PID=$!
+  cd /app
+else
+  echo "npm not found - skipping Vite (using static assets at /ui/)"
+  FRONTEND_PID=""
+fi
 
 # Wait for the backend to be ready
 echo "Waiting for backend to start..."
 sleep 10
 
-# Seed the database
-echo "Seeding database..."
-python -m meal_planner_app.seed_db
+# Migrate from legacy .odb if present, else default seed
+if [ -f /app/legacy/przepisy_tmp.odb ]; then
+  echo "Legacy .odb found - running migration..."
+  python -m meal_planner_app.migrate_legacy || python -m meal_planner_app.seed_db
+else
+  echo "Seeding database with defaults..."
+  python -m meal_planner_app.seed_db
+fi
 
-# Keep the container running by waiting for both processes
-wait $BACKEND_PID $FRONTEND_PID
+# Keep the container running by waiting for the backend (and frontend if we started it)
+if [ -n "$FRONTEND_PID" ]; then
+  wait $BACKEND_PID $FRONTEND_PID
+else
+  wait $BACKEND_PID
+fi

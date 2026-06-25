@@ -1,9 +1,10 @@
 // @ts-check
+/* global process */
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   use: {
-    baseURL: "http://localhost:5173",
+    baseURL: process.env.BASE_URL || "http://localhost:5173",
     screenshot: "only-on-failure",
   },
 });
