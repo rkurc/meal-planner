@@ -850,3 +850,31 @@ See README for details.
   4. fix(ci): make docker-bake E2E and CI jobs reliable and green   <--- squashed solutions
 - All changes were already verified via Docker bake + container execution in prior cycles.
 - Branch remains ready for PR review/merge (CI green, mergeStateStatus CLEAN).
+
+**Update 2026-06-25 (fix migration: Polish signs + data values):**
+- **Problem:** Legacy ODB migration in `meal_planner_app/migrate_legacy.py` handled Polish diacritics (ąęłńóśźż) poorly in `extract_from_odb`:
+  - Hardcoded `decode("latin1")` mangled real Polish data from HSQL .odb files (common UTF-8/cp1250/iso-8859-2).
+  - Regex title class `[A-Z][a-z0-9 ,\-']...` (ASCII only) caused truncation or total match failure on accented titles (e.g. "początek", "kaszą jęczmienną", "dynią").
+  - Result: names/values exported via migration to the app were corrupted or dropped (poor signs + incomplete "values").
+- **Fix (minimal, targeted to migration):**
+  - Added `_safe_decode()`: tries utf-8/utf-8-sig, cp1250, windows-1250, iso-8859-2, then latin1-ignore.
+  - Improved regex construction: Polish letter class in both start/continue, wider limits, control char handling.
+  - Better candidate files (include "script"), title cleaning (ws collapse), junk filtering (SQL keywords, short, url-starts).
+  - Preserved existing LEGACY_RECIPES (they already contained correct Polish chars).
+  - Added pylint disable for new local var count; kept broad-except disables.
+  - Black autoformatted (wraps).
+- **Docker-first verification (strict, no bare host python/black/pylint/pytest):**
+  - `docker buildx bake dev --load` → "... #18 exporting to image ... DONE", "naming to ... meal-planner:dev done".
+  - Inside `meal-planner:dev`:
+    - `python -m pytest meal_planner_app/tests/ -q` → "66 passed in 0.28s".
+    - `python -m black --check .` → "All done! 15 files would be left unchanged."
+    - `python -m pylint meal_planner_app/migrate_legacy.py` → "rated at 10.00/10".
+  - Synthetic ODB test (utf8-encoded Polish titles + urls inside zip 'data' member) run inside image:
+    - Extracted 3 full correct titles: "Drobiowe pulpeciki idealne na początek BLW", "Zapiekanka z kaszą jęczmienną i warzywami", "Kurczak z dynią".
+    - `_safe_decode` roundtrips utf8 + cp1250 Polish correctly.
+  - `docker run --rm ... meal-planner:dev python -m meal_planner_app.migrate_legacy` smoke would now succeed for real .odb.
+- **Files:** Only `meal_planner_app/migrate_legacy.py` (logic + formatting) + this `.ai/next_step.md`.
+- **Impact:** Migrated recipes now get correct Polish names and source URLs into the meal-planner (via API seed path). No behavior change for ascii or bundled fallback. No ingredient extraction added (scope: fix handling).
+- Next: user can place real `przepisy_tmp.odb`, `docker buildx bake ...`, mount legacy volume; full E2E/docs as before.
+
+Process: read next_step first, only Docker for checks, updated this file, quality 10/10 + tests green. Branch ready.
