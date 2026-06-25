@@ -32,14 +32,20 @@ RUN pip install --no-cache-dir .
 
 # Stage 3: Final production image
 FROM python:${PYTHON_VERSION}-slim-bullseye AS final
+# Re-declare ARGs for clarity in this stage (matching how NODE_VERSION is handled).
+# This ensures PYTHON_VERSION from docker-bake.hcl / CLI overrides fully controls
+# the base image and any references (though COPY below uses version-agnostic paths).
+ARG PYTHON_VERSION=3.9
+ARG NODE_VERSION=20
 WORKDIR /app
 
-# Install Node.js using the exact same sequence as .devcontainer/Dockerfile.
-# This ensures the prod-style image has a modern Node (v20+) + npm so that
-# start_and_seed.sh (npm run dev + the backend) does not fail.
-ARG NODE_VERSION=20
-RUN apt-get update && apt-get install -y curl gnupg ca-certificates && \
-    curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash - && \
+# Install Node.js using the (major part of) ARG. Nodesource setup scripts only support
+# major versions (setup_20.x even for NODE_VERSION=20.19). This matches the logic in
+# .devcontainer/Dockerfile and allows documented overrides like NODE_VERSION=20.19
+# (required by Vite) to produce working images.
+RUN NODE_MAJOR=$(echo "${NODE_VERSION}" | cut -d. -f1) && \
+    apt-get update && apt-get install -y curl gnupg ca-certificates && \
+    curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - && \
     apt-get update && \
     apt-get install -y nodejs && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -47,8 +53,13 @@ RUN apt-get update && apt-get install -y curl gnupg ca-certificates && \
 # Create a non-root user and group
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Copy python packages and gunicorn binary from backend-builder
-COPY --from=backend-builder /usr/local/lib/python3.9/site-packages/ /usr/local/lib/python3.9/site-packages/
+# Copy installed packages and gunicorn from the backend-builder stage.
+# Use full-tree copies (/usr/local/lib and the gunicorn binary) so that the
+# pythonX.Y/ subdirectory (e.g. python3.9 or python3.10) created by the
+# matching PYTHON_VERSION builder stage is carried over without hardcoding
+# the version string in this Dockerfile. This makes PYTHON_VERSION from
+# docker-bake.hcl fully effective for site-packages and binaries.
+COPY --from=backend-builder /usr/local/lib /usr/local/lib
 COPY --from=backend-builder /usr/local/bin/gunicorn /usr/local/bin/gunicorn
 
 # Copy built React assets from the frontend-builder stage

@@ -119,6 +119,7 @@ All development, verification, testing, formatting, and building **must** be per
 - Use `docker buildx bake --print` to debug variable/ARG resolution.
 - After edits to `Dockerfile`, `docker-bake.hcl`, `.devcontainer/Dockerfile`, or CI workflows, re-run the bake targets that will be used in production/CI.
 - Override versions explicitly when testing: `NODE_VERSION=20.19 PYTHON_VERSION=3.9 docker buildx bake prod`.
+- Note on CI: The native "backend" and "frontend" jobs in `.github/workflows/ci.yml` are a lightweight exception (they pin versions via setup-python/setup-node to match bake defaults). The dedicated "docker" job + integration tests provide the full bake verification. Prefer bake where possible.
 
 ### Verification Discipline
 - After fixing a Docker-related failure, actually execute the failing command the user reported and capture key success output (e.g. the `npm ci` step completing and "exporting to image ... DONE").

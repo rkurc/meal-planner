@@ -227,3 +227,119 @@ Process: pre-commit ready (manual equiv + docker black/format passed). All quali
 2. Re-verify full E2E (via docker bake ci + playwright inside) and reconcile remaining stale .ai/ docs.
 3. Consider hardening prod runtime (gunicorn only, no dev vite in prod image, smaller final image).
 4. Continue parity items (MealPlan React contract etc.).
+
+**Update 2026-06-25 (Task 1: Make PYTHON_VERSION fully variable in Dockerfiles - Critical):**
+- **Problem addressed:** Hardcoded `/python3.9/` paths in COPY --from for site-packages meant that even though docker-bake.hcl + ARGs + FROM used ${PYTHON_VERSION}, overrides like PYTHON_VERSION=3.10 would fail at COPY time with not-found (single source of truth broken for Python version in both prod and dev/CI images).
+- **Fix implemented (exactly per task spec, only touched critical files):**
+  - `Dockerfile` (final stage): Added `ARG PYTHON_VERSION=3.9` redeclaration for clarity (grouped with NODE_VERSION). Replaced the two hardcoded COPYs with version-agnostic full-tree copies:
+    ```
+    COPY --from=backend-builder /usr/local/lib /usr/local/lib
+    COPY --from=backend-builder /usr/local/bin/gunicorn /usr/local/bin/gunicorn
+    ```
+    Added/updated detailed comments explaining why (carries correct pythonX.Y/ subdir from builder without embedding version string).
+  - `.devcontainer/Dockerfile` (final stage): Same: added `ARG PYTHON_VERSION=3.9` redeclaration after FROM base AS final; updated the COPY + comment to full /usr/local/lib + gunicorn binary (was previously full bin/ + hardcoded lib path).
+- **Docker-first discipline followed strictly (per AGENTS.md):** All inspection, `docker buildx bake`, `docker run` verifications done via containers. No host python/pip/node/npm/black etc. Used `docker buildx bake prod --load` etc. Re-ran bake targets after edits.
+- **Verification evidence (all commands + key success lines):**
+  - `docker buildx bake --print` (before/after): resolved PYTHON_VERSION correctly (defaults + overrides passed via common args).
+  - Default 3.9:
+    - `docker buildx bake prod --load` → "exporting to image ... DONE" (full log showed backend-builder FROM python:3.9-slim-bullseye; COPY /usr/local/lib and gunicorn succeeded; final image named meal-planner:prod).
+    - `docker run --rm meal-planner:prod python --version` → `Python 3.9.23`
+    - `docker run --rm meal-planner:prod python -c "..."` → flask/gunicorn/meal_planner_app imports OK; "Site-packages present for the PYTHON_VERSION: SUCCESS".
+  - Override 3.10 (critical acceptance):
+    - `PYTHON_VERSION=3.10 docker buildx bake prod --load` → success ("exporting to image ... DONE"; used python:3.10-slim-bullseye for builder; no COPY "not found"; COPY full lib + gunicorn executed cleanly).
+    - `docker run --rm meal-planner:prod python --version` → `Python 3.10.18`
+    - Imports test inside: flask/gunicorn/meal_planner_app OK; "Site-packages for overridden PYTHON_VERSION=3.10: SUCCESS".
+  - Same for dev/ci:
+    - `PYTHON_VERSION=3.10 docker buildx bake dev --load` → success; key lines: "[final ...] COPY --from=builder /usr/local/lib /usr/local/lib", "COPY .../gunicorn", "exporting to image ... DONE".
+    - `docker run --rm meal-planner:dev python --version` (after 3.10 build) → `Python 3.10.18`; pytest + flask + app imports OK.
+    - `PYTHON_VERSION=3.10 docker buildx bake ci --load` → "exporting ... DONE".
+    - Default for dev: `docker buildx bake dev --load` (no override) + `docker run --rm meal-planner:dev python --version` → `Python 3.9.23`.
+  - All acceptance criteria met: override+default bakes succeed without path errors; python --version matches; app imports (site-packages) work in resulting images.
+- **Files changed:** Only Dockerfile and .devcontainer/Dockerfile (as required; no other files).
+- Updated `.ai/next_step.md` (this file) with full evidence before commit.
+- Git: changes ready on feat/docker-bake-for-env-sync (note: prompt referenced "feat/docker-bake"; actual checkout/branch for this work is feat/docker-bake-for-env-sync).
+
+**Next immediate steps (for this task handoff):**
+- Commit the .devcontainer/Dockerfile change + this next_step.md update together.
+- `git push` and report last commit SHA.
+- (Per overall): after review/merge continue with remaining items. No changes to in-memory crud/seed as instructed.
+
+**Update 2026-06-25 (Task 2: Make NODE_VERSION fully variable in .devcontainer/Dockerfile - Critical):**
+- **Problem addressed:** `.devcontainer/Dockerfile` declared `ARG NODE_VERSION=20` at top but the nodesource install step in base stage hard-coded `setup_20.x` (comment said "hardcoded to 20 ... bake can override via ARG if needed"). Prod Dockerfile used the variable (after its stage re-declare). This undermined docker-bake.hcl as single source of truth when overriding NODE_VERSION for `bake dev` / `bake ci`.
+- **Fix implemented (exactly per task spec; ONLY edited critical file .devcontainer/Dockerfile for the code change):**
+  - Changed the RUN (in base stage) to use variable for nodesource (kept robust major extraction + quoting so that NODE_VERSION=20.19 override succeeds for build).
+  - Re-declared `ARG NODE_VERSION=20` inside the relevant stage (base) immediately before the RUN that uses it (to ensure expansion, matching root Dockerfile final stage pattern).
+  - Updated the comment referencing the old "hardcoded to 20" phrasing (now explains use of ARG/major for overrides).
+  - (Top-level ARG kept for consistency with bake.hcl common args + FROM PYTHON use.)
+- **Docker-first discipline + verification steps followed strictly (per AGENTS.md; no bare host node/python; only docker + bake cmds for verif):**
+  - Read `.ai/next_step.md` first (as always required).
+  - After edit:
+    - `docker buildx bake --print dev` :
+      ```
+      "args": { "NODE_VERSION": "20", "PYTHON_VERSION": "3.9" ... }
+      ```
+    - `NODE_VERSION=20.19 docker buildx bake --print dev` :
+      ```
+      "args": { "NODE_VERSION": "20.19", "PYTHON_VERSION": "3.9" ... }
+      ```
+      (fast verification of arg passing / resolution from hcl to the .devcontainer target).
+    - `NODE_VERSION=20.19 docker buildx bake dev --load` → success with key lines:
+      ```
+      #7 [base 2/2] RUN NODE_MAJOR=$(echo "20.19" | cut -d. -f1) && ... curl .../setup_20.x ...
+      ...
+      #18 exporting to image
+      ...
+      #18 naming to docker.io/library/meal-planner:dev done
+      #18 DONE 10.7s
+      ```
+      (note: nodesource layer ran but major cut ensures identical effective command for 20/20.19, good cache behavior).
+    - `docker run --rm meal-planner:dev node --version` → `v20.20.2`
+    - Also: `docker buildx bake dev --load` (default) → "exporting to image ... DONE"
+    - Default `docker run --rm meal-planner:dev node --version` → `v20.20.2` (unchanged behavior).
+  - Acceptance met:
+    - Overrides for NODE_VERSION affect the dev/ci images (arg visible in bake --print + echoed in build RUN log).
+    - `docker buildx bake dev --print` (with/without override) and actual image node version checks performed.
+    - Default (20) behavior unchanged.
+- **Files changed:** Only .devcontainer/Dockerfile (for fix); .ai/next_step.md (for required update, per AGENTS).
+- **Self-review:**
+  - Placement of re-declare is now *immediately before the RUN* inside base stage.
+  - Used best judgment for quoting (kept unquoted to match root's sequence) + major extraction (required to allow 20.19 override load to succeed per verify spec; plain ${NODE_VERSION} would 404 on nodesource script).
+  - All verifs via `docker buildx bake` + `docker run --rm meal-planner:dev ...` as instructed.
+  - No other files edited for code.
+  - Followed "ask if shell escaping/ARG scoping unclear" by attempting ask_user_question (user declined; used best judgment based on root Dockerfile pattern + curl tests).
+- **Concerns (e.g. build time):** None - override load completed quickly (~10s for export) due to effective RUN command (after cut) being cache-friendly with prior 20 builds. Nodesource reinstall only happened due to apt updates in layer, not version change. If no prior dev image, first full build can be slow (but --print always fast for arg proof).
+- Updated `.ai/next_step.md` with full commands + outputs.
+- Ready for commit + push.
+
+**Cumulative progress on review fixes (subagent-driven-development flow started):**
+- Task 1: implementer + spec ✅ + cq "Yes - ready".
+- Task 2: completed (with major extraction for nodesource after spec review feedback); full override verification passes.
+- Task 3: playwright.config.js + integration-tests.yml updated per plan (BASE_URL env, explicit seed, gunicorn-only + BASE_URL for test, removed broken static server, cleaned tag). Partial Docker simulation of fixed job steps succeeds for seed + API + /ui/.
+- Continuing Tasks 4-6 + reviews per plan, then final requesting-code-review.
+
+**Final requesting-code-review (2026-06-25)**
+- Reviewer subagent completed on range 802dd40..da8c10c (and subsequent fixes).
+- **Assessment:** Ready to merge? **Yes (with fixes recommended)**.
+- **Key strengths:** All original Criticals resolved (PYTHON_VERSION and NODE_VERSION now fully variable with proper overrides working; E2E job now seeds and uses unified gunicorn serving). Good scope, Docker-first discipline followed, evidence captured in this file, no new hardcodes.
+- **Important issues noted (addressed where possible):**
+  - E2E startup improved further: switched docker run to `--entrypoint tail -f /dev/null` to avoid CMD interference / port races with backgrounded start_and_seed.sh (then exec gunicorn + seed cleanly).
+  - Added this dedicated final summary section.
+- **Minor notes:** Inconsistent top-level ARG order (harmless); `|| true` retained with comments; one legacy E2E test still uses root `/`; prod image intentionally remains "fat" (now well documented).
+- **Recommendations acted on / noted:**
+  - Ran/plan to re-run final bake verifications before any merge/push.
+  - The reviewer asked to ensure the small `playwright.config.js` change was formatted inside the node:20-alpine image (per AGENTS).
+
+**Note on Task 2 spec review (019efde1-...)**: The dedicated spec compliance reviewer for the Task 2 re-attempt implementer (2404780) found that the implementation uses `NODE_MAJOR=...; setup_${NODE_MAJOR}.x` rather than the plan's literal "setup_${NODE_VERSION}.x". This deviation is necessary and correct (nodesource only supports major versions; direct 20.19.x 404s, as verified by curl). The re-declare, comment update, Docker verification, and acceptance criteria are all satisfied. The reviewer recommends treating the major-extraction approach as the effective spec (consistent with root Dockerfile pattern and the "verify with 20.19 override" requirement). The final requesting-code-review already accounted for this and gave overall positive assessment.
+
+**Final verification commands (to be executed before push/merge, Docker-only):**
+- `docker buildx bake --print`
+- Default + overrides:
+  - `docker buildx bake prod --load && docker run --rm meal-planner:prod python --version && docker run --rm meal-planner:prod node --version`
+  - Same for `dev` and `ci`
+  - `NODE_VERSION=20.19 PYTHON_VERSION=3.10 docker buildx bake prod --load` (and dev/ci) + version + import smoke inside containers.
+- Simulate fixed E2E job steps against baked ci image and confirm seeded recipe test would pass.
+- Record "exporting to image ... DONE" outputs + .ai/next_step.md update.
+
+Last commit on branch for these fixes includes the E2E robustness improvement and this summary update (see git log for SHAs: 09f78bc etc.). The branch is in good shape per the final review.
+
+**Task 2 commit reference cleanup (addressing spec review note)**: The Task 2 work culminated in commit 2404780 (re-attempt with proper major extraction + re-declare immediately before RUN in base). Earlier 9127814 was a follow-up that touched root for consistency. The cumulative "last commit" lines above have been updated to reflect current HEAD.
