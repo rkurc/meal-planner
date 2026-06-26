@@ -404,16 +404,21 @@ class TestMealPlanApi(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
         data = json.loads(response.data)
-        self.assertIsInstance(data, list)
+        self.assertIsInstance(data, dict)  # now grouped by location
+
+        # Flatten for assertion (items under location keys, including "")
+        all_items = []
+        for items in data.values():
+            all_items.extend(items)
 
         # Find the 'Egg' ingredient in the shopping list
-        egg_item = next((item for item in data if item["name"] == "Egg"), None)
+        egg_item = next((item for item in all_items if item["name"] == "Egg"), None)
         self.assertIsNotNone(egg_item)
         self.assertEqual(egg_item["quantity"], 4)  # 1 + 3
         self.assertEqual(egg_item["unit"], "pc")
 
         # Find the 'Flour' ingredient
-        flour_item = next((item for item in data if item["name"] == "Flour"), None)
+        flour_item = next((item for item in all_items if item["name"] == "Flour"), None)
         self.assertIsNotNone(flour_item)
         self.assertEqual(flour_item["quantity"], 200)
         self.assertEqual(flour_item["unit"], "g")

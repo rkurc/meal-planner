@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
-"""Legacy migration from przepisy_tmp.odb (or fallback to bundled recipes).
+"""Legacy migration (recommended 2-step or legacy .odb).
 
-This module is called by start_and_seed.sh when /app/legacy/przepisy_tmp.odb exists.
-It extracts recipe titles + source URLs + best-effort ingredients from the
-legacy HSQL/ODB file using zip + heuristics (no Java/DB tools needed), then
-seeds them via the API.
+Recommended reliable path (2-step):
+1. On Windows (with LibreOffice Base / OpenOffice Base):
+   - Open przepisy_tmp.odb
+   - Export the main recipes table to CSV (UTF-8, headers, comma or semicolon delimiter).
+   - See README for exact export steps and expected columns.
+2. Place recipes.csv (or przepisy.csv) in the legacy/ dir (next to the .odb if you want).
+   Run this module (via start_and_seed.sh or manually). It will prefer the CSV.
 
-Falls back to a small bundled LEGACY_RECIPES list if extraction yields nothing.
+CSV gives clean, editable, deterministic data (no binary scraping).
+
+Still supports direct .odb extraction via heuristics (zip + regex) as fallback.
+Falls back to bundled LEGACY_RECIPES.
+
+Ingestion always happens via the live /api/recipes (same as seed_db).
 """
 
+import csv
 import json
 import logging
 import urllib.request
@@ -16,6 +25,7 @@ import urllib.error
 import zipfile
 import re
 import os
+from collections import defaultdict
 from typing import List, Dict, Any
 
 logging.basicConfig(level=logging.INFO)
@@ -64,7 +74,12 @@ LEGACY_RECIPES: List[Dict[str, Any]] = [
         "instructions": "See source_url for full original instructions. (auto-migrated from .odb)",
         "description": "BLW friendly",
         "ingredients": [
-            {"name": "Mielone indyk", "quantity": "400", "unit": "g"},
+            {
+                "name": "Mielone indyk",
+                "quantity": "400",
+                "unit": "g",
+                "location_id": None,
+            },
         ],
     },
     {
@@ -73,9 +88,9 @@ LEGACY_RECIPES: List[Dict[str, Any]] = [
         "instructions": "See full recipe at source_url. (Migrated from przepisy_tmp.odb)",
         "description": "",
         "ingredients": [
-            {"name": "Kurczak", "quantity": "500", "unit": "g"},
-            {"name": "Dynia", "quantity": "400", "unit": "g"},
-            {"name": "Cebula", "quantity": "1", "unit": "szt"},
+            {"name": "Kurczak", "quantity": "500", "unit": "g", "location_id": None},
+            {"name": "Dynia", "quantity": "400", "unit": "g", "location_id": None},
+            {"name": "Cebula", "quantity": "1", "unit": "szt", "location_id": None},
         ],
     },
     {
@@ -84,9 +99,14 @@ LEGACY_RECIPES: List[Dict[str, Any]] = [
         "instructions": "See full recipe at source_url. (Migrated from przepisy_tmp.odb)",
         "description": "",
         "ingredients": [
-            {"name": "Kasza jęczmienna", "quantity": "1", "unit": "szklanka"},
-            {"name": "Marchew", "quantity": "2", "unit": "szt"},
-            {"name": "Cukinia", "quantity": "1", "unit": "szt"},
+            {
+                "name": "Kasza jęczmienna",
+                "quantity": "1",
+                "unit": "szklanka",
+                "location_id": None,
+            },
+            {"name": "Marchew", "quantity": "2", "unit": "szt", "location_id": None},
+            {"name": "Cukinia", "quantity": "1", "unit": "szt", "location_id": None},
         ],
     },
     {
@@ -95,8 +115,8 @@ LEGACY_RECIPES: List[Dict[str, Any]] = [
         "instructions": "See full recipe at source_url. (Migrated from przepisy_tmp.odb)",
         "description": "",
         "ingredients": [
-            {"name": "Dynia", "quantity": "500", "unit": "g"},
-            {"name": "Marchew", "quantity": "3", "unit": "szt"},
+            {"name": "Dynia", "quantity": "500", "unit": "g", "location_id": None},
+            {"name": "Marchew", "quantity": "3", "unit": "szt", "location_id": None},
         ],
     },
     {
@@ -105,8 +125,8 @@ LEGACY_RECIPES: List[Dict[str, Any]] = [
         "instructions": "See full recipe at source_url. (Migrated from przepisy_tmp.odb)",
         "description": "",
         "ingredients": [
-            {"name": "Kurczak", "quantity": "400", "unit": "g"},
-            {"name": "Pomidory", "quantity": "400", "unit": "g"},
+            {"name": "Kurczak", "quantity": "400", "unit": "g", "location_id": None},
+            {"name": "Pomidory", "quantity": "400", "unit": "g", "location_id": None},
         ],
     },
 ]
@@ -126,6 +146,89 @@ def _safe_decode(raw: bytes) -> str:
         except UnicodeDecodeError:
             continue
     return raw.decode("latin1", errors="ignore")
+
+
+def _looks_like_junk(name: str) -> bool:  # pylint: disable=too-many-return-statements
+    """Return True for names that are clearly noise from binary/encoded dump content.
+
+    Rejects names containing digits (after clean step), long id-like alphanum,
+    uppercase runs, file extension words, urls, insufficient letters.
+    """
+    if not name:
+        return True
+    n = name.strip()
+    if len(n) < 3 or len(n) > 35:
+        return True
+    # Any digits left in name after qty stripping -> almost always junk from dump
+    if re.search(r"\d", n):
+        return True
+    # Long alphanumeric runs without spaces (base64, hashes, guids fragments)
+    if re.search(r"[A-Za-z0-9]{9,}", n):
+        return True
+    # Long uppercase runs (rare for food names)
+    if re.search(r"[A-Z]{4,}", n):
+        return True
+    # File/web junk words (even without dot)
+    if re.search(r"\.(html|htm|php|js|css|data|odb|log)\b|https?://", n, re.IGNORECASE):
+        return True
+    junk_words = ("html", "htm", "php", "script", "data", "odb", "log")
+    if any(w in n.lower() for w in junk_words):
+        return True
+    # Too many non word chars
+    if len(re.findall(r"[^A-Za-ząćęłńóśźż0-9 -]", n)) > 2:
+        return True
+    # Insufficient letters
+    alpha = sum(c.isalpha() for c in n)
+    if alpha < 2:
+        return True
+    return False
+
+
+def parse_ingredient_line(line: str) -> Dict[str, Any]:
+    """Parse one ingredient line into {name, quantity, unit}.
+
+    Supports common patterns like "500 g kurczak", "2 łyżki oliwy", "1 szt jajko".
+    Falls back to treating the whole line as the name (quantity/unit empty).
+    Used for both CSV exports and legacy textarea-style data.
+    """
+    line = line.strip()
+    if not line:
+        return {"name": "", "quantity": "", "unit": ""}
+
+    # Flexible qty + optional unit + name (Polish + some English units)
+    m = re.match(
+        r"^(\d+[\.,]?\d*)\s*"
+        r"(g|kg|ml|l|łyżk[aię]|łyżeczki|szklank[ai]|szt|opak|kostk[ai]|pęczek|ząbek|plaster|"
+        r"cup|cups|tbsp|tsp|oz|lb|piece|pieces)?\s*"
+        r"(.+)$",
+        line,
+        re.IGNORECASE,
+    )
+    if m:
+        qty = m.group(1).replace(",", ".").strip()
+        unit = (m.group(2) or "").strip()
+        name = m.group(3).strip()
+        if name:
+            return {"name": name, "quantity": qty, "unit": unit}
+
+    # Fallback: whole line is the name (matches old legacy textarea behavior)
+    return {
+        "name": line,
+        "quantity": "",
+        "unit": "",
+        "location_id": None,
+        "location": None,
+    }
+
+
+def parse_ingredients_from_text(text: str) -> List[Dict[str, Any]]:
+    """Turn a block of ingredient text (newlines or | separated) into structured list."""
+    if not text:
+        return []
+    # Normalize separators
+    normalized = text.replace("|", "\n").replace(";", "\n")
+    lines = [l.strip() for l in normalized.splitlines() if l.strip()]
+    return [parse_ingredient_line(line) for line in lines]
 
 
 def _extract_ingredients(
@@ -159,6 +262,7 @@ def _extract_ingredients(
             len(name) > 2
             and key not in seen_names
             and not key.startswith(("http", "www", "insert"))
+            and not _looks_like_junk(name)
         ):
             seen_names.add(key)
             ingredients.append(
@@ -193,11 +297,16 @@ def extract_from_odb(
     try:
         with zipfile.ZipFile(odb_path, "r") as z:
             # Look for a data file (common locations inside HSQL/ODB). Also consider 'script'.
+            # Prefer 'script' (often contains readable SQL INSERTs for HSQL) over raw 'data'.
+            # Fall back to data or first few members.
             candidates = [
                 n
                 for n in z.namelist()
-                if any(k in n.lower() for k in ("data", "script"))
-                or n.endswith(("data", "script"))
+                if any(k in n.lower() for k in ("script",)) or n.endswith(("script",))
+            ] or [
+                n
+                for n in z.namelist()
+                if any(k in n.lower() for k in ("data",)) or n.endswith(("data",))
             ]
             if not candidates:
                 candidates = z.namelist()[:3]  # fallback
@@ -206,6 +315,9 @@ def extract_from_odb(
                 try:
                     raw = z.read(member)
                     text = _safe_decode(raw)
+                    # Collapse control chars globally so embedded nulls etc don't truncate
+                    # titles or create weird splits in the heuristic scan.
+                    text = re.sub(r"[\x00-\x1f]+", " ", text)
                 except Exception:  # pylint: disable=broad-exception-caught
                     continue
 
@@ -232,7 +344,7 @@ def extract_from_odb(
                     title = m.group(1).strip()
                     url = m.group(2).strip()
 
-                    # Clean control chars + collapse whitespace
+                    # Clean control chars + collapse whitespace (controls already normalized above)
                     title = re.sub(r"[\x00-\x1f]", " ", title)
                     title = re.sub(r"\s+", " ", title).strip()
 
@@ -272,10 +384,255 @@ def extract_from_odb(
     return recs
 
 
-def seed_from_legacy(odb_path: str = "/app/legacy/przepisy_tmp.odb") -> None:
-    """Seed using ODB if available, else bundled LEGACY_RECIPES.
+def extract_from_csv(csv_path: str) -> List[Dict[str, Any]]:
+    """Import recipes from a user-exported CSV (the recommended 2-step path).
 
-    Always safe to call; it checks whether the DB is already populated.
+    Expected columns (case-insensitive, common Polish/English variants supported):
+      - name / tytul / tytuł / nazwa
+      - source_url / url / zrodlo / źródło / source
+      - description / opis (optional)
+      - instructions / instrukcje (optional)
+      - ingredients / skladniki / składniki / sklad (text, one ingredient per line)
+
+    Use UTF-8 when exporting from Calc/Base. Newlines inside the ingredients cell are supported.
+    """
+    if not os.path.exists(csv_path):
+        return []
+
+    recs: List[Dict[str, Any]] = []
+
+    try:
+        with open(csv_path, newline="", encoding="utf-8") as f:
+            # Try common delimiters if not auto-detected well
+            sample = f.read(4096)
+            f.seek(0)
+            dialect = csv.Sniffer().sniff(sample, delimiters=",;|\t")
+            reader = csv.DictReader(f, dialect=dialect)
+
+            for row in reader:
+                # Build case-insensitive lookup
+                lower_row = {
+                    (k or "").strip().lower(): (v or "").strip() for k, v in row.items()
+                }
+
+                name = (
+                    lower_row.get("name")
+                    or lower_row.get("tytul")
+                    or lower_row.get("tytuł")
+                    or lower_row.get("nazwa")
+                    or lower_row.get("recipe")
+                    or ""
+                )
+                if not name:
+                    continue
+
+                source_url = (
+                    lower_row.get("source_url")
+                    or lower_row.get("url")
+                    or lower_row.get("zrodlo")
+                    or lower_row.get("źródło")
+                    or lower_row.get("source")
+                    or lower_row.get("link")
+                    or ""
+                )
+
+                description = (
+                    lower_row.get("description")
+                    or lower_row.get("opis")
+                    or "Migrated from legacy CSV export"
+                )
+
+                instructions = (
+                    lower_row.get("instructions")
+                    or lower_row.get("instrukcje")
+                    or "See source_url for full original instructions. (migrated from CSV)"
+                )
+
+                ing_text = (
+                    lower_row.get("ingredients")
+                    or lower_row.get("skladniki")
+                    or lower_row.get("składniki")
+                    or lower_row.get("sklad")
+                    or lower_row.get("ingredient")
+                    or ""
+                )
+
+                ingredients = parse_ingredients_from_text(ing_text)
+
+                recs.append(
+                    {
+                        "name": name,
+                        "source_url": source_url,
+                        "description": description,
+                        "instructions": instructions,
+                        "ingredients": ingredients,
+                    }
+                )
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.warning("Could not parse CSV %s: %s", csv_path, e)
+        return []
+
+    if recs:
+        logger.info("Loaded %d recipes from CSV", len(recs))
+    return recs
+
+
+# pylint: disable=too-many-branches,too-many-statements
+def extract_from_csvs(
+    base_dir: str = "/app/legacy",
+) -> List[Dict[str, Any]]:
+    """Import from the detailed relational CSV export (przepisy + skladniki + produkty + jednostki).
+
+    This is the proper normalized export from the legacy Base DB:
+      - przepisy.csv     -> recipes (id, nazwa, przepis=instructions, liczbaPorcji)
+      - skladniki.csv    -> join (idPrzepisu, idProduktu, liczba=quantity)
+      - produkty.csv     -> master ingredients (id, nazwa, idJednostki)
+      - jednostki.csv    -> units (idJednostki, nazwa)   e.g. g, ml, szt, op, kg, ząbek
+
+    The app model has no global product table, so we denormalize product name + its default unit
+    into each recipe's ingredient list.
+
+    URLs are frequently stored inside the "przepis" text field; we extract the first one to
+    source_url and provide a clean placeholder for instructions when the field was only a URL.
+    """
+    files = {
+        "przepisy": os.path.join(base_dir, "przepisy.csv"),
+        "skladniki": os.path.join(base_dir, "skladniki.csv"),
+        "produkty": os.path.join(base_dir, "produkty.csv"),
+        "jednostki": os.path.join(base_dir, "jednostki.csv"),
+    }
+    if not all(
+        os.path.exists(f)
+        for f in (files["przepisy"], files["skladniki"], files["produkty"])
+    ):
+        return []
+
+    try:
+        # Units
+        jednostki = {}
+        if os.path.exists(files["jednostki"]):
+            with open(files["jednostki"], newline="", encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    jednostki[row["idJednostki"]] = row["nazwa"]
+
+        # Locations (for grouping by lokalizacje)
+        lokalizacje = {}
+        lok_path = os.path.join(base_dir, "lokalizacje.csv")
+        if os.path.exists(lok_path):
+            with open(lok_path, newline="", encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    lokalizacje[row["idLokalizacji"]] = row["lokalizacja"]
+
+        # Products
+        produkty = {}
+        with open(files["produkty"], newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                pid = row["id"]
+                jid = row.get("idJednostki", "")
+                lid = row.get("idLokalizacji", "")
+                produkty[pid] = {
+                    # Master ingredient/product from produkty.csv:
+                    #   id = unique key
+                    #   nazwa = name
+                    #   idJednostki = unit reference (look up in jednostki.csv)
+                    #   idLokalizacji = location id (from lokalizacje.csv)
+                    "nazwa": row.get("nazwa", "").strip(),
+                    "idJednostki": jid,
+                    "jednostka": jednostki.get(jid, ""),
+                    "idLokalizacji": lid,
+                    "location": lokalizacje.get(lid, ""),
+                }
+
+        # Skladniki grouped by recipe
+        sklad_by_rid: Dict[str, List[Dict]] = defaultdict(list)
+        with open(files["skladniki"], newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                sklad_by_rid[row["idPrzepisu"]].append(row)
+
+        # Recipes
+        recs: List[Dict[str, Any]] = []
+        url_re = re.compile(r"https?://[^\s,)]+")
+        with open(files["przepisy"], newline="", encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                rid = row.get("id", "")
+                name = (row.get("nazwa") or "").strip()
+                if not name:
+                    continue
+
+                instr = row.get("przepis", "") or ""
+                porcje = (row.get("liczbaPorcji") or "").strip()
+
+                # Extract first URL (common pattern in this export)
+                m = url_re.search(instr)
+                source_url = m.group(0).rstrip(".,") if m else ""
+
+                # Clean instructions if the field was primarily/only the source URL
+                instructions = instr
+                if source_url and instr.strip().startswith("http"):
+                    instructions = "See source_url for full original instructions. (auto-migrated from przepisy CSV)"  # pylint: disable=line-too-long
+
+                description = "Migrated from legacy przepisy CSV export"
+                if porcje:
+                    description += f" (porcje: {porcje})"
+
+                # Build ingredients via join
+                # Each recipe ingredient (from skladniki.csv) links a recipe to a product:
+                #   - name = produkt.nazwa
+                #   - quantity = skladniki.liczba   (the amount; not stored on the master produkt)
+                #   - unit = resolved from produkt.idJednostki via jednostki.csv
+                #   - location_id = produkt.idLokalizacji
+                ingredients: List[Dict[str, Any]] = []
+                for s in sklad_by_rid.get(rid, []):
+                    pid = s.get("idProduktu", "")
+                    p = produkty.get(pid, {})
+                    qty = (s.get("liczba") or "").strip()
+                    unit = p.get("jednostka", "")
+                    iname = p.get("nazwa", "")
+                    if iname:
+                        ingredients.append(
+                            {
+                                "name": iname,
+                                "quantity": qty,
+                                "unit": unit,
+                                "location_id": p.get("idLokalizacji") or None,
+                                "location": p.get("location") or None,
+                            }
+                        )
+
+                recs.append(
+                    {
+                        "name": name,
+                        "source_url": source_url,
+                        "description": description,
+                        "instructions": instructions,
+                        "ingredients": ingredients,
+                    }
+                )
+
+        if recs:
+            logger.info(
+                "Extracted %d recipes from relational CSV set in %s",
+                len(recs),
+                base_dir,
+            )
+        return recs
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        logger.warning("Failed to parse relational CSVs in %s: %s", base_dir, e)
+        return []
+
+
+def seed_from_legacy(
+    odb_path: str = "/app/legacy/przepisy_tmp.odb",
+    csv_path: str = "/app/legacy/recipes.csv",
+    base_dir: str = "/app/legacy",
+) -> None:
+    """Seed using the best available legacy data.
+
+    Priority:
+    1. Relational CSVs (przepisy.csv + skladniki.csv + produkty.csv) in base_dir
+    2. Flat CSV
+    3. .odb heuristic
+    4. Bundled LEGACY_RECIPES
     """
     existing = get_recipes()
     if existing is None:
@@ -289,7 +646,46 @@ def seed_from_legacy(odb_path: str = "/app/legacy/przepisy_tmp.odb") -> None:
         )
         return
 
-    recipes = extract_from_odb(odb_path) or LEGACY_RECIPES
+    recipes: List[Dict[str, Any]] = []
+
+    # 1. Best: the detailed relational CSV export the user provided
+    #    (przepisy.csv + skladniki.csv + produkty.csv + jednostki.csv)
+    rel_files = ["przepisy.csv", "skladniki.csv", "produkty.csv"]
+    if all(os.path.exists(os.path.join(base_dir, f)) for f in rel_files):
+        recipes = extract_from_csvs(base_dir)
+        if recipes:
+            logger.info("Using relational CSV set from %s", base_dir)
+
+    # 2. Fallback: a flat user-exported recipes.csv (from previous 2-step advice)
+    if not recipes:
+        csv_candidates = [
+            csv_path,
+            os.path.join(base_dir, "przepisy.csv"),  # might be flat in some exports
+            os.path.join(base_dir, "recipes.csv"),
+            os.path.join(base_dir, "recipes_export.csv"),
+            os.path.join(base_dir, "legacy.csv"),
+        ]
+        for cand in csv_candidates:
+            if (
+                os.path.exists(cand) and "skladniki.csv" not in cand
+            ):  # avoid misusing relational
+                recipes = extract_from_csv(cand)
+                if recipes:
+                    logger.info("Using flat CSV export: %s", cand)
+                    break
+
+    # 3. Fallback: direct .odb (heuristic, may contain junk from binary data)
+    if not recipes:
+        recipes = extract_from_odb(odb_path)
+        if recipes:
+            logger.warning(
+                "Used direct .odb extraction (heuristic). "
+                "For best results use the relational CSV export (przepisy.csv + skladniki + produkty)."  # pylint: disable=line-too-long
+            )
+
+    # 4. Final fallback
+    if not recipes:
+        recipes = LEGACY_RECIPES
 
     logger.info("Seeding %d recipes from legacy data...", len(recipes))
     for r in recipes:
@@ -299,4 +695,18 @@ def seed_from_legacy(odb_path: str = "/app/legacy/przepisy_tmp.odb") -> None:
 
 
 if __name__ == "__main__":
-    seed_from_legacy()
+    import sys
+
+    if len(sys.argv) > 1:
+        arg = sys.argv[1]
+        if os.path.isdir(arg):
+            # python -m ... /path/to/dir-containing-the-csvs
+            seed_from_legacy(
+                base_dir=arg, odb_path=os.path.join(arg, "przepisy_tmp.odb")
+            )
+        elif arg.endswith(".csv"):
+            seed_from_legacy(csv_path=arg)
+        else:
+            seed_from_legacy()
+    else:
+        seed_from_legacy()

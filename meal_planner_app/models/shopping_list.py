@@ -1,6 +1,6 @@
 import uuid
 from dataclasses import dataclass, field
-from typing import List, Union
+from typing import List, Optional, Union
 
 
 @dataclass
@@ -11,6 +11,8 @@ class ShoppingListItem:
     quantity: Union[str, float, List[Union[str, float]]]
     unit: str
     purchased: bool = False
+    location: Optional[str] = None
+    location_id: Optional[str] = None
 
 
 @dataclass
