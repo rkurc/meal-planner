@@ -29,7 +29,7 @@ test("should navigate to the recipes page and see the seeded recipes", async ({
   // Navigate to the recipes page (React app served at /ui/ by the gunicorn backend on 5000).
   await page.goto("/ui/");
   await page.waitForSelector("nav");
-  await page.getByText("Recipes", { exact: true }).click();
+  await page.getByRole("link", { name: "Recipes", exact: true }).click();
   await page.waitForURL("**/recipes");
 
   // Wait for the recipe list to load and verify seeded data

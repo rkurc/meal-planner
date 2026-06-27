@@ -43,9 +43,7 @@ const RecipeList = () => {
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-gray-800">
-          Recipe List (React)
-        </h2>
+        <h2 className="text-3xl font-bold text-gray-800">Recipes</h2>
         <Link
           to="/recipes/new"
           className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
