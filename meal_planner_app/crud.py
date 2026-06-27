@@ -110,6 +110,27 @@ def list_recipes() -> List[Recipe]:
     return recipes_db
 
 
+def list_unique_ingredient_names() -> List[str]:
+    """Returns a sorted list of unique ingredient names present in all recipes."""
+    names: set = set()
+    for recipe in recipes_db:
+        for ing in recipe.ingredients:
+            if ing.name and ing.name.strip():
+                names.add(ing.name.strip())
+    return sorted(names)
+
+
+def list_unique_locations() -> List[str]:
+    """Returns a sorted list of unique location names (or ids) from ingredients."""
+    locs: set = set()
+    for recipe in recipes_db:
+        for ing in recipe.ingredients:
+            loc = getattr(ing, "location", None) or getattr(ing, "location_id", None)
+            if loc and str(loc).strip():
+                locs.add(str(loc).strip())
+    return sorted(locs)
+
+
 def reset_recipes_db():
     """Helper function to reset the database, primarily for testing."""
     # pylint: disable=global-statement

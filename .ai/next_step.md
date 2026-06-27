@@ -1032,3 +1032,29 @@ Process reminders followed (read next_step, container for black, etc.). Ready fo
 - Per AGENTS.md: all inside Docker image; read .ai/next_step first; checks pass.
 - Commit + push + comment as specified (no PR merge).
 - Next steps: re-trigger CI on #32; if green, PR ready to merge (other jobs already passed); continue per prior roadmap (E2E, docs, etc) post-merge. Do not run host tools.
+
+**Update 2026-06-28 (React /ui recipes list + ingredient suggestions + location name resolution):**
+- Task 1: Removed "(React)" annotation. Header now "Recipes". Simplified RecipeItem.jsx and RecipeList to a simple list: each entry shows ONLY the recipe name (h3 link). Removed all description display and "X ingredients" count from list items. This also removes any "Migrated from ..." text (which lived in descriptions) and ingredient info from the list view.
+- Task 2: Ingredients (in /ui/recipes/new and /recipes/:id/edit via RecipeForm) now suggest existing ingredients stored in DB.
+  - Added crud.list_unique_ingredient_names() and list_unique_locations().
+  - New API: GET /api/ingredients -> ["Flour", ...], GET /api/locations.
+  - In RecipeForm: on mount fetch (cached in state), attach native <datalist id="known-ingredients"> and use list= attr on name inputs. Also added for locations.
+  - Works for both create and edit flows.
+- Task 3: Ingredient lists now resolve location to actual name (not id).
+  - Updated RecipeDetail.jsx ingredient rendering: prefer `ingredient.location` (name), fallback to location_id.
+  - RecipeForm now treats the field as "location" (prefers name on load from edit: ing.location || ing.location_id), stores "location", placeholder "Location", and suggests from /api/locations. Backend already stores both.
+  - (Shopping lists already used location names for display/grouping.)
+- Meal-plan forms (/ui/meal-plans edit) do not edit ingredients (only select recipes by name); no changes needed there. Recipe list simplification applies globally.
+- Verification (Docker mandatory, no host python/node/black/pylint/npm):
+  - `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m pytest meal_planner_app/tests/ -q` → 66 passed.
+  - `docker run --rm -v $(pwd):/app -w /app meal-planner:dev bash -c 'git config ...; python -m black --check meal_planner_app/crud.py meal_planner_app/main.py && python -m pylint ...'` → black clean, pylint 10/10.
+  - `docker run --rm -v $(pwd)/frontend:/app/frontend -w /app/frontend meal-planner:dev sh -c 'npm ci --no-audit --no-fund --silent && npm run format-check && npm run lint'` → prettier + eslint clean.
+  - API probe inside image: /api/ingredients and /api/locations return correct lists post-seed.
+- Files changed: frontend/src/components/{RecipeList,RecipeItem,RecipeForm,RecipeDetail}.jsx ; meal_planner_app/{crud.py,main.py} ; .ai/next_step.md
+- Note: after npm format in docker, only our jsx; py unchanged by black. Pre-commit hook side-effects on md were reverted (unrelated ws).
+
+**Next steps:**
+1. Optionally enhance suggestions: when picking ingredient name, auto-fill common unit/location if we extend /api/ingredients to return richer objects.
+2. When using relational legacy migration (current branch), migrated recipes will have real location names populated → lists will show nice names (e.g. "Lodówka").
+3. Run full E2E via docker after merge if needed (to confirm no list locator breakage; current e2e uses role heading on names which still present).
+4. Consider adding a small locations master or enriching the suggestion API further.

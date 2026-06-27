@@ -11,11 +11,13 @@ const RecipeForm = () => {
     description: "",
     source_url: "",
     instructions: "",
-    ingredients: [{ name: "", quantity: "", unit: "", location_id: "" }],
+    ingredients: [{ name: "", quantity: "", unit: "", location: "" }],
   });
 
   const [loading, setLoading] = useState(isEditing);
   const [error, setError] = useState(null);
+  const [knownIngredients, setKnownIngredients] = useState([]);
+  const [knownLocations, setKnownLocations] = useState([]);
 
   useEffect(() => {
     if (isEditing) {
@@ -36,9 +38,9 @@ const RecipeForm = () => {
               data.ingredients && data.ingredients.length > 0
                 ? data.ingredients.map((ing) => ({
                     ...ing,
-                    location_id: ing.location_id || "",
+                    location: ing.location || ing.location_id || "",
                   }))
-                : [{ name: "", quantity: "", unit: "", location_id: "" }],
+                : [{ name: "", quantity: "", unit: "", location: "" }],
           });
           setLoading(false);
         })
@@ -48,6 +50,37 @@ const RecipeForm = () => {
         });
     }
   }, [id, isEditing]);
+
+  useEffect(() => {
+    // Fetch known ingredients for suggestions (cached in this component instance)
+    fetch("/api/ingredients")
+      .then((response) => {
+        if (!response.ok) return [];
+        return response.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setKnownIngredients(data);
+        }
+      })
+      .catch(() => {
+        // non-fatal for suggestions
+      });
+
+    fetch("/api/locations")
+      .then((response) => {
+        if (!response.ok) return [];
+        return response.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setKnownLocations(data);
+        }
+      })
+      .catch(() => {
+        // non-fatal
+      });
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -71,7 +104,7 @@ const RecipeForm = () => {
       ...prev,
       ingredients: [
         ...prev.ingredients,
-        { name: "", quantity: "", unit: "", location_id: "" },
+        { name: "", quantity: "", unit: "", location: "" },
       ],
     }));
   };
@@ -236,6 +269,7 @@ const RecipeForm = () => {
                   onChange={(e) =>
                     handleIngredientChange(index, "name", e.target.value)
                   }
+                  list="known-ingredients"
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <input
@@ -258,13 +292,14 @@ const RecipeForm = () => {
                 />
                 <input
                   type="text"
-                  placeholder="Location ID"
-                  value={ingredient.location_id || ""}
+                  placeholder="Location"
+                  value={ingredient.location || ""}
                   onChange={(e) =>
-                    handleIngredientChange(index, "location_id", e.target.value)
+                    handleIngredientChange(index, "location", e.target.value)
                   }
+                  list="known-locations"
                   className="w-28 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  title="Legacy location/aisle ID"
+                  title="Location / aisle name"
                 />
                 <button
                   type="button"
@@ -283,6 +318,16 @@ const RecipeForm = () => {
             >
               Add Ingredient
             </button>
+            <datalist id="known-ingredients">
+              {knownIngredients.map((name, i) => (
+                <option key={i} value={name} />
+              ))}
+            </datalist>
+            <datalist id="known-locations">
+              {knownLocations.map((loc, i) => (
+                <option key={i} value={loc} />
+              ))}
+            </datalist>
           </div>
 
           {/* Instructions */}
