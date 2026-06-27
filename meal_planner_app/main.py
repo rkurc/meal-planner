@@ -398,6 +398,46 @@ def download_shopping_list_pdf(meal_plan_id: uuid.UUID):
     return response
 
 
+@app.route("/shopping-lists/<uuid:shopping_list_id>/pdf")
+def download_persisted_shopping_list_pdf(shopping_list_id: uuid.UUID):
+    """Generates and serves a PDF for a persisted (user-editable) shopping list.
+    This is the modern path used by React for downloading the current/edited list.
+    Purchased items are excluded from the PDF (to-buy list).
+    Falls back gracefully if list not found.
+    """
+    shopping_list = crud.get_shopping_list(shopping_list_id)
+    if not shopping_list:
+        abort(404)
+
+    # Convert persisted items (dataclass) to the format for PDF generator.
+    # Only non-purchased items (to-buy list). Group by location for nicer output
+    # when the shopping list was edited with location metadata (from React or migration).
+    grouped = {}
+    for item in shopping_list.items:
+        if getattr(item, "purchased", False):
+            continue
+        item_dict = {
+            "name": getattr(item, "name", "N/A"),
+            "quantity": getattr(item, "quantity", ""),
+            "unit": getattr(item, "unit", ""),
+            "location": getattr(item, "location", None),
+        }
+        loc = item_dict.get("location") or ""
+        if loc not in grouped:
+            grouped[loc] = []
+        grouped[loc].append(item_dict)
+
+    pdf_bytes = generate_shopping_list_pdf(shopping_list.name, grouped)
+
+    response = Response(pdf_bytes, mimetype="application/pdf")
+    safe_name = shopping_list.name.replace(" ", "_").lower()[:50]
+    filename = f"shopping_list_{safe_name}.pdf"
+    disposition = f'attachment; filename="{filename}"'
+    response.headers["Content-Disposition"] = disposition
+
+    return response
+
+
 # --- API Routes ---
 
 
