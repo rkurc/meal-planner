@@ -148,7 +148,7 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
                 Edit
               </button>
               <a
-                href={`/meal-plans/${mealPlanId}/shopping-list/pdf`}
+                href={`/shopping-lists/${shoppingList.id}/pdf`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded inline-block"

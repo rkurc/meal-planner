@@ -4,7 +4,7 @@
 
 # .ai/next_step.md — Current State + Next Steps
 
-**Last updated:** 2026-06-28 (PR #33 babysit: E2E locator fix)
+**Last updated:** 2026-06-28 (prep download pdf for persisted shopping lists)
 
 ## Current State (what is solid)
 
@@ -18,6 +18,7 @@
 - Backend tests: 66 passing
 - Linting/formatting: black + pylint + prettier + eslint enforced
 - (PR babysit #33) Fixed E2E "Recipes" nav locator (strict mode) in frontend/e2e/main.spec.js using getByRole('link') ; verified via Docker node:20-alpine (prettier + eslint clean)
+- Prepared "download PDF" for shopping lists: new route `/shopping-lists/<id>/pdf` now serves PDF using the persisted+edited ShoppingList (excludes purchased items, groups by location); React `ShoppingListView` now links to it (old `/meal-plans/.../shopping-list/pdf` left unchanged for legacy compat)
 
 ## Known Gaps / Open Items
 
@@ -76,3 +77,18 @@
 **Rebase:** feat/relational-legacy-csv-migration rebased onto origin/main (via cherry of ui changes, pruned .ai included, force pushed). Latest: bdaad78.
 
 **PR babysit #33 (feat/relational-legacy-csv-migration):** Fixed E2E locator in main.spec.js to resolve CI "test-in-container" failure. Docker format/lint verified. Committed + pushed. (fix_count_delta: 1)
+
+**feat/prepare-download-shopping-list-pdf (prep for download pdf):**
+- Created branch (per standing instruction).
+- Added `/shopping-lists/<uuid:shopping_list_id>/pdf` route in main.py:39x (uses persisted SL data, filters purchased, groups by location, reuses generate_shopping_list_pdf).
+- Updated ShoppingListView.jsx:151 to use the new SL-specific PDF download link (so edited lists are downloaded).
+- Old meal-plan shopping-list/pdf + legacy template behavior unchanged.
+- All via Docker:
+  - `docker buildx bake dev` -> "exporting to image ... DONE", tagged meal-planner:dev.
+  - `docker run ... meal-planner:dev python -m pytest ...` -> 66 passed.
+  - `docker run ... meal-planner:dev npm run format-check` -> "All matched files use Prettier code style!"
+  - `docker run ... meal-planner:dev npm run lint` clean.
+  - `python -m black --check` + `python -m pylint --errors-only` clean on changed files.
+  - Manual functional test inside container: new route returns 200 application/pdf with %PDF bytes for edited SL (purchased filtered).
+- Updated .ai/next_step.md (this file).
+- Next: wire E2E coverage for the PDF download button + persisted list flow; consider title tweak in PDF service for SL names.
