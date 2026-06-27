@@ -1,10 +1,10 @@
-> **STANDING INSTRUCTION (for all agents):**  
-> **Whenever you start a new task, create a new branch first** (see AGENTS.md → "Branching Policy").  
+> **STANDING INSTRUCTION (for all agents):**
+> **Whenever you start a new task, create a new branch first** (see AGENTS.md → "Branching Policy").
 > Read this file first, then run `git checkout -b <appropriate-branch-name>` before editing code.
 
 # .ai/next_step.md — Current State + Next Steps
 
-**Last updated:** 2026-06-28 (pruned history; pushed on chore/prune-ai-next-step-md)
+**Last updated:** 2026-06-28 (PR #33 babysit: E2E locator fix)
 
 ## Current State (what is solid)
 
@@ -17,11 +17,12 @@
 - All development enforced through `meal-planner:dev` Docker image
 - Backend tests: 66 passing
 - Linting/formatting: black + pylint + prettier + eslint enforced
+- (PR babysit #33) Fixed E2E "Recipes" nav locator (strict mode) in frontend/e2e/main.spec.js using getByRole('link') ; verified via Docker node:20-alpine (prettier + eslint clean)
 
 ## Known Gaps / Open Items
 
 - MealPlanDetail / MealPlanForm have outdated expectations vs current `_meal_plan_to_dict` (uses `recipe_ids` only)
-- E2E tests are written but not consistently green in Docker
+- E2E tests locator issue fixed for recipes nav (PR #33); full suite still to be verified green in Docker/CI
 - Production Docker image still has issues (multi-worker state problems with in-memory DB, dev-oriented startup, file ownership)
 - No standalone ingredient master list
 - No recipe discovery / import features
@@ -37,7 +38,7 @@
 2. **Make E2E reliable (Docker only)**
    - Ensure seed creates a usable "Weekly Meal Plan".
    - Run full Playwright suite inside the dev image against the proper stack.
-   - Fix any remaining timing/locator issues.
+   - Fix any remaining timing/locator issues. (Recipes nav strict-mode fixed in #33 babysit)
 
 3. **Production image & runtime hardening**
    - Decide on serving model (gunicorn + built React at `/ui/` is preferred).
@@ -73,3 +74,5 @@
 **Push:** `chore/prune-ai-next-step-md` pushed with commit `01e4a8d`. Branch published.
 
 **Rebase:** feat/relational-legacy-csv-migration rebased onto origin/main (via cherry of ui changes, pruned .ai included, force pushed). Latest: bdaad78.
+
+**PR babysit #33 (feat/relational-legacy-csv-migration):** Fixed E2E locator in main.spec.js to resolve CI "test-in-container" failure. Docker format/lint verified. Committed + pushed. (fix_count_delta: 1)
