@@ -71,3 +71,5 @@
 **Old historical log** has been pruned. Full history of previous work, PR babysitting, and migration iterations remains available in git (`git log --follow .ai/next_step.md`).
 
 **Push:** `chore/prune-ai-next-step-md` pushed with commit `01e4a8d`. Branch published.
+
+**Rebase:** feat/relational-legacy-csv-migration rebased onto origin/main (via cherry of ui changes, pruned .ai included, force pushed). Latest: bdaad78.
