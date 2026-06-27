@@ -157,6 +157,16 @@ Before committing your work, you should always update the `.ai/next_step.md` fil
 
 When starting a new task, always read the `.ai/next_step.md` file first to understand the current state of the project and what needs to be done next.
 
+### Branching Policy (Standing Rule)
+
+**Whenever you start a new task, create a new branch first.**
+
+- Do not perform work for a new request on an existing long-lived feature branch unless the user explicitly instructs you to continue on the current branch.
+- Recommended: `git checkout -b feat/<short-description>` or `git checkout -b fix/<short-description>` (or `chore/`, etc.).
+- Create the branch early, before making code changes.
+- This ensures clean history, easy rebasing, and follows the established pattern in this repository.
+- After the task, push the branch ("publish your changes").
+
 #### Updating `.ai/next_step.md`
 - Summarize what was actually done (with concrete commands and evidence where possible, e.g. "docker buildx bake prod now succeeds with 'exporting to image ... DONE'").
 - Describe clear next steps.

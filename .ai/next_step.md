@@ -1,3 +1,7 @@
+> **STANDING INSTRUCTION (for all agents):**  
+> **Whenever you start a new task, create a new branch first** (see AGENTS.md → "Branching Policy").  
+> Read this file first, then run `git checkout -b <appropriate-branch-name>` before editing code.
+
 **Work Completed (verified via code inspection + Docker dev image runs 2026-06-16):**
 - **Backend API (Flask):** Full CRUD for recipes (`/api/recipes` + `/:id` GET/POST/PUT/DELETE), full CRUD + recipe membership for meal plans (`/api/meal-plans` + sub-routes), generate shopping list from plan, and full persistent shopping list CRUD (`/api/shopping-lists`). All via structured ingredients (name/quantity/unit).
 - **React Frontend (served at /ui/ and static assets):** Complete Recipe CRUD (RecipeList, RecipeDetail, RecipeForm with dynamic ingredients). MealPlan list + form + detail shell + ShoppingListView (generate via POST /api/shopping-lists, edit items, purchased toggles, persist via PUT, PDF link to legacy route).
