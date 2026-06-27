@@ -124,9 +124,11 @@ const RecipeDetail = () => {
                     : ingredient.quantity
                       ? `${ingredient.quantity} ${ingredient.name}`
                       : ingredient.name}
-                  {ingredient.location_id
-                    ? ` (loc: ${ingredient.location_id})`
-                    : ""}
+                  {ingredient.location
+                    ? ` (${ingredient.location})`
+                    : ingredient.location_id
+                      ? ` (loc: ${ingredient.location_id})`
+                      : ""}
                 </li>
               ))}
             </ul>

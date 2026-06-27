@@ -439,6 +439,20 @@ def api_get_recipes():
     return jsonify([_recipe_to_dict(recipe) for recipe in recipes])
 
 
+@app.route("/api/ingredients", methods=["GET"])
+def api_get_ingredients():
+    """API endpoint to get unique ingredient names (for suggestion/autocomplete in UI)."""
+    names = crud.list_unique_ingredient_names()  # pylint: disable=no-member
+    return jsonify(names)
+
+
+@app.route("/api/locations", methods=["GET"])
+def api_get_locations():
+    """API endpoint to get unique location names for suggestions (resolved where possible)."""
+    locs = crud.list_unique_locations()  # pylint: disable=no-member
+    return jsonify(locs)
+
+
 @app.route("/api/recipes", methods=["POST"])
 def api_create_recipe():
     """API endpoint to create a new recipe."""
