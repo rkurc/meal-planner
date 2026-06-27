@@ -4,7 +4,7 @@
 
 # .ai/next_step.md — Current State + Next Steps
 
-**Last updated:** 2026-06-28 (after recipes list simplification, ingredient suggestions, and location resolution)
+**Last updated:** 2026-06-28 (pruned history; pushed on chore/prune-ai-next-step-md)
 
 ## Current State (what is solid)
 
@@ -69,3 +69,5 @@
 ---
 
 **Old historical log** has been pruned. Full history of previous work, PR babysitting, and migration iterations remains available in git (`git log --follow .ai/next_step.md`).
+
+**Push:** `chore/prune-ai-next-step-md` pushed with commit `01e4a8d`. Branch published.
