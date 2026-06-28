@@ -147,6 +147,115 @@ class ShoppingListApiTestCase(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 404)
 
+    def test_download_persisted_shopping_list_pdf_happy_path(self):
+        """GET /shopping-lists/<id>/pdf returns 200 PDF with correct headers and PDF magic."""
+        # Create shopping list
+        post_resp = self.client.post(
+            "/api/shopping-lists",
+            content_type="application/json",
+            data=json.dumps({"meal_plan_id": str(self.meal_plan.meal_plan_id)}),
+        )
+        self.assertEqual(post_resp.status_code, 201)
+        sl_id = post_resp.get_json()["id"]
+
+        resp = self.client.get(f"/shopping-lists/{sl_id}/pdf")
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("application/pdf", resp.content_type)
+        self.assertTrue(resp.data.startswith(b"%PDF"))
+
+    def test_download_persisted_pdf_excludes_purchased(self):
+        """Purchased items must not appear in the PDF content."""
+        # Create list
+        post_resp = self.client.post(
+            "/api/shopping-lists",
+            content_type="application/json",
+            data=json.dumps({"meal_plan_id": str(self.meal_plan.meal_plan_id)}),
+        )
+        sl = post_resp.get_json()
+        sl_id = sl["id"]
+
+        # Mark first item purchased
+        sl["items"][0]["purchased"] = True
+        put_resp = self.client.put(
+            f"/api/shopping-lists/{sl_id}",
+            content_type="application/json",
+            data=json.dumps(sl),
+        )
+        self.assertEqual(put_resp.status_code, 200)
+
+        pdf_resp = self.client.get(f"/shopping-lists/{sl_id}/pdf")
+        self.assertEqual(pdf_resp.status_code, 200)
+        body = pdf_resp.data.decode("latin-1", errors="replace")
+        # The purchased item's name should not be in the PDF body
+        self.assertNotIn(sl["items"][0]["name"], body)
+
+    def test_download_persisted_pdf_location_id_only_grouping(self):
+        """Item with only location_id groups under id (key '4' present)."""
+        # Create list from the basic meal plan
+        post_resp = self.client.post(
+            "/api/shopping-lists",
+            content_type="application/json",
+            data=json.dumps({"meal_plan_id": str(self.meal_plan.meal_plan_id)}),
+        )
+        sl = post_resp.get_json()
+        sl_id = sl["id"]
+
+        # Force one item to have location=None and location_id="4"
+        sl["items"][0]["location"] = None
+        sl["items"][0]["location_id"] = "4"
+        put_resp = self.client.put(
+            f"/api/shopping-lists/{sl_id}",
+            content_type="application/json",
+            data=json.dumps(sl),
+        )
+        self.assertEqual(put_resp.status_code, 200)
+
+        # Verify grouping logic directly (PDF content streams are compressed)
+        sl_obj = crud.get_shopping_list(uuid.UUID(sl_id))
+        grouped = crud.shopping_list_to_pdf_data(sl_obj)  # pylint: disable=no-member
+        self.assertIn("4", grouped)
+        # The key "4" comes from location_id fallback
+
+        # PDF route still works and returns valid PDF
+        pdf_resp = self.client.get(f"/shopping-lists/{sl_id}/pdf")
+        self.assertEqual(pdf_resp.status_code, 200)
+        self.assertTrue(pdf_resp.data.startswith(b"%PDF"))
+
+    def test_api_get_ingredients(self):
+        """GET /api/ingredients returns sorted unique ingredient names from recipes."""
+        # Our setUp creates a recipe with Spaghetti, Pancetta, Eggs
+        resp = self.client.get("/api/ingredients")
+        self.assertEqual(resp.status_code, 200)
+        names = resp.get_json()
+        self.assertIsInstance(names, list)
+        self.assertEqual(names, sorted(names))
+        # At minimum these should be present
+        self.assertIn("Spaghetti", names)
+        self.assertIn("Pancetta", names)
+        self.assertIn("Eggs", names)
+
+    def test_api_get_locations(self):
+        """GET /api/locations returns sorted unique location values."""
+        # Seed a recipe that has locations to ensure non-empty deterministic result
+        crud.reset_recipes_db()
+        crud.reset_meal_plans_db()
+        crud.create_recipe(
+            name="Test Recipe",
+            instructions="Test.",
+            ingredients_data=[
+                {"name": "Milk", "quantity": 1, "unit": "l", "location": "Dairy"},
+                {"name": "Bread", "quantity": 1, "unit": "", "location_id": "Bakery"},
+            ],
+        )
+        resp = self.client.get("/api/locations")
+        self.assertEqual(resp.status_code, 200)
+        locs = resp.get_json()
+        self.assertIsInstance(locs, list)
+        self.assertEqual(locs, sorted(locs))
+        # Should include both the resolved location and the id fallback
+        self.assertIn("Dairy", locs)
+        self.assertIn("Bakery", locs)
+
 
 if __name__ == "__main__":
     unittest.main()

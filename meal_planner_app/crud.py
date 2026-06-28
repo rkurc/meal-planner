@@ -9,6 +9,7 @@ from typing import List, Dict, Optional, Union
 from .models.recipe import Recipe
 from .models.ingredient import Ingredient
 from .models.meal_plan import MealPlan
+from .models.shopping_list import ShoppingList, ShoppingListItem
 
 recipes_db: List[Recipe] = []
 
@@ -240,8 +241,6 @@ def update_meal_plan(
     return meal_plan
 
 
-from .models.shopping_list import ShoppingList, ShoppingListItem
-
 # --- Shopping List Generation ---
 
 
@@ -341,6 +340,55 @@ def generate_shopping_list(
         result[loc] = items
 
     return result
+
+
+def _resolve_item_location(item: ShoppingListItem) -> str:
+    """Return a location key for grouping.
+    Prefers the resolved 'location' string, falls back to 'location_id'.
+    Matches the rule used by list_unique_locations.
+    """
+    loc = item.location or item.location_id or ""
+    return str(loc).strip()
+
+
+def _group_items_for_pdf(
+    items: List[ShoppingListItem], *, exclude_purchased: bool = False
+) -> Dict[str, List[dict]]:
+    """Group shopping list items by location for PDF rendering.
+    Replicates the sort semantics from generate_shopping_list:
+    locations sorted alpha with empty last; items sorted alpha by name within groups.
+    """
+    grouped: Dict[str, List[dict]] = defaultdict(list)
+    for item in items:
+        if exclude_purchased and item.purchased:
+            continue
+        loc_key = _resolve_item_location(item)
+        item_dict = {
+            "name": item.name,
+            "quantity": item.quantity,
+            "unit": item.unit,
+            "location": item.location,
+            "location_id": item.location_id,
+        }
+        grouped[loc_key].append(item_dict)
+
+    def _loc_key(l: str):
+        return (l == "", l)
+
+    result: Dict[str, List[dict]] = {}
+    for loc in sorted(grouped.keys(), key=_loc_key):
+        sorted_items = sorted(grouped[loc], key=lambda x: str(x.get("name", "")))
+        result[loc] = sorted_items
+    return result
+
+
+def shopping_list_to_pdf_data(
+    shopping_list: ShoppingList,
+) -> Dict[str, List[dict]]:
+    """Public entry point: convert persisted ShoppingList to grouped PDF data.
+    Excludes purchased items so the PDF is the 'to buy' list.
+    """
+    return _group_items_for_pdf(shopping_list.items, exclude_purchased=True)
 
 
 # --- Shopping List CRUD Operations ---
