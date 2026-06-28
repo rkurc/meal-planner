@@ -176,7 +176,7 @@ Optional tasks 5 & 6 left for later (not required for this fix).
 - [x] All existing 66+ tests still pass
 - [x] pre-commit + prettier + eslint clean
 - [x] This file updated with what was done + next steps
-- [ ] Branch pushed
+- [x] Branch pushed (commit 3db364b on feat/prepare-download-shopping-list-pdf)
 
 ---
 
