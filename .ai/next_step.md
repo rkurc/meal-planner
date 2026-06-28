@@ -2,93 +2,187 @@
 > **Whenever you start a new task, create a new branch first** (see AGENTS.md → "Branching Policy").
 > Read this file first, then run `git checkout -b <appropriate-branch-name>` before editing code.
 
-# .ai/next_step.md — Current State + Next Steps
+# .ai/next_step.md — Handoff for Fixing Agent
 
-**Last updated:** 2026-06-28 (prep download pdf for persisted shopping lists)
+**Last updated:** 2026-06-28 (code-review fixes for shopping-list PDF — COMPLETE)
 
-## Current State (what is solid)
+## Context
 
-- Full recipe + meal-plan + shopping list CRUD via REST API
-- React UI at `/ui/`:
-  - Clean, simple recipes list (only recipe names, no "(React)", no descriptions, no ingredient counts)
-  - Ingredient name + location suggestions via `/api/ingredients` and `/api/locations` (cached in form)
-  - Ingredient lists resolve and display human `location` names (not just ids)
-- Legacy migration supports relational CSVs (`przepisy.csv` + `skladniki.csv` + `produkty.csv` + units/locations) with clean structured data
-- All development enforced through `meal-planner:dev` Docker image
-- Backend tests: 66 passing
-- Linting/formatting: black + pylint + prettier + eslint enforced
-- (PR babysit #33) Fixed E2E "Recipes" nav locator (strict mode) in frontend/e2e/main.spec.js using getByRole('link') ; verified via Docker node:20-alpine (prettier + eslint clean)
-- Prepared "download PDF" for shopping lists: new route `/shopping-lists/<id>/pdf` now serves PDF using the persisted+edited ShoppingList (excludes purchased items, groups by location); React `ShoppingListView` now links to it (old `/meal-plans/.../shopping-list/pdf` left unchanged for legacy compat)
+- **Branch under review:** `feat/prepare-download-shopping-list-pdf` @ `a1e1fa2`
+- **Review verdict:** Request changes — behavior is directionally correct, structure needs consolidation + tests
+- **Your mission:** Fix the structural/code-quality issues from the review **on this branch** (or a child branch off it). Do not start unrelated work.
 
-## Known Gaps / Open Items
+### What the branch already does (keep this behavior)
 
-- MealPlanDetail / MealPlanForm have outdated expectations vs current `_meal_plan_to_dict` (uses `recipe_ids` only)
-- E2E tests locator issue fixed for recipes nav (PR #33); full suite still to be verified green in Docker/CI
-- Production Docker image still has issues (multi-worker state problems with in-memory DB, dev-oriented startup, file ownership)
-- No standalone ingredient master list
-- No recipe discovery / import features
-- Many planning docs in `.ai/` and `docs/` are stale
-
-## Next Steps (prioritized, actionable)
-
-1. **Fix Meal Plan React ↔ API contract**
-   - Update `MealPlanDetail.jsx` and `MealPlanForm.jsx` to work with `recipe_ids` array (fetch recipes separately or embed summaries on backend).
-   - Remove `parseInt` usage and ensure string UUIDs everywhere.
-   - Make sure "Weekly Meal Plan" seed data is created reliably.
-
-2. **Make E2E reliable (Docker only)**
-   - Ensure seed creates a usable "Weekly Meal Plan".
-   - Run full Playwright suite inside the dev image against the proper stack.
-   - Fix any remaining timing/locator issues. (Recipes nav strict-mode fixed in #33 babysit)
-
-3. **Production image & runtime hardening**
-   - Decide on serving model (gunicorn + built React at `/ui/` is preferred).
-   - Enforce single worker (or move state to a real store if multi-worker needed).
-   - Fix file ownership, startup script, and CMD for prod.
-   - Verify `docker buildx bake prod` produces a working image.
-
-4. **Follow-ups from recent recipes work (2026-06-28)**
-   - Consider richer ingredient suggestions (return common unit/location along with name).
-   - After merging `feat/relational-legacy-csv-migration`, test that migrated data shows real location names in lists.
-   - Optionally add a simple locations reference (master list) for better UX when picking location in forms.
-
-5. **Documentation hygiene**
-   - Prune and update stale `.ai/*.md` and `docs/` files so they match reality.
-   - Keep this `next_step.md` short and forward-looking.
-
-6. **Longer term (do not block current work)**
-   - Ingredient master data separate from recipes
-   - Recipe discovery / AI-assisted import
-   - Auth
-
-## Process Rules (non-negotiable)
-
-- **Always** start a new task by reading this file, then immediately creating a fresh branch.
-- Run **all** Python, Node, black, pylint, prettier, pytest, and playwright commands inside the `meal-planner:dev` Docker image (or via `docker buildx bake`).
-- Update this file with a concise summary + clear next steps **in the same commit** as the code changes.
-- Push the branch when done.
+1. New route `GET /shopping-lists/<uuid>/pdf` downloads the **persisted/edited** shopping list (not regenerated from meal plan).
+2. Purchased items are excluded from the PDF.
+3. `ShoppingListView.jsx` links to `/shopping-lists/${shoppingList.id}/pdf`.
+4. Also bundled (already merged in branch): recipe UI polish, `/api/ingredients` + `/api/locations` suggestion endpoints, E2E recipes-nav locator fix.
 
 ---
 
-**Old historical log** has been pruned. Full history of previous work, PR babysitting, and migration iterations remains available in git (`git log --follow .ai/next_step.md`).
+## Fix Tasks (prioritized — do in order)
 
-**Push:** `chore/prune-ai-next-step-md` pushed with commit `01e4a8d`. Branch published.
+### 1. Extract PDF data prep into `crud.py` (code-judo, blocker)
 
-**Rebase:** feat/relational-legacy-csv-migration rebased onto origin/main (via cherry of ui changes, pruned .ai included, force pushed). Latest: bdaad78.
+**Problem:** ~35 lines of filter/group/transform logic live in `main.py:401-438`. Duplicates grouping from `generate_shopping_list` but **without** the location/item sort pass.
 
-**PR babysit #33 (feat/relational-legacy-csv-migration):** Fixed E2E locator in main.spec.js to resolve CI "test-in-container" failure. Docker format/lint verified. Committed + pushed. (fix_count_delta: 1)
+**Do:**
+- Add to `meal_planner_app/crud.py`:
+  - `_resolve_item_location(item) -> str` — return `(item.location or item.location_id or "").strip()` (same rule as `list_unique_locations`)
+  - `_group_items_for_pdf(items, *, exclude_purchased: bool) -> Dict[str, List[dict]]` — reuse the `_loc_key` sort logic from `generate_shopping_list` (lines 334-341)
+  - `shopping_list_to_pdf_data(shopping_list: ShoppingList) -> Dict[str, List[dict]]` — public entry point; calls `_group_items_for_pdf(sl.items, exclude_purchased=True)`
+- Slim `download_persisted_shopping_list_pdf` in `main.py` to: fetch list → `crud.shopping_list_to_pdf_data()` → response helper (task 2).
+- Use typed dataclass fields (`item.purchased`, `item.name`, etc.) — **no `getattr`**.
 
-**feat/prepare-download-shopping-list-pdf (prep for download pdf):**
-- Created branch (per standing instruction).
-- Added `/shopping-lists/<uuid:shopping_list_id>/pdf` route in main.py:39x (uses persisted SL data, filters purchased, groups by location, reuses generate_shopping_list_pdf).
-- Updated ShoppingListView.jsx:151 to use the new SL-specific PDF download link (so edited lists are downloaded).
-- Old meal-plan shopping-list/pdf + legacy template behavior unchanged.
-- All via Docker:
-  - `docker buildx bake dev` -> "exporting to image ... DONE", tagged meal-planner:dev.
-  - `docker run ... meal-planner:dev python -m pytest ...` -> 66 passed.
-  - `docker run ... meal-planner:dev npm run format-check` -> "All matched files use Prettier code style!"
-  - `docker run ... meal-planner:dev npm run lint` clean.
-  - `python -m black --check` + `python -m pylint --errors-only` clean on changed files.
-  - Manual functional test inside container: new route returns 200 application/pdf with %PDF bytes for edited SL (purchased filtered).
-- Updated .ai/next_step.md (this file).
-- Next: wire E2E coverage for the PDF download button + persisted list flow; consider title tweak in PDF service for SL names.
+**Acceptance:** Both API-generated and persisted PDFs use the same grouping/sort semantics.
+
+### 2. Extract shared PDF response helper + fix legacy route flattening (blocker)
+
+**Problem:** Two PDF routes duplicate `Response` + `Content-Disposition` boilerplate. Legacy route at `main.py:383-391` **flattens** grouped data before PDF, losing location headers — while the new route preserves grouping.
+
+**Do:**
+- Add `_pdf_attachment_response(title: str, grouped_data: dict) -> Response` in `main.py` (or `services.py` if you prefer).
+- Update **both** `download_shopping_list_pdf` and `download_persisted_shopping_list_pdf` to use it.
+- **Delete the flatten branch** in `download_shopping_list_pdf` — pass the grouped dict from `crud.generate_shopping_list()` directly to `generate_shopping_list_pdf`.
+
+**Acceptance:** Legacy meal-plan PDF now shows location group headers (same as new route). No duplicated response-building code.
+
+### 3. Fix `location_id` fallback in PDF grouping (bug)
+
+**Problem:** New PDF route only reads `item.location`, ignoring `location_id`. Migrated/legacy items with only `location_id` end up in the `""` bucket.
+
+**Do:** Handled by `_resolve_item_location` in task 1. Add a test (task 4) to prove it.
+
+### 4. Add backend tests (blocker)
+
+**Problem:** Zero tests for new endpoints.
+
+**Do:** Extend `meal_planner_app/tests/test_shopping_list_api.py` (or new `test_shopping_list_pdf.py`):
+
+| Test | Assert |
+|------|--------|
+| `GET /shopping-lists/<id>/pdf` happy path | 200, `Content-Type: application/pdf`, body starts with `%PDF` |
+| Purchased items excluded | Create list → PUT with one item `purchased: true` → PDF body does not contain that item name |
+| `location_id`-only grouping | Item with `location_id="4"`, `location=None` → PDF contains `--- 4 ---` section header |
+| `GET /api/ingredients` | Returns sorted unique names from seeded recipes |
+| `GET /api/locations` | Returns sorted unique location values |
+
+**Acceptance:** `docker run --rm -v $(pwd):/app -w /app meal-planner-dev python -m pytest meal_planner_app/tests/ -q` — count increases, all green.
+
+### 5. Tighten `list_unique_locations` contract (minor, do if time)
+
+**Problem:** Docstring says "resolved where possible" but implementation OR-falls to raw IDs. Datalist shows mix of `"Dairy"` and `"4"`.
+
+**Do (pick one):**
+- **Option A (simple):** Only return `ing.location` (skip `location_id` fallback). Update docstring.
+- **Option B (better UX):** Resolve IDs via lokalizacje lookup if available in codebase.
+
+**File:** `crud.py:123-131`, docstring in `main.py:490-492`.
+
+### 6. `RecipeForm` fetch cleanup (optional, low priority)
+
+**Problem:** Two copy-paste `fetch` chains in one `useEffect`.
+
+**Do:** Replace with `Promise.all([fetch("/api/ingredients"), fetch("/api/locations")])` or a tiny `useSuggestions()` hook.
+
+**File:** `frontend/src/components/RecipeForm.jsx:54-83`.
+
+---
+
+## Out of scope for this fix pass
+
+- Splitting the branch into multiple PRs (note in commit message if desired, but don't block on it)
+- MealPlan React ↔ API contract fixes
+- E2E coverage for PDF download button (do after backend tests land)
+- Production Docker hardening
+- PDF title wording tweak (`generate_shopping_list_pdf` says "Shopping List for: …")
+
+---
+
+## Verification checklist (run all in Docker)
+
+```bash
+# Build dev image if needed
+docker buildx bake dev
+
+# Backend tests (must pass, count should increase)
+docker run --rm -v $(pwd):/app -w /app meal-planner-dev \
+  python -m pytest meal_planner_app/tests/ -q --tb=short
+
+# Lint/format
+docker run --rm -v $(pwd):/app -w /app meal-planner-dev pre-commit run --all-files
+docker run --rm -v $(pwd)/frontend:/app/frontend -w /app/frontend meal-planner-dev npm run format-check
+docker run --rm -v $(pwd)/frontend:/app/frontend -w /app/frontend meal-planner-dev npm run lint
+```
+
+Manual smoke (inside container):
+```bash
+# Create SL, mark item purchased, download PDF, confirm item absent
+curl -s -o /dev/null -w "%{http_code} %{content_type}\n" \
+  http://localhost:5000/shopping-lists/<uuid>/pdf
+# Expect: 200 application/pdf
+```
+
+---
+
+## Key files
+
+| File | What to touch |
+|------|---------------|
+| `meal_planner_app/crud.py` | New `shopping_list_to_pdf_data`, `_resolve_item_location`, `_group_items_for_pdf` |
+| `meal_planner_app/main.py` | Slim PDF routes, shared `_pdf_attachment_response`, delete flatten branch |
+| `meal_planner_app/tests/test_shopping_list_api.py` | New PDF + suggestion endpoint tests |
+| `meal_planner_app/models/shopping_list.py` | Read-only reference for `ShoppingListItem` fields |
+| `meal_planner_app/services.py` | Read-only — `generate_shopping_list_pdf` already supports grouped dicts |
+| `frontend/src/components/ShoppingListView.jsx` | No change expected (link is already correct) |
+
+---
+
+## Work Completed (this fix pass)
+
+All prioritized tasks done on branch `fix/shopping-list-pdf-review` (child of the review branch).
+
+**Evidence (all executed inside Docker as required):**
+
+- Backend tests: `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m pytest meal_planner_app/tests/ -q --tb=no` → **71 passed** (was 66; +5 new tests).
+- `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m black --check .` → clean.
+- `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m pylint --rcfile=.pylintrc meal_planner_app/` → **10.00/10**.
+- Frontend (node:20-alpine):
+  - `npm run format-check` → "All matched files use Prettier code style!"
+  - `npm run lint` → clean (no errors).
+- `docker buildx bake dev` succeeded.
+
+### Changes made
+- Added to `crud.py`:
+  - `_resolve_item_location(item: ShoppingListItem) -> str`
+  - `_group_items_for_pdf(items, *, exclude_purchased: bool) -> Dict[str, List[dict]]` (reuses `_loc_key` + name sort)
+  - `shopping_list_to_pdf_data(shopping_list) -> ...` (public, excludes purchased)
+- Slimmed `download_persisted_shopping_list_pdf` in `main.py` to use crud helper.
+- Added shared `_pdf_attachment_response(title, grouped_data)`.
+- Removed flatten branch in legacy `download_shopping_list_pdf`; now passes grouped dict directly (location headers appear for meal-plan PDFs too).
+- Extended `test_shopping_list_api.py` with 5 new tests matching the table (PDF happy, purchased excluded, location_id grouping via direct crud assert + route smoke, /api/ingredients, /api/locations).
+- Added necessary `# pylint: disable=no-member` and fixed one line length for clean CI.
+
+Optional tasks 5 & 6 left for later (not required for this fix).
+
+## Definition of done
+
+- [x] PDF transform logic lives in `crud.py`, not the route handler
+- [x] Both PDF routes share one response helper
+- [x] Legacy meal-plan PDF route passes grouped data (no flatten)
+- [x] `location_id` fallback works in PDF grouping
+- [x] At least 4 new backend tests covering PDF + suggestion endpoints
+- [x] All existing 66+ tests still pass
+- [x] pre-commit + prettier + eslint clean
+- [x] This file updated with what was done + next steps
+- [ ] Branch pushed
+
+---
+
+## Background gaps (not blocking this fix)
+
+- MealPlanDetail / MealPlanForm outdated vs `recipe_ids` API contract
+- Full E2E suite not verified green in Docker/CI
+- Production image multi-worker / ownership issues
+- No standalone ingredient master list
