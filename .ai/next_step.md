@@ -382,3 +382,31 @@ This keeps the PDF feature robust while aligning with long-term i18n goals.
 - last_status: "ci_failed" handled.
 
 **Evidence captured:** pylint 10/10, tests green, black clean, docker cmds succeeded. Next step after push: recheck CI, PR babysit if still issues.
+
+---
+## UI Enhancement: Ingredient dropdown + editable unit/location for meal plan shopping list edit (2026-06-29)
+
+**Change:** Updated `ShoppingListView.jsx` (used in MealPlanDetail for the per-meal-plan shopping list editor) to match the ingredients dropdown experience from `RecipeForm.jsx`.
+
+- Added `useState` for `knownIngredients` and `knownLocations`.
+- Added independent `useEffect` (empty deps) to fetch `/api/ingredients` and `/api/locations` (non-blocking, same pattern as RecipeForm).
+- In edit mode item row:
+  - Name input: added `list="known-ingredients"` (autocomplete from seeded recipes + custom).
+  - Location input: added `list="known-locations"` (now uses same suggestion source as recipes; editable).
+  - Unit input: left as free editable text (consistent with RecipeForm units; no /api/units yet).
+- Added `<datalist id="known-ingredients">` and `<datalist id="known-locations">` populated from state (after "Add Item" button in edit div).
+- Works for both generated items and manually added items in edit mode. Display mode unchanged.
+- Unit and location are now explicitly supported with dropdowns where applicable (name + location), fulfilling "same as ingredients dropdown for meal plan edit, also unit and location should be editable".
+
+**Files touched:** only `frontend/src/components/ShoppingListView.jsx`
+
+**Verification (Docker-only per AGENTS.md):**
+- `docker run --rm -v "$(pwd)/frontend:/app" -w /app node:20-alpine sh -c 'npm ci --no-audit --no-fund --silent && npm run format-check && npm run lint'` → clean (All matched Prettier; eslint no errors).
+- No backend changes; existing /api/ingredients + /api/locations endpoints (from prior work) reused.
+- Matches existing patterns exactly (no new scripts needed; .prettierignore etc. respected).
+
+**Rationale:** Shopping list edit (tied to meal plan) now provides consistent autocomplete for names/locations as recipes do, improving UX for editing quantities/units/locations without losing editability. Aligns with i18n/suggestion work and "same as ingredients dropdown".
+
+**Next:** This is ready to push along with prior PDF/Unicode/pylint fixes. Rebuild dev image if testing locally; E2E can cover later.
+
+**Verification checklist update:** Frontend Docker checks passed cleanly for this change.
