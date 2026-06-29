@@ -236,6 +236,19 @@ Rebuild image + re-test PDF downloads recommended. No behavior change for client
 
 (Also protects future font or fpdf version quirks.)
 
+**Pushed:**
+- `git push origin feat/prepare-download-shopping-list-pdf`
+- Latest SHA on branch: 4a0c336 (the bytes coercion fix)
+- Previous work (Unicode + sanitization + babysit fixes) also landed.
+
+**Verification before push (via Docker as required):**
+- docker buildx bake dev succeeded
+- black --check + pylint via meal-planner:dev
+- pytest via container
+- No host runs
+
+See commit 4a0c336 for details.
+
 ---
 
 ## Additional fix: PDF Unicode / Polish diacritics (data-side sanitization)
