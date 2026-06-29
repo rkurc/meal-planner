@@ -4,7 +4,7 @@
 
 # .ai/next_step.md — Handoff for Fixing Agent
 
-**Last updated:** 2026-06-28 (code-review fixes for shopping-list PDF — COMPLETE)
+**Last updated:** 2026-06-29 (PR #35 babysit: merge conflict resolution via rebase)
 
 ## Context
 
@@ -186,3 +186,24 @@ Optional tasks 5 & 6 left for later (not required for this fix).
 - Full E2E suite not verified green in Docker/CI
 - Production image multi-worker / ownership issues
 - No standalone ingredient master list
+
+---
+
+**PR babysit #35 (feat/prepare-download-shopping-list-pdf):** Resolved merge conflicts (standalone PR rebase onto main).
+
+**Actions:**
+- git fetch; git checkout -B ... origin/feat/...; git rebase origin/main
+- Conflicts only in .ai/next_step.md (due to overlapping docs/prune history from parallel ui/e2e fixes now in main; ace14d3 e2e locator dropped as already upstream).
+- Resolved by taking HEAD (main) version on conflicted .ai for early commits; subsequent PR commits (PDF feat + review consolidation) replayed cleanly, restoring the review handoff content in .ai.
+- Read full file contents with read_file tool for conflicted .ai; inspected all PR-touched files (crud.py, main.py, test_shopping_list_api.py, ShoppingListView.jsx) post-rebase to confirm no markers and logical consistency with canonical grouping + PDF extraction.
+- Verified (ALL via Docker, per AGENTS.md):
+  - `docker buildx bake dev` → succeeded ("exporting to image ... DONE", image meal-planner:dev)
+  - `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m pytest meal_planner_app/tests/test_shopping_list_api.py -q --tb=short` → 10 passed
+  - Full: 71 passed
+  - `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m black --check .` → clean
+  - pylint via Docker → 10.00/10
+  - Frontend via node:20-alpine Docker: `npm run format-check` + `npm run lint` (after npm ci) → clean
+- No code changes needed beyond conflict markers removal in .ai; rebase incorporated the review fixes (PDF logic to crud, shared response helper, no-flatten, tests).
+- Next: push --force-with-lease; post gh comment.
+
+**Evidence captured in session logs + commands above.**
