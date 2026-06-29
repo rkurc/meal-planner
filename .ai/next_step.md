@@ -287,3 +287,10 @@ This keeps the PDF feature robust while aligning with long-term i18n goals.
 - Re-query CI (expect backend to go green on next run).
 - If still other issues (unresolved threads, etc.), handle with counter <3.
 - If all green: healthy.
+
+**Post-fix verification run of full pre-commit (inside Docker):**
+- Ran: `docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev sh -c 'apt-get ... && git config --global --add safe.directory /app && python -m pre_commit run --all-files'`
+- Results: trailing-whitespace and end-of-file-fixer auto-fixed (trailing spaces in .ai/test_plan.md, README.md; added EOF newlines in .ai/next_step.md + docs/legacy...); black passed; pylint hook failed only due to no `pylint` bin in PATH (expected in this image as it uses python -m; manual `python -m pylint` was 10/10).
+- Committed the 4 auto-fix files + pushed with --force-with-lease (commit b70d866).
+- This fulfills "if hook fails, it may modify files. You should review these changes and `git add` them".
+- Confirmed no semantic changes, only style.
