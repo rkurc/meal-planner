@@ -3,6 +3,7 @@ Application services, such as PDF generation.
 """
 
 from typing import List, Dict, Union
+import unicodedata
 from fpdf import FPDF
 
 
@@ -20,13 +21,36 @@ def generate_shopping_list_pdf(
     pdf = FPDF()
     pdf.add_page()
 
+    # Use a Unicode font (DejaVu) so that Polish characters (ę, ą, ś, ć, ż, ź, ł, ó, etc.)
+    # from legacy location/ingredient data are supported. Core fonts (Arial/Helvetica)
+    # are limited to Latin-1.
+    PDF_FONT_FAMILY = "DejaVu"
+    using_unicode_font = True
+    try:
+        pdf.add_font(PDF_FONT_FAMILY, "", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+        pdf.add_font(PDF_FONT_FAMILY, "B", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
+    except Exception:
+        # Fallback if the font package is not installed (e.g. local run without rebuild)
+        PDF_FONT_FAMILY = "Helvetica"
+        using_unicode_font = False
+
+    def _set_font(style: str, size: int):
+        pdf.set_font(PDF_FONT_FAMILY, style, size)
+
+    def _cell_text(text: str) -> str:
+        if using_unicode_font:
+            return text
+        # Fallback: strip diacritics / non-Latin1 chars
+        normalized = unicodedata.normalize("NFKD", text)
+        return normalized.encode("latin-1", "ignore").decode("latin-1")
+
     # Title
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, f"Shopping List for: {meal_plan_name}", 0, 1, "C")
+    _set_font("B", 16)
+    pdf.cell(0, 10, _cell_text(f"Shopping List for: {meal_plan_name}"), 0, 1, "C")
     pdf.ln(10)
 
     # Table Header
-    pdf.set_font("Arial", "B", 12)
+    _set_font("B", 12)
     header_height = 10
     col_width_name = pdf.w * 0.5  # 50% of page width
     col_width_quantity = pdf.w * 0.25  # 25%
@@ -38,7 +62,7 @@ def generate_shopping_list_pdf(
     pdf.ln(header_height)
 
     # Table Body
-    pdf.set_font("Arial", "", 11)
+    _set_font("", 11)
     line_height = 8
 
     if not shopping_list_data:
@@ -48,11 +72,11 @@ def generate_shopping_list_pdf(
         if isinstance(shopping_list_data, dict):
             for loc, items in shopping_list_data.items():
                 if loc:
-                    pdf.set_font("Arial", "B", 12)
-                    pdf.cell(0, 8, f"--- {loc} ---", 0, 1)
-                    pdf.set_font("Arial", "", 11)
+                    _set_font("B", 12)
+                    pdf.cell(0, 8, _cell_text(f"--- {loc} ---"), 0, 1)
+                    _set_font("", 11)
                 for item in items:
-                    name = item.get("name", "N/A")
+                    name = _cell_text(item.get("name", "N/A"))
                     quantity_val = item.get("quantity", "")
                     unit = item.get("unit", "")
                     if isinstance(quantity_val, list):
@@ -65,7 +89,7 @@ def generate_shopping_list_pdf(
                     pdf.ln(line_height)
         else:
             for item in shopping_list_data:
-                name = item.get("name", "N/A")
+                name = _cell_text(item.get("name", "N/A"))
                 quantity_val = item.get("quantity", "")
                 unit = item.get("unit", "")
 
