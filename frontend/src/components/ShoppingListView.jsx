@@ -8,6 +8,9 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
   const [editMode, setEditMode] = useState(false);
   const [editedItems, setEditedItems] = useState([]);
 
+  const [knownIngredients, setKnownIngredients] = useState([]);
+  const [knownLocations, setKnownLocations] = useState([]);
+
   useEffect(() => {
     // Try to fetch existing shopping lists for this meal plan
     fetch("/api/shopping-lists")
@@ -25,6 +28,37 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
         setLoading(false);
       });
   }, [mealPlanId]);
+
+  useEffect(() => {
+    // Fetch known ingredients and locations for suggestions (like in RecipeForm)
+    fetch("/api/ingredients")
+      .then((response) => {
+        if (!response.ok) return [];
+        return response.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setKnownIngredients(data);
+        }
+      })
+      .catch(() => {
+        // non-fatal
+      });
+
+    fetch("/api/locations")
+      .then((response) => {
+        if (!response.ok) return [];
+        return response.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setKnownLocations(data);
+        }
+      })
+      .catch(() => {
+        // non-fatal
+      });
+  }, []);
 
   const handleGenerateList = () => {
     setLoading(true);
@@ -148,7 +182,7 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
                 Edit
               </button>
               <a
-                href={`/meal-plans/${mealPlanId}/shopping-list/pdf`}
+                href={`/shopping-lists/${shoppingList.id}/pdf`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded inline-block"
@@ -190,6 +224,7 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
                   onChange={(e) =>
                     handleItemChange(index, "name", e.target.value)
                   }
+                  list="known-ingredients"
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <input
@@ -217,6 +252,7 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
                   onChange={(e) =>
                     handleItemChange(index, "location", e.target.value)
                   }
+                  list="known-locations"
                   className="w-28 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   title="Location / aisle for grouping"
                 />
@@ -235,6 +271,16 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
           >
             Add Item
           </button>
+          <datalist id="known-ingredients">
+            {knownIngredients.map((name, i) => (
+              <option key={i} value={name} />
+            ))}
+          </datalist>
+          <datalist id="known-locations">
+            {knownLocations.map((loc, i) => (
+              <option key={i} value={loc} />
+            ))}
+          </datalist>
         </div>
       ) : (
         <ul className="space-y-2">

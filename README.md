@@ -2,7 +2,7 @@
 
 This is a web application for managing recipes and meal plans. It features a Flask backend (full REST API) + dual UIs (complete legacy Jinja2 + modern React SPA with feature parity for recipes, meal plans, and shopping lists).
 
-**Current reality (as of 2026-06-16):** 
+**Current reality (as of 2026-06-16):**
 - Full CRUD APIs + React for recipes, meal plans, shopping lists.
 - 65 backend tests passing; 8 E2E.
 - No Automatic Recipe Discovery or standalone ingredient master list (future).

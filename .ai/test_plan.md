@@ -6,7 +6,7 @@ This document outlines the test plan for the Meal Planner application. Its purpo
 
 ## 2. Scope
 
-**Overall status note (2026-06-16, reconciled):** 
+**Overall status note (2026-06-16, reconciled):**
 - Core features (Recipe/MealPlan/Shopping CRUD + gen) are *implemented* and tested (65 backend tests + 8 E2E).
 - Automatic Discovery (ARD) and standalone Ingredient mgmt (ING) are *not implemented*.
 - E2E tests exist for React recipe + mealplan + shopping workflows and pass after seed fixes.

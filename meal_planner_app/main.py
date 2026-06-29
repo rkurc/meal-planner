@@ -368,6 +368,19 @@ def shopping_list_detail_route(meal_plan_id: uuid.UUID):
     )
 
 
+def _pdf_attachment_response(title: str, grouped_data: dict) -> Response:
+    """Build and return a PDF download response for grouped shopping list data."""
+    pdf_bytes = generate_shopping_list_pdf(title, grouped_data)
+    # Ensure bytes for WSGI compatibility (gunicorn rejects bytearray/memoryview)
+    if isinstance(pdf_bytes, (bytearray, memoryview)):
+        pdf_bytes = bytes(pdf_bytes)
+    response = Response(pdf_bytes, mimetype="application/pdf")
+    safe_name = title.replace(" ", "_").lower()[:50]
+    filename = f"shopping_list_{safe_name}.pdf"
+    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
 @app.route("/meal-plans/<uuid:meal_plan_id>/shopping-list/pdf")
 def download_shopping_list_pdf(meal_plan_id: uuid.UUID):
     """Generates and serves a PDF of the shopping list for a meal plan."""
@@ -380,22 +393,22 @@ def download_shopping_list_pdf(meal_plan_id: uuid.UUID):
         return redirect(
             url_for("shopping_list_detail_route", meal_plan_id=meal_plan_id)
         )
-    # Flatten for PDF (legacy)
-    if isinstance(generated, dict):
-        shopping_list_items = []
-        for items in generated.values():  # pylint: disable=no-member
-            shopping_list_items.extend(items)
-    else:
-        shopping_list_items = generated or []
+    # Pass grouped data directly so location headers are preserved in PDF.
+    return _pdf_attachment_response(meal_plan.name, generated or {})
 
-    pdf_bytes = generate_shopping_list_pdf(meal_plan.name, shopping_list_items)
 
-    response = Response(pdf_bytes, mimetype="application/pdf")
-    filename = f"shopping_list_{meal_plan.name.replace(' ', '_').lower()}.pdf"
-    disposition = f'attachment; filename="{filename}"'
-    response.headers["Content-Disposition"] = disposition
+@app.route("/shopping-lists/<uuid:shopping_list_id>/pdf")
+def download_persisted_shopping_list_pdf(shopping_list_id: uuid.UUID):
+    """Generates and serves a PDF for a persisted (user-editable) shopping list.
+    This is the modern path used by React for downloading the current/edited list.
+    Purchased items are excluded from the PDF (to-buy list).
+    """
+    shopping_list = crud.get_shopping_list(shopping_list_id)
+    if not shopping_list:
+        abort(404)
 
-    return response
+    grouped = crud.shopping_list_to_pdf_data(shopping_list)  # pylint: disable=no-member
+    return _pdf_attachment_response(shopping_list.name, grouped)
 
 
 # --- API Routes ---
