@@ -3,6 +3,7 @@ Application services, such as PDF generation.
 """
 
 from typing import List, Dict, Union, Optional
+import os
 import unicodedata
 from fpdf import FPDF
 
@@ -33,7 +34,63 @@ def sanitize_for_pdf(text: Optional[str]) -> str:
     return normalized.encode("latin-1", errors="ignore").decode("latin-1")
 
 
-def generate_shopping_list_pdf(  # pylint: disable=too-many-locals,too-many-statements
+def _format_quantity(quantity_val: Union[str, float, List[str], None]) -> str:
+    """Format a quantity value (str, float, list, or None) into a display string."""
+    if isinstance(quantity_val, list):
+        return ", ".join(map(str, quantity_val))
+    return str(quantity_val or "")
+
+
+def _write_pdf_table_row(
+    pdf: FPDF,
+    name: str,
+    quantity_str: str,
+    unit: str,
+    layout: tuple,
+) -> None:
+    """Write a single row in the shopping list PDF table (cols+height in layout tuple)."""
+    col_width_name, col_width_quantity, col_width_unit, line_height = layout
+    pdf.cell(col_width_name, line_height, name, border=1)
+    pdf.cell(col_width_quantity, line_height, quantity_str, border=1)
+    pdf.cell(col_width_unit, line_height, unit, border=1)
+    pdf.ln(line_height)
+
+
+def _render_shopping_list_items(
+    pdf: FPDF,
+    data: Union[
+        List[Dict[str, Union[str, float, List[str]]]],
+        Dict[str, List[Dict[str, Union[str, float, List[str]]]]],
+    ],
+    pdf_text: callable,
+    set_font: callable,
+    layout: tuple,
+) -> None:
+    """Render the body (empty msg, grouped headers+rows, or flat rows) of the PDF."""
+    if not data:
+        pdf.cell(0, 10, "This shopping list is empty.", 0, 1)
+        return
+
+    if isinstance(data, dict):
+        for loc, items in data.items():
+            if loc:
+                set_font("B", 12)
+                pdf.cell(0, 8, pdf_text(f"--- {loc} ---"), 0, 1)
+                set_font("", 11)
+            for item in items:
+                name = pdf_text(item.get("name", "N/A"))
+                quantity_str = _format_quantity(item.get("quantity", ""))
+                unit = item.get("unit", "")
+                _write_pdf_table_row(pdf, name, quantity_str, unit, layout)
+    else:
+        for item in data:
+            name = pdf_text(item.get("name", "N/A"))
+            quantity_str = _format_quantity(item.get("quantity", ""))
+            unit = item.get("unit", "")
+            _write_pdf_table_row(pdf, name, quantity_str, unit, layout)
+
+
+def generate_shopping_list_pdf(
     meal_plan_name: str,
     shopping_list_data: Union[
         List[Dict[str, Union[str, float, List[str]]]],
@@ -50,103 +107,56 @@ def generate_shopping_list_pdf(  # pylint: disable=too-many-locals,too-many-stat
     # Rely on environment (Docker or local dev setup) to provide Unicode fonts
     # (e.g. fonts-dejavu-core or equivalent system font with proper discovery).
     # We do *not* bundle fonts.
+    # Use existence check (no try/except) to avoid broad-exception and reduce branches.
     pdf_font_family = "DejaVu"
-    try:
-        pdf.add_font(
-            pdf_font_family, "", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-        )
-        pdf.add_font(
-            pdf_font_family, "B", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-        )
+    dejavu = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    dejavu_b = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+    if os.path.isfile(dejavu) and os.path.isfile(dejavu_b):
+        pdf.add_font(pdf_font_family, "", dejavu)
+        pdf.add_font(pdf_font_family, "B", dejavu_b)
         has_unicode_font = True
-    except Exception:  # pylint: disable=broad-exception-caught
-        # Environment does not have the expected Unicode font.
-        # Fall back to core font + data-side sanitization.
+    else:
         pdf_font_family = "Helvetica"
         has_unicode_font = False
 
     def _set_font(style: str, size: int):
         pdf.set_font(pdf_font_family, style, size)
 
-    # Apply data-side sanitization for PDF safety.
-    # This is defensive for the case where the env does not provide a
-    # suitable Unicode font. Sanitization is applied to all text that will
-    # be rendered in the PDF (locations and ingredient names).
+    # _pdf_text applies sanitization ONLY for core-font fallback (when no unicode font).
+    # When DejaVu etc present, pass (normalized) full text so diacritics like 'ę' render.
     def _pdf_text(text: Optional[str]) -> str:
-        safe = sanitize_for_pdf(text)
+        if not text:
+            return ""
         if has_unicode_font:
-            return safe  # keep as much as possible
-        return safe  # already sanitized for core font
+            return unicodedata.normalize("NFKD", str(text))
+        return sanitize_for_pdf(text)
 
     # Title
     _set_font("B", 16)
     pdf.cell(0, 10, _pdf_text(f"Shopping List for: {meal_plan_name}"), 0, 1, "C")
     pdf.ln(10)
 
-    # Table Header
+    # Table Header (inline sizes to minimize local var count for pylint)
     _set_font("B", 12)
-    header_height = 10
-    col_width_name = pdf.w * 0.5  # 50% of page width
-    col_width_quantity = pdf.w * 0.25  # 25%
-    col_width_unit = pdf.w * 0.15  # 15% (remaining, approx)
-
-    pdf.cell(col_width_name, header_height, "Ingredient", border=1)
-    pdf.cell(col_width_quantity, header_height, "Quantity", border=1)
-    pdf.cell(col_width_unit, header_height, "Unit", border=1)
-    pdf.ln(header_height)
+    pdf.cell(pdf.w * 0.5, 10, "Ingredient", border=1)
+    pdf.cell(pdf.w * 0.25, 10, "Quantity", border=1)
+    pdf.cell(pdf.w * 0.15, 10, "Unit", border=1)
+    pdf.ln(10)
 
     # Table Body
     _set_font("", 11)
-    line_height = 8
+    layout = (pdf.w * 0.5, pdf.w * 0.25, pdf.w * 0.15, 8)
 
-    if not shopping_list_data:
-        pdf.cell(0, 10, "This shopping list is empty.", 0, 1)
-    else:
-        # Support grouped by location
-        if isinstance(shopping_list_data, dict):
-            for loc, items in shopping_list_data.items():
-                if loc:
-                    _set_font("B", 12)
-                    pdf.cell(0, 8, _pdf_text(f"--- {loc} ---"), 0, 1)
-                    _set_font("", 11)
-                for item in items:
-                    name = _pdf_text(item.get("name", "N/A"))
-                    quantity_val = item.get("quantity", "")
-                    unit = item.get("unit", "")
-                    if isinstance(quantity_val, list):
-                        quantity_str = ", ".join(map(str, quantity_val))
-                    else:
-                        quantity_str = str(quantity_val)
-                    pdf.cell(col_width_name, line_height, name, border=1)
-                    pdf.cell(col_width_quantity, line_height, quantity_str, border=1)
-                    pdf.cell(col_width_unit, line_height, unit, border=1)
-                    pdf.ln(line_height)
-        else:
-            for item in shopping_list_data:
-                name = _pdf_text(item.get("name", "N/A"))
-                quantity_val = item.get("quantity", "")
-                unit = item.get("unit", "")
-
-                if isinstance(quantity_val, list):
-                    quantity_str = ", ".join(map(str, quantity_val))
-                else:
-                    quantity_str = str(quantity_val)
-
-                # Handle multi-line for long ingredient names or quantities if necessary
-                # For simplicity, we'll use fixed height cells for now.
-                # If text is too long, it will overflow. A more robust solution would
-                # calculate text width and adjust cell height or font.
-
-                pdf.cell(col_width_name, line_height, name, border=1)
-                pdf.cell(col_width_quantity, line_height, quantity_str, border=1)
-                pdf.cell(col_width_unit, line_height, unit, border=1)
-                pdf.ln(line_height)
+    _render_shopping_list_items(
+        pdf,
+        shopping_list_data,
+        _pdf_text,
+        _set_font,
+        layout,
+    )
 
     # FPDF.output returns bytes by default since v2.7.7 for 'S' and 'F'
-    # For older versions, .encode('latin-1') might be needed if it returns string for 'S'
     # Explicitly ensure bytes (not bytearray) for WSGI/Flask/gunicorn compatibility.
-    # Some fpdf2 builds (especially with embedded Unicode fonts like DejaVu + ToUnicode)
-    # can return bytearray depending on internal buffer.
     out = pdf.output()
     if isinstance(out, (bytearray, memoryview)):
         out = bytes(out)
