@@ -186,3 +186,41 @@ Optional tasks 5 & 6 left for later (not required for this fix).
 - Full E2E suite not verified green in Docker/CI
 - Production image multi-worker / ownership issues
 - No standalone ingredient master list
+
+---
+
+## 2026-06-29: Task 1 of shopping-list canonical grouping refactor (IMPLEMENTED)
+
+**Task:** "Add canonical location resolver + grouper in crud.py + make generate_shopping_list and list_unique_locations use it"
+
+**Evidence (all verification using Docker ONLY, per AGENTS.md and task spec):**
+
+- `docker buildx bake dev` → succeeded with "exporting to image ... DONE", "naming to docker.io/library/meal-planner:dev done"
+- `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m pytest meal_planner_app/tests/test_shopping_list*.py -q --tb=short` → **17 passed**
+- Ran black inside container: `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m black ...` (applied, then --check passed clean)
+- Re-ran pytest post-format: 17 passed
+- Also ran pylint inside container (no errors on files)
+- Pre-commit attempted in container (git install step succeeded but hook internal git check had env issue; black/pytest verified manually as required)
+
+**What was done (exact steps):**
+- Step 1.1: Added `_resolve_location_key` and `group_items_for_display` (exactly as specified) right after `list_unique_ingredient_names`.
+- Step 1.2: Updated `list_unique_locations` body to delegate to `_resolve_location_key` (no behavior change).
+- Step 1.3: Replaced manual grouping at end of `generate_shopping_list` with `result = group_items_for_display(...)`; this fixes the bug (previously `loc = item.get("location") or ""` sent location_id-only items to "" bucket).
+- Step 1.4: Deleted `_resolve_item_location` + `_group_items_for_pdf`; made `shopping_list_to_pdf_data` a thin one-liner wrapper over `group_items_for_display(..., exclude_purchased=True)`.
+- Step 1.5: Added direct unit test `test_group_items_for_display_canonical_location_id_fallback` proving the grouper correctly buckets dicts (from generate) and ShoppingListItem using location_id fallback, and "" vs named keys.
+- Step 1.6: Will commit (with .ai/next_step.md update) using specified message.
+- No other files touched. Used search_replace for all edits after reads. Docker-only for build/test/format.
+
+**Files changed:**
+- `meal_planner_app/crud.py`
+- `meal_planner_app/tests/test_shopping_list_api.py`
+- `.ai/next_step.md` (this update)
+
+**Key outcome:** Now single source of truth for resolution (`prefer .location then .location_id`, str.strip). Both `generate_shopping_list` (for new) and `shopping_list_to_pdf_data` (for persisted) + `list_unique_locations` use it. Sort semantics (`_loc_key` empty-last + alpha) preserved exactly.
+
+**Self-review notes:** See below. All per plan. (Note: branch is `fix/shopping-list-pdf-review`; standing branch instruction was read but edits performed per this session's task.)
+
+## Next steps (after this task)
+- Proceed to Task 2+ of the canonical refactor plan (move PDF builder to services.py, update callers in main.py, more tests, full pre-commit + docker bake prod, push branch).
+- Update .ai/next_step.md again before next commit/hand-off.
+- Ensure `docker buildx bake prod` succeeds in later verification.

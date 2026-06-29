@@ -121,14 +121,78 @@ def list_unique_ingredient_names() -> List[str]:
     return sorted(names)
 
 
+def _resolve_location_key(item: Union[dict, "ShoppingListItem"]) -> str:
+    """Single source of truth for location grouping key.
+    Prefers .location (or ['location']), falls back to .location_id / ['location_id'].
+    Matches the rule previously duplicated in list_unique_locations and PDF code.
+    """
+    if isinstance(item, dict):
+        loc = item.get("location") or item.get("location_id") or ""
+    else:
+        loc = (
+            getattr(item, "location", None) or getattr(item, "location_id", None) or ""
+        )
+    return str(loc).strip()
+
+
+def group_items_for_display(
+    items: List[Union[dict, "ShoppingListItem"]], *, exclude_purchased: bool = False
+) -> Dict[str, List[dict]]:
+    """Canonical grouping + sorting for both generated and persisted shopping lists.
+    Used for PDF (with exclude), API responses, and future display.
+    Replicates previous sort semantics exactly: locations alpha with "" last;
+    items inside each group sorted by name.
+    """
+    grouped: Dict[str, List[dict]] = defaultdict(list)
+    for item in items:
+        if exclude_purchased:
+            purchased = (
+                item.get("purchased")
+                if isinstance(item, dict)
+                else getattr(item, "purchased", False)
+            )
+            if purchased:
+                continue
+        loc_key = _resolve_location_key(item)
+        # Normalize to the dict shape expected by generate_shopping_list_pdf
+        if isinstance(item, dict):
+            item_dict = {
+                "name": item.get("name", "N/A"),
+                "quantity": item.get("quantity", ""),
+                "unit": item.get("unit", ""),
+                "location": item.get("location"),
+                "location_id": item.get("location_id"),
+            }
+        else:
+            item_dict = {
+                "name": item.name,
+                "quantity": item.quantity,
+                "unit": item.unit,
+                "location": item.location,
+                "location_id": item.location_id,
+            }
+        grouped[loc_key].append(item_dict)
+
+    def _loc_key(l: str):
+        return (l == "", l)
+
+    result: Dict[str, List[dict]] = {}
+    for loc in sorted(grouped.keys(), key=_loc_key):
+        sorted_items = sorted(grouped[loc], key=lambda x: str(x.get("name", "")))
+        result[loc] = sorted_items
+    return result
+
+
 def list_unique_locations() -> List[str]:
-    """Returns a sorted list of unique location names (or ids) from ingredients."""
+    """Returns a sorted list of unique location names (or ids) from ingredients.
+    Resolution rule is canonical (_resolve_location_key).
+    """
     locs: set = set()
     for recipe in recipes_db:
         for ing in recipe.ingredients:
-            loc = getattr(ing, "location", None) or getattr(ing, "location_id", None)
-            if loc and str(loc).strip():
-                locs.add(str(loc).strip())
+            key = _resolve_location_key(ing)  # now uses the single impl
+            if key:
+                locs.add(key)
     return sorted(locs)
 
 
@@ -322,63 +386,9 @@ def generate_shopping_list(
                         "quantity"
                     ] = current_quantity_str
 
-    # Group by location for easy grouping by lokalizacje (aisle/category)
-    grouped: Dict[str, List[Dict[str, Union[str, float, List[str]]]]] = defaultdict(
-        list
-    )
-    for item in aggregated_ingredients.values():
-        loc = item.get("location") or ""
-        grouped[loc].append(item)
-
-    # Sort locations alphabetically, "Other"/empty last; sort items inside each group by name
-    def _loc_key(l):
-        return (l == "", l)  # empty/unknown at end
-
-    result = {}
-    for loc in sorted(grouped.keys(), key=_loc_key):
-        items = sorted(grouped[loc], key=lambda x: str(x.get("name", "")))
-        result[loc] = items
-
-    return result
-
-
-def _resolve_item_location(item: ShoppingListItem) -> str:
-    """Return a location key for grouping.
-    Prefers the resolved 'location' string, falls back to 'location_id'.
-    Matches the rule used by list_unique_locations.
-    """
-    loc = item.location or item.location_id or ""
-    return str(loc).strip()
-
-
-def _group_items_for_pdf(
-    items: List[ShoppingListItem], *, exclude_purchased: bool = False
-) -> Dict[str, List[dict]]:
-    """Group shopping list items by location for PDF rendering.
-    Replicates the sort semantics from generate_shopping_list:
-    locations sorted alpha with empty last; items sorted alpha by name within groups.
-    """
-    grouped: Dict[str, List[dict]] = defaultdict(list)
-    for item in items:
-        if exclude_purchased and item.purchased:
-            continue
-        loc_key = _resolve_item_location(item)
-        item_dict = {
-            "name": item.name,
-            "quantity": item.quantity,
-            "unit": item.unit,
-            "location": item.location,
-            "location_id": item.location_id,
-        }
-        grouped[loc_key].append(item_dict)
-
-    def _loc_key(l: str):
-        return (l == "", l)
-
-    result: Dict[str, List[dict]] = {}
-    for loc in sorted(grouped.keys(), key=_loc_key):
-        sorted_items = sorted(grouped[loc], key=lambda x: str(x.get("name", "")))
-        result[loc] = sorted_items
+    # Use canonical grouper so location_id fallback is consistent everywhere
+    # (previously this path ignored location_id, sending items to the "" bucket).
+    result = group_items_for_display(list(aggregated_ingredients.values()))
     return result
 
 
@@ -386,9 +396,9 @@ def shopping_list_to_pdf_data(
     shopping_list: ShoppingList,
 ) -> Dict[str, List[dict]]:
     """Public entry point: convert persisted ShoppingList to grouped PDF data.
-    Excludes purchased items so the PDF is the 'to buy' list.
+    Excludes purchased items. Uses the canonical grouper.
     """
-    return _group_items_for_pdf(shopping_list.items, exclude_purchased=True)
+    return group_items_for_display(shopping_list.items, exclude_purchased=True)
 
 
 # --- Shopping List CRUD Operations ---

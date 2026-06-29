@@ -256,6 +256,55 @@ class ShoppingListApiTestCase(unittest.TestCase):
         self.assertIn("Dairy", locs)
         self.assertIn("Bakery", locs)
 
+    def test_group_items_for_display_canonical_location_id_fallback(self):
+        """Directly proves canonical grouping for location_id-only items (dicts and dataclasses)."""
+        # dicts (as produced by aggregation in generate_shopping_list)
+        items_dicts = [
+            {
+                "name": "Foo",
+                "quantity": 1,
+                "unit": "",
+                "location": None,
+                "location_id": "4",
+            },
+            {
+                "name": "Bar",
+                "quantity": 2,
+                "unit": "",
+                "location": None,
+                "location_id": "4",
+            },
+            {
+                "name": "Baz",
+                "quantity": 1,
+                "unit": "",
+                "location": "",
+                "location_id": None,
+            },
+        ]
+        grouped = crud.group_items_for_display(items_dicts)
+        self.assertIn("4", grouped)
+        self.assertIn("Baz", [i["name"] for i in grouped.get("", [])])
+        # location_id items do not go to ""
+        names_in_4 = [i["name"] for i in grouped.get("4", [])]
+        self.assertIn("Foo", names_in_4)
+        self.assertIn("Bar", names_in_4)
+
+        # ShoppingListItem dataclass form (as used for persisted)
+        from meal_planner_app.models.shopping_list import ShoppingListItem
+
+        item_dc = ShoppingListItem(
+            name="Qux",
+            quantity=3,
+            unit="",
+            purchased=False,
+            location=None,
+            location_id="Dairy",
+        )
+        grouped_dc = crud.group_items_for_display([item_dc])
+        self.assertIn("Dairy", grouped_dc)
+        self.assertEqual(grouped_dc["Dairy"][0]["name"], "Qux")
+
 
 if __name__ == "__main__":
     unittest.main()
