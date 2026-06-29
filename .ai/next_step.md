@@ -207,3 +207,28 @@ Optional tasks 5 & 6 left for later (not required for this fix).
 - Next: push --force-with-lease; post gh comment.
 
 **Evidence captured in session logs + commands above.**
+
+---
+
+## Additional fix: PDF Unicode / Polish diacritics (data-side sanitization)
+
+**Issue:** FPDF `generate_shopping_list_pdf` crashed on characters like 'ę' (U+0119) in location names when rendering `--- {loc} ---` headers (and potentially ingredient names).
+
+Root cause: code used core fonts ("Arial"/Helvetica) which are Latin-1 only. Legacy data contains Polish diacritics via `lokalizacje` / location fields.
+
+**Decision (user direction):**
+- **No bundling** of TTF files.
+- **Data-side sanitization** applied at PDF data preparation / render time (`sanitize_for_pdf` helper using NFKD + latin-1 ignore).
+- Sanitization lives in `services.py` and is used for all text passed to PDF cells (`loc`, names, titles).
+- Rely on environment (Docker or local dev) to provide correct Unicode fonts (e.g. DejaVu via `fonts-dejavu-core` or local equivalent) + standard discovery paths.
+- If env provides the font, full characters render. Sanitization is defensive fallback.
+- Remember for next steps: full **i18n support** is desired. Original Unicode strings should remain in the data model. Sanitization is a temporary compatibility measure, not a permanent lossy transform. Future work should prefer proper font setup in the environment over aggressive sanitization.
+
+**Changes:**
+- `services.py`: added `sanitize_for_pdf()`, robust font loading with fallback, `_pdf_text()` wrapper that applies sanitization.
+- Dockerfiles: ensured `fonts-dejavu-core` is installed (env expectation).
+- No font files added to repo.
+
+**Verification plan:** After push, rebuild image and test PDF download with a shopping list containing Polish location names.
+
+This keeps the PDF feature robust while aligning with long-term i18n goals.

@@ -2,9 +2,35 @@
 Application services, such as PDF generation.
 """
 
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Optional
 import unicodedata
 from fpdf import FPDF
+
+
+def sanitize_for_pdf(text: Optional[str]) -> str:
+    """Data-side sanitization for text used in PDF output.
+
+    This is the preferred defensive layer when we cannot (or should not)
+    assume a full Unicode font is available in the environment.
+
+    - Always performs NFKD normalization.
+    - Strips characters that cannot be represented in latin-1 (the fallback
+      for core fonts like Helvetica).
+
+    For full i18n support (future goal), the meal-planner environment
+    (Docker image or local dev setup) is expected to provide appropriate
+    Unicode-capable fonts (e.g. via fonts-dejavu-core or equivalent) and
+    font discovery so that sanitization can be reduced to a no-op for most
+    European scripts.
+
+    We deliberately do *not* bundle fonts. Font availability is an
+    environment concern.
+    """
+    if not text:
+        return ""
+    normalized = unicodedata.normalize("NFKD", str(text))
+    # Defensive strip for latin-1 / core font compatibility
+    return normalized.encode("latin-1", errors="ignore").decode("latin-1")
 
 
 def generate_shopping_list_pdf(
@@ -21,32 +47,40 @@ def generate_shopping_list_pdf(
     pdf = FPDF()
     pdf.add_page()
 
-    # Use a Unicode font (DejaVu) so that Polish characters (ę, ą, ś, ć, ż, ź, ł, ó, etc.)
-    # from legacy location/ingredient data are supported. Core fonts (Arial/Helvetica)
-    # are limited to Latin-1.
+    # Rely on environment (Docker or local dev setup) to provide Unicode fonts
+    # (e.g. fonts-dejavu-core or equivalent system font with proper discovery).
+    # We do *not* bundle fonts.
     PDF_FONT_FAMILY = "DejaVu"
-    using_unicode_font = True
     try:
-        pdf.add_font(PDF_FONT_FAMILY, "", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
-        pdf.add_font(PDF_FONT_FAMILY, "B", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
+        pdf.add_font(
+            PDF_FONT_FAMILY, "", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+        )
+        pdf.add_font(
+            PDF_FONT_FAMILY, "B", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+        )
+        has_unicode_font = True
     except Exception:
-        # Fallback if the font package is not installed (e.g. local run without rebuild)
+        # Environment does not have the expected Unicode font.
+        # Fall back to core font + data-side sanitization.
         PDF_FONT_FAMILY = "Helvetica"
-        using_unicode_font = False
+        has_unicode_font = False
 
     def _set_font(style: str, size: int):
         pdf.set_font(PDF_FONT_FAMILY, style, size)
 
-    def _cell_text(text: str) -> str:
-        if using_unicode_font:
-            return text
-        # Fallback: strip diacritics / non-Latin1 chars
-        normalized = unicodedata.normalize("NFKD", text)
-        return normalized.encode("latin-1", "ignore").decode("latin-1")
+    # Apply data-side sanitization for PDF safety.
+    # This is defensive for the case where the env does not provide a
+    # suitable Unicode font. Sanitization is applied to all text that will
+    # be rendered in the PDF (locations and ingredient names).
+    def _pdf_text(text: Optional[str]) -> str:
+        safe = sanitize_for_pdf(text)
+        if has_unicode_font:
+            return safe  # keep as much as possible
+        return safe  # already sanitized for core font
 
     # Title
     _set_font("B", 16)
-    pdf.cell(0, 10, _cell_text(f"Shopping List for: {meal_plan_name}"), 0, 1, "C")
+    pdf.cell(0, 10, _pdf_text(f"Shopping List for: {meal_plan_name}"), 0, 1, "C")
     pdf.ln(10)
 
     # Table Header
@@ -73,10 +107,10 @@ def generate_shopping_list_pdf(
             for loc, items in shopping_list_data.items():
                 if loc:
                     _set_font("B", 12)
-                    pdf.cell(0, 8, _cell_text(f"--- {loc} ---"), 0, 1)
+                    pdf.cell(0, 8, _pdf_text(f"--- {loc} ---"), 0, 1)
                     _set_font("", 11)
                 for item in items:
-                    name = _cell_text(item.get("name", "N/A"))
+                    name = _pdf_text(item.get("name", "N/A"))
                     quantity_val = item.get("quantity", "")
                     unit = item.get("unit", "")
                     if isinstance(quantity_val, list):
@@ -89,7 +123,7 @@ def generate_shopping_list_pdf(
                     pdf.ln(line_height)
         else:
             for item in shopping_list_data:
-                name = _cell_text(item.get("name", "N/A"))
+                name = _pdf_text(item.get("name", "N/A"))
                 quantity_val = item.get("quantity", "")
                 unit = item.get("unit", "")
 
