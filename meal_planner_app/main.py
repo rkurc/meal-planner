@@ -15,7 +15,6 @@ from flask import (
     redirect,
     url_for,
     abort,
-    Response,
     send_from_directory,
     jsonify,
 )
@@ -25,7 +24,7 @@ from meal_planner_app import crud
 from meal_planner_app.seed_db import seed_database
 from meal_planner_app.models.meal_plan import MealPlan
 from meal_planner_app.models.recipe import Recipe
-from meal_planner_app.services import generate_shopping_list_pdf
+from meal_planner_app.services import build_shopping_list_pdf_attachment
 from dataclasses import asdict
 from meal_planner_app.models.shopping_list import ShoppingList
 from typing import List, Dict
@@ -368,16 +367,6 @@ def shopping_list_detail_route(meal_plan_id: uuid.UUID):
     )
 
 
-def _pdf_attachment_response(title: str, grouped_data: dict) -> Response:
-    """Build and return a PDF download response for grouped shopping list data."""
-    pdf_bytes = generate_shopping_list_pdf(title, grouped_data)
-    response = Response(pdf_bytes, mimetype="application/pdf")
-    safe_name = title.replace(" ", "_").lower()[:50]
-    filename = f"shopping_list_{safe_name}.pdf"
-    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
-    return response
-
-
 @app.route("/meal-plans/<uuid:meal_plan_id>/shopping-list/pdf")
 def download_shopping_list_pdf(meal_plan_id: uuid.UUID):
     """Generates and serves a PDF of the shopping list for a meal plan."""
@@ -391,7 +380,7 @@ def download_shopping_list_pdf(meal_plan_id: uuid.UUID):
             url_for("shopping_list_detail_route", meal_plan_id=meal_plan_id)
         )
     # Pass grouped data directly so location headers are preserved in PDF.
-    return _pdf_attachment_response(meal_plan.name, generated or {})
+    return build_shopping_list_pdf_attachment(meal_plan.name, generated or {})
 
 
 @app.route("/shopping-lists/<uuid:shopping_list_id>/pdf")
@@ -405,7 +394,7 @@ def download_persisted_shopping_list_pdf(shopping_list_id: uuid.UUID):
         abort(404)
 
     grouped = crud.shopping_list_to_pdf_data(shopping_list)  # pylint: disable=no-member
-    return _pdf_attachment_response(shopping_list.name, grouped)
+    return build_shopping_list_pdf_attachment(shopping_list.name, grouped)
 
 
 # --- API Routes ---

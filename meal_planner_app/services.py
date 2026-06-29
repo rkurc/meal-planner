@@ -5,6 +5,8 @@ Application services, such as PDF generation.
 from typing import List, Dict, Union
 from fpdf import FPDF
 
+from flask import Response  # only for the attachment builder
+
 
 def generate_shopping_list_pdf(
     meal_plan_name: str,
@@ -87,3 +89,18 @@ def generate_shopping_list_pdf(
     # FPDF.output returns bytes by default since v2.7.7 for 'S' and 'F'
     # For older versions, .encode('latin-1') might be needed if it returns string for 'S'
     return pdf.output()
+
+
+def build_shopping_list_pdf_attachment(
+    title: str, grouped_data: Dict[str, List[Dict]]
+) -> Response:
+    """Generate PDF bytes and return a complete Flask attachment Response.
+    Central place for filename sanitization and Content-Disposition.
+    Used by both meal-plan and persisted shopping list PDF routes.
+    """
+    pdf_bytes = generate_shopping_list_pdf(title, grouped_data)
+    response = Response(pdf_bytes, mimetype="application/pdf")
+    safe_name = title.replace(" ", "_").lower()[:50]
+    filename = f"shopping_list_{safe_name}.pdf"
+    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
