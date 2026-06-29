@@ -144,4 +144,10 @@ def generate_shopping_list_pdf(  # pylint: disable=too-many-locals,too-many-stat
 
     # FPDF.output returns bytes by default since v2.7.7 for 'S' and 'F'
     # For older versions, .encode('latin-1') might be needed if it returns string for 'S'
-    return pdf.output()
+    # Explicitly ensure bytes (not bytearray) for WSGI/Flask/gunicorn compatibility.
+    # Some fpdf2 builds (especially with embedded Unicode fonts like DejaVu + ToUnicode)
+    # can return bytearray depending on internal buffer.
+    out = pdf.output()
+    if isinstance(out, (bytearray, memoryview)):
+        out = bytes(out)
+    return out

@@ -208,6 +208,34 @@ Optional tasks 5 & 6 left for later (not required for this fix).
 
 **Evidence captured in session logs + commands above.**
 
+## Runtime fix: gunicorn WSGI TypeError for PDF bytearray
+
+**Issue observed in production (gunicorn under Flask):**
+```
+TypeError: bytearray(b'%PDF-1.3\n...') is not a byte
+```
+at gunicorn/http/wsgi.py:336 in resp.write, called from download_persisted_shopping_list_pdf.
+
+**Root cause:** 
+`pdf.output()` from fpdf2 (with embedded DejaVu Unicode font + ToUnicode CMap for Polish support) returned `bytearray` in this build/runtime (instead of `bytes`). 
+Flask `Response(pdf_bytes, ...)` accepted it, but gunicorn's WSGI `write()` does a strict `isinstance(arg, bytes)` check and rejects bytearray (and memoryview).
+
+This surfaced after the Unicode font changes (DejaVu) needed for locations with 'ę' etc.
+
+**Applied fix (defensive):**
+- In `services.py` (generate_shopping_list_pdf return): 
+  `out = pdf.output()`
+  `if isinstance(out, (bytearray, memoryview)): out = bytes(out)`
+  `return out`
+- Similarly in main.py `_pdf_attachment_response` before `Response(...)`.
+- Added comment explaining why.
+
+This ensures bytes for the entire WSGI stack regardless of fpdf internal buffer type.
+
+Rebuild image + re-test PDF downloads recommended. No behavior change for clients.
+
+(Also protects future font or fpdf version quirks.)
+
 ---
 
 ## Additional fix: PDF Unicode / Polish diacritics (data-side sanitization)

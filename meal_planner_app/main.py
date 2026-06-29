@@ -371,6 +371,9 @@ def shopping_list_detail_route(meal_plan_id: uuid.UUID):
 def _pdf_attachment_response(title: str, grouped_data: dict) -> Response:
     """Build and return a PDF download response for grouped shopping list data."""
     pdf_bytes = generate_shopping_list_pdf(title, grouped_data)
+    # Ensure bytes for WSGI compatibility (gunicorn rejects bytearray/memoryview)
+    if isinstance(pdf_bytes, (bytearray, memoryview)):
+        pdf_bytes = bytes(pdf_bytes)
     response = Response(pdf_bytes, mimetype="application/pdf")
     safe_name = title.replace(" ", "_").lower()[:50]
     filename = f"shopping_list_{safe_name}.pdf"
