@@ -192,11 +192,38 @@ Subagents also performed branch-first per standing instruction, Docker bake/pyte
 
 Full verification commands + outputs captured in subagent reports and plan doc.
 
-## Next steps
-- Rebase / consolidate side branches created by subagents onto `fix/shopping-list-pdf-review` (or main review branch) if needed.
-- `docker buildx bake prod` one final time.
-- Push + report last commit SHA.
-- Optional: Task 5 polish (if any manual grouping remains in agg key — out of scope for core) + Task 6 final push.
+## Pushed
+
+**Branch pushed:** `fix/shopping-list-pdf-review`
+
+```bash
+git push -u origin fix/shopping-list-pdf-review
+```
+
+**Last commit on push:**
+```
+a69c176 test: clean test pollution + strengthen location_id grouping assertions
+```
+
+**Final verification (Grok build / Docker only, right before push):**
+- `docker buildx bake dev` → succeeded ("exporting to image ... DONE")
+- `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m pytest meal_planner_app/tests/ -q --tb=no` → **73 passed**
+- Frontend (node:20-alpine): `npm run format-check && npm run lint` → clean
+
+All prior subagent tasks + canonical grouping + services move + test cleanup are in the history.
+
+You can now try it (the branch is published). The refactored code has:
+- Canonical `_resolve_location_key` + `group_items_for_display` (consistent location_id handling everywhere)
+- `build_shopping_list_pdf_attachment` in services.py
+- Flat-list contract explicit in `create_shopping_list`
+- Cleaned tests with direct canonical assertions
+- All checks green
+
+## Next steps (for you / next agent)
+- Open or update the PR from this branch (or cherry the key commits onto the original `feat/...` if preferred).
+- Try the PDF download for both meal-plan and persisted shopping lists (especially items with only `location_id`).
+- If good, we can clean up the side branches the subagents created.
+- Update this file with try results + any follow-ups.
 
 ## Definition of done
 
