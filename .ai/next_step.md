@@ -232,3 +232,58 @@ Root cause: code used core fonts ("Arial"/Helvetica) which are Latin-1 only. Leg
 **Verification plan:** After push, rebuild image and test PDF download with a shopping list containing Polish location names.
 
 This keeps the PDF feature robust while aligning with long-term i18n goals.
+
+---
+
+## PR Babysit Cycle: Addressed backend pylint CI failure (2026-06-29)
+
+**Context:** PR #35 status showed backend FAILURE in statusCheckRollup (run 28365596543). Previous work (Unicode sanitization) introduced violations. mergeable=MERGEABLE, no review changes requested, other checks green.
+
+**PR query:**
+- state=OPEN, mergeable=MERGEABLE, reviewDecision=""
+- Checks: backend=FAILURE, others SUCCESS
+
+**Diagnosed via:**
+- `gh pr checks 35 --json name,state,link`
+- `gh run view 28365596543 --log-failed | tail -200` → pylint errors in services.py:
+  - R0914 too-many-locals (19/15) @ line 36
+  - C0103 invalid-name "PDF_FONT_FAMILY"
+  - W0718 broad-exception-caught
+  - R0915 too-many-statements (58/50)
+
+**Actions (fix_counter=0 ->1 , <3 so code change allowed):**
+- `git fetch origin` (succeeded)
+- `git checkout -B feat/prepare-download-shopping-list-pdf origin/feat/prepare-download-shopping-list-pdf` (synced to 163f9f9)
+- Read .pylintrc, full services.py (with read_file), CI .github/workflows/ci.yml, docker-bake.hcl, .devcontainer/Dockerfile, .ai/next_step.md
+- `grep` for pylint disable patterns (project uses inline `# pylint: disable=...` e.g. in crud.py, migrate_legacy.py)
+- Fixed via search_replace:
+  - Renamed `PDF_FONT_FAMILY` → `pdf_font_family` (snake_case, 5 occurrences)
+  - `except Exception:  # pylint: disable=broad-exception-caught`
+  - `def generate_shopping_list_pdf(  # pylint: disable=too-many-locals,too-many-statements`
+- Verified ALL checks inside Docker `meal-planner:dev` (per AGENTS.md strict rules, no host python/pip/black/pylint/pytest):
+  ```
+  docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev python -m pylint meal_planner_app
+  # → rated at 10.00/10 , exit 0
+  docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev python -m black --check .
+  # → All done! 15 files unchanged
+  docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev python -m pytest meal_planner_app/tests/ -q --tb=no
+  # → 71 passed
+  ```
+- Also ran `docker run ... python -m pytest ...` and confirmed no new failures (pre-existing fpdf deprecation warnings noted but non-blocking).
+- Updated this .ai/next_step.md
+- Will: `git add -A && git commit -m "fix: address CI failure in backend" ; git push --force-with-lease ; gh pr comment ...`
+
+**No other issues processed yet:** No merge conflicts (MERGEABLE), reviewDecision empty, will check unresolved review comments if needed next.
+
+**last_status will be "ci_failed" for this cycle's JSON report.**
+
+**Evidence:** Pylint now clean at 10/10 inside container; full command outputs captured.
+
+---
+
+**Updated next steps:**
+- Push the fix commit with this .ai update.
+- Comment on PR.
+- Re-query CI (expect backend to go green on next run).
+- If still other issues (unresolved threads, etc.), handle with counter <3.
+- If all green: healthy.

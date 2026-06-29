@@ -33,7 +33,7 @@ def sanitize_for_pdf(text: Optional[str]) -> str:
     return normalized.encode("latin-1", errors="ignore").decode("latin-1")
 
 
-def generate_shopping_list_pdf(
+def generate_shopping_list_pdf(  # pylint: disable=too-many-locals,too-many-statements
     meal_plan_name: str,
     shopping_list_data: Union[
         List[Dict[str, Union[str, float, List[str]]]],
@@ -50,23 +50,23 @@ def generate_shopping_list_pdf(
     # Rely on environment (Docker or local dev setup) to provide Unicode fonts
     # (e.g. fonts-dejavu-core or equivalent system font with proper discovery).
     # We do *not* bundle fonts.
-    PDF_FONT_FAMILY = "DejaVu"
+    pdf_font_family = "DejaVu"
     try:
         pdf.add_font(
-            PDF_FONT_FAMILY, "", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+            pdf_font_family, "", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
         )
         pdf.add_font(
-            PDF_FONT_FAMILY, "B", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+            pdf_font_family, "B", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
         )
         has_unicode_font = True
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         # Environment does not have the expected Unicode font.
         # Fall back to core font + data-side sanitization.
-        PDF_FONT_FAMILY = "Helvetica"
+        pdf_font_family = "Helvetica"
         has_unicode_font = False
 
     def _set_font(style: str, size: int):
-        pdf.set_font(PDF_FONT_FAMILY, style, size)
+        pdf.set_font(pdf_font_family, style, size)
 
     # Apply data-side sanitization for PDF safety.
     # This is defensive for the case where the env does not provide a
