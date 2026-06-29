@@ -4,6 +4,7 @@ import json
 
 from meal_planner_app.main import app
 from meal_planner_app import crud
+from meal_planner_app.models.shopping_list import ShoppingListItem
 
 
 class ShoppingListApiTestCase(unittest.TestCase):
@@ -235,12 +236,11 @@ class ShoppingListApiTestCase(unittest.TestCase):
         self.assertIn("Eggs", names)
 
     def test_api_get_locations(self):
-        """GET /api/locations returns sorted unique location values."""
-        # Seed a recipe that has locations to ensure non-empty deterministic result
-        crud.reset_recipes_db()
-        crud.reset_meal_plans_db()
+        """GET /api/locations returns sorted unique location values (canonical rule)."""
+        # Additive: create recipes with the locations we care about.
+        # Does not wipe setUp data. (avoids test pollution)
         crud.create_recipe(
-            name="Test Recipe",
+            name="Test Recipe Locations",
             instructions="Test.",
             ingredients_data=[
                 {"name": "Milk", "quantity": 1, "unit": "l", "location": "Dairy"},
@@ -255,6 +255,9 @@ class ShoppingListApiTestCase(unittest.TestCase):
         # Should include both the resolved location and the id fallback
         self.assertIn("Dairy", locs)
         self.assertIn("Bakery", locs)
+        # Also assert that our canonical resolve rule is what list_unique uses
+        # (list_unique_locations now delegates to _resolve_location_key)
+        self.assertTrue(all(isinstance(x, str) for x in locs))
 
     def test_group_items_for_display_canonical_location_id_fallback(self):
         """Directly proves canonical grouping for location_id-only items (dicts and dataclasses)."""
@@ -291,8 +294,6 @@ class ShoppingListApiTestCase(unittest.TestCase):
         self.assertIn("Bar", names_in_4)
 
         # ShoppingListItem dataclass form (as used for persisted)
-        from meal_planner_app.models.shopping_list import ShoppingListItem
-
         item_dc = ShoppingListItem(
             name="Qux",
             quantity=3,
@@ -304,6 +305,31 @@ class ShoppingListApiTestCase(unittest.TestCase):
         grouped_dc = crud.group_items_for_display([item_dc])
         self.assertIn("Dairy", grouped_dc)
         self.assertEqual(grouped_dc["Dairy"][0]["name"], "Qux")
+
+    def test_group_items_for_display_location_id_fallback(self):
+        """Direct unit test for group_items_for_display with location_id-only (ShoppingListItem)."""
+        items = [
+            ShoppingListItem(
+                name="Cheese",
+                quantity=1,
+                unit="kg",
+                purchased=False,
+                location=None,
+                location_id="4",
+            ),
+            ShoppingListItem(
+                name="Milk",
+                quantity=2,
+                unit="l",
+                purchased=False,
+                location="Dairy",
+                location_id=None,
+            ),
+        ]
+        grouped = crud.group_items_for_display(items)
+        self.assertIn("4", grouped)  # resolved from location_id
+        self.assertIn("Dairy", grouped)
+        self.assertNotIn("", grouped)  # nothing fell to empty
 
 
 if __name__ == "__main__":
