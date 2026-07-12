@@ -256,6 +256,34 @@ class ShoppingListApiTestCase(unittest.TestCase):
         self.assertIn("Dairy", locs)
         self.assertIn("Bakery", locs)
 
+    def test_api_get_units(self):
+        """GET /api/units returns sorted unique non-empty unit strings from recipes."""
+        # Reset and seed controlled data with mix of units (incl. empty)
+        crud.reset_recipes_db()
+        crud.reset_meal_plans_db()
+        crud.create_recipe(
+            name="Test Units Recipe",
+            instructions="Test.",
+            ingredients_data=[
+                {"name": "Milk", "quantity": 1, "unit": "l"},
+                {"name": "Flour", "quantity": 2, "unit": "cups"},
+                {"name": "Salt", "quantity": 1, "unit": "pinch"},
+                {"name": "Egg", "quantity": 1, "unit": ""},  # should be excluded
+                {"name": "Sugar", "quantity": 1, "unit": "cups"},  # duplicate
+            ],
+        )
+        resp = self.client.get("/api/units")
+        self.assertEqual(resp.status_code, 200)
+        units = resp.get_json()
+        self.assertIsInstance(units, list)
+        self.assertEqual(units, sorted(units))
+        self.assertIn("l", units)
+        self.assertIn("cups", units)
+        self.assertIn("pinch", units)
+        self.assertNotIn("", units)
+        # Duplicates removed
+        self.assertEqual(units.count("cups"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

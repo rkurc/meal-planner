@@ -18,6 +18,7 @@ const RecipeForm = () => {
   const [error, setError] = useState(null);
   const [knownIngredients, setKnownIngredients] = useState([]);
   const [knownLocations, setKnownLocations] = useState([]);
+  const [knownUnits, setKnownUnits] = useState([]);
 
   useEffect(() => {
     if (isEditing) {
@@ -75,6 +76,20 @@ const RecipeForm = () => {
       .then((data) => {
         if (Array.isArray(data)) {
           setKnownLocations(data);
+        }
+      })
+      .catch(() => {
+        // non-fatal
+      });
+
+    fetch("/api/units")
+      .then((response) => {
+        if (!response.ok) return [];
+        return response.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setKnownUnits(data);
         }
       })
       .catch(() => {
@@ -288,6 +303,7 @@ const RecipeForm = () => {
                   onChange={(e) =>
                     handleIngredientChange(index, "unit", e.target.value)
                   }
+                  list="known-units"
                   className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <input
@@ -326,6 +342,11 @@ const RecipeForm = () => {
             <datalist id="known-locations">
               {knownLocations.map((loc, i) => (
                 <option key={i} value={loc} />
+              ))}
+            </datalist>
+            <datalist id="known-units">
+              {knownUnits.map((unit, i) => (
+                <option key={i} value={unit} />
               ))}
             </datalist>
           </div>

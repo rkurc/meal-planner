@@ -10,6 +10,7 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
 
   const [knownIngredients, setKnownIngredients] = useState([]);
   const [knownLocations, setKnownLocations] = useState([]);
+  const [knownUnits, setKnownUnits] = useState([]);
 
   useEffect(() => {
     // Try to fetch existing shopping lists for this meal plan
@@ -53,6 +54,20 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
       .then((data) => {
         if (Array.isArray(data)) {
           setKnownLocations(data);
+        }
+      })
+      .catch(() => {
+        // non-fatal
+      });
+
+    fetch("/api/units")
+      .then((response) => {
+        if (!response.ok) return [];
+        return response.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setKnownUnits(data);
         }
       })
       .catch(() => {
@@ -243,6 +258,7 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
                   onChange={(e) =>
                     handleItemChange(index, "unit", e.target.value)
                   }
+                  list="known-units"
                   className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <input
@@ -279,6 +295,11 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
           <datalist id="known-locations">
             {knownLocations.map((loc, i) => (
               <option key={i} value={loc} />
+            ))}
+          </datalist>
+          <datalist id="known-units">
+            {knownUnits.map((unit, i) => (
+              <option key={i} value={unit} />
             ))}
           </datalist>
         </div>

@@ -410,3 +410,61 @@ This keeps the PDF feature robust while aligning with long-term i18n goals.
 **Next:** This is ready to push along with prior PDF/Unicode/pylint fixes. Rebuild dev image if testing locally; E2E can cover later.
 
 **Verification checklist update:** Frontend Docker checks passed cleanly for this change.
+
+---
+
+## Task 2 (isolated): Unit suggestions via /api/units (new recipe, edit recipe, shopping list edit) (2026-07-12)
+
+**Isolated task completed on branch `feat/add-unit-suggestions` (created per standing instruction before any edits).**
+
+**What was implemented (strictly unit-suggestion related code only):**
+
+- Backend:
+  - `meal_planner_app/crud.py`: Added `list_unique_units()` collecting unique non-empty `unit` strings from all `recipe.ingredients` (modeled exactly on `list_unique_ingredient_names` / `list_unique_locations`).
+  - `meal_planner_app/main.py`: Added `GET /api/units` endpoint (after `/api/locations`), returns sorted list via `crud.list_unique_units()` (with pylint disable, matching siblings).
+- Frontend (non-blocking fetch pattern exactly as knownIngredients/knownLocations):
+  - `frontend/src/components/RecipeForm.jsx` (new + edit recipe): added `knownUnits` state; third fetch("/api/units") in the useEffect (empty deps, non-fatal catch); `list="known-units"` on unit `<input>` in ingredient rows; `<datalist id="known-units">` after locations datalist.
+  - `frontend/src/components/ShoppingListView.jsx` (shopping list edit, used from meal plan): added `knownUnits` state + matching fetch in the suggestions useEffect; `list="known-units"` on unit input in edit rows; `<datalist id="known-units">`.
+- Datalists preserve free-text entry (standard HTML behavior).
+- No changes to meal plan recipe selection (task 4), no master unit storage, no other files.
+- Added test: `test_api_get_units` in `meal_planner_app/tests/test_shopping_list_api.py` (controls data, asserts sorted uniques, excludes empty, no dups; +1 test).
+
+**Files changed (only):**
+- meal_planner_app/crud.py
+- meal_planner_app/main.py
+- frontend/src/components/RecipeForm.jsx
+- frontend/src/components/ShoppingListView.jsx
+- meal_planner_app/tests/test_shopping_list_api.py
+- .ai/next_step.md (this update)
+
+**Verification evidence (ALL via Docker, no host python/node/npm/black/pylint/pytest; per AGENTS.md):**
+
+- Branch: `git checkout -b feat/add-unit-suggestions` (before edits).
+- Restored lock only for env (git checkout -- ... ; no package change).
+- `docker buildx bake dev` → succeeded with "exporting to image ... DONE", "naming to docker.io/library/meal-planner:dev done".
+- Backend tests: `docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev python -m pytest meal_planner_app/tests/ -q --tb=short` → **72 passed** ( +1 ; units test included).
+- Black: `docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev python -m black --check .` → "All done! 15 files would be left unchanged."
+- Pylint: `docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev python -m pylint --rcfile=.pylintrc meal_planner_app/` → "Your code has been rated at 10.00/10".
+- Frontend via node:20-alpine (with npm ci):
+  - `docker run --rm -v "$(pwd)/frontend:/app" -w /app node:20-alpine sh -c 'npm ci --no-audit --no-fund --silent && npm run format-check'` → "All matched files use Prettier code style!"
+  - `docker run --rm -v "$(pwd)/frontend:/app" -w /app node:20-alpine sh -c 'npm ci --no-audit --no-fund --silent && npm run lint'` → (clean, no errors).
+- Also via meal-planner:dev: `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev sh -c 'npm run format-check && npm run lint'` → clean Prettier + eslint.
+- (Pre-commit attempted but env git limitation inside container; core black/pylint + format/lint covered per past .ai handling.)
+
+**Status:** Task 2 done. Suggestions now available for units in recipe forms + shopping list edit (from meal plans), consistent with ingredients/locations. Free text still works.
+
+**Next steps (for handoff):**
+- Commit + push branch (include this .ai update).
+- Report last commit SHA.
+- E2E (if needed) can later assert datalist presence, but out of scope here.
+- Do not merge overlapping tasks; isolated to units.
+- Update any future handoff in .ai/next_step.md .
+
+**Definition of done (self-check):**
+- [x] list_unique_units + /api/units implemented + tested
+- [x] RecipeForm + ShoppingListView use datalists for units
+- [x] non-blocking fetch, no free-text breakage
+- [x] Only unit suggestion code touched
+- [x] All verification Docker commands executed + evidence captured
+- [x] .ai/next_step.md updated + will commit together
+
