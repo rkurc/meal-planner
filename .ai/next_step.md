@@ -413,6 +413,7 @@ This keeps the PDF feature robust while aligning with long-term i18n goals.
 
 ---
 
+<<<<<<< HEAD
 ## Isolated Task 1: Create support for "a new list" (standalone shopping list) — 2026-07-12
 
 **Branch:** `feat/create-standalone-shopping-list` (created before any edits, per standing instruction)
@@ -459,3 +460,64 @@ This keeps the PDF feature robust while aligning with long-term i18n goals.
 
 All AGENTS Docker-first, pre-commit, lock, no-host-run rules followed.
 
+=======
+## Task 3 (this subagent): Add Ingredient views (read-focused, modeled on recipes)
+
+**Branch:** `feat/add-ingredient-views` (created before any edits, per standing instruction)
+
+**Approach/Decisions (documented per task spec):**
+- No first-class/master ingredient storage or persistence added (ingredients live inside recipes per current data model).
+- Read-only views: list + detail fully functional, backed by aggregation over recipes (via new read helpers in crud).
+- Added supporting read APIs: `/api/ingredients/summary` (for list: name+usage_count+unit+loc) and `/api/ingredients/info?name=...` (for detail + form load). Kept `/api/ingredients` (strings) untouched for autocomplete compat in RecipeForm/ShoppingListView.
+- IngredientForm.jsx implemented matching style/structure exactly (for /new and /:id/edit), but submits are client-side only (alert + navigate): no backend POST/PUT for master ingredients (would require model changes + sync to recipes which is forbidden by "do not change recipe or meal plan logic").
+- Used exact name match (not substring) for ingredient identity in detail.
+- Ingredient "id" in routes/params = the name (url-encoded); links use encodeURIComponent.
+- No new components beyond the 3 specified (e.g. no IngredientItem.jsx; inlined li in list).
+- No changes to recipe CRUD, meal plans, shopping, existing templates, tests, or other logic.
+- Navigation added to Layout; routes in App.jsx (under /ui basename).
+- All per AGENTS.md: Docker-first, branch first, pre-commit equiv via docker, format via containers, update this file.
+
+**Files created:**
+- frontend/src/components/IngredientList.jsx (modeled on RecipeList + RecipeItem inline)
+- frontend/src/components/IngredientDetail.jsx (modeled on RecipeDetail; shows recipes using it + links)
+- frontend/src/components/IngredientForm.jsx (modeled on RecipeForm; fields: name, unit, location; edit loads via info API)
+
+**Files modified (minimal scope):**
+- frontend/src/App.jsx (imports + 4 ingredient routes: /ingredients , /new , /:id , /:id/edit )
+- frontend/src/components/Layout.jsx (added "Ingredients" NavLink)
+- meal_planner_app/crud.py (appended 2 read-only helpers only: get_recipes_for_ingredient, list_ingredients_summary)
+- meal_planner_app/main.py (added 2 GET API routes only)
+- .ai/next_step.md (this update)
+- (black and prettier auto-edited tracked files during verification)
+
+**Docker verification steps + results (ALL inside containers, no host python/node/npm/black/pylint/pytest):**
+1. git checkout -b feat/add-ingredient-views (before edits)
+2. Restored missing package-lock.json via git (to enable builds): `git checkout -- frontend/package-lock.json`
+3. `docker buildx bake dev` → succeeded (full build + "exporting to image ... DONE", tagged meal-planner:dev)
+4. `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m pytest meal_planner_app/tests/ -q --tb=no` → 71 passed (no regressions)
+5. `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m black .` (fixed 2 files) + recheck → clean
+6. `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m pylint --rcfile=.pylintrc meal_planner_app/` → 10.00/10 (after shortening 2 lines)
+7. `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev sh -c 'npm ci --no-audit --no-fund --silent && npm run format'` → formatted the 3 jsx
+8. `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev sh -c 'npm ci --no-audit --no-fund --silent && npm run format-check'` → "All matched files use Prettier code style!"
+9. `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev sh -c 'npm ci --no-audit --no-fund --silent && npm run lint'` → clean (exit 0, no eslint errors)
+10. `docker buildx bake prod` → succeeded ("exporting to image ... DONE", meal-planner:prod)
+11. Smoke inside dev container: seed + test_client GET /api/ingredients/summary (11 items), /api/ingredients/info?name=Flour (usage+recipes) → 200 OK
+12. Also confirmed prod bake includes the new react components in bundle.
+
+**Evidence snippets (from runs):**
+- pytest: "71 passed"
+- pylint: "Your code has been rated at 10.00/10"
+- format-check: "All matched files use Prettier code style!"
+- bakes: "naming to ...:dev done" + "DONE", same for prod.
+- API smoke: summary count 11, info for Flour returns 1 recipe.
+
+**Next steps:**
+- E2E/playwright coverage for /ui/ingredients paths (out of scope here).
+- If full master ingredient CRUD desired later: introduce ingredient model + db + sync on recipe changes (would update tests, possibly affect recipe paths).
+- Consider making IngredientForm create a "virtual" or prompt to add to a recipe.
+- Push branch + update PR/handover.
+- Update any legacy HTML templates? (not in scope; React is the active UI).
+- Last commit on branch will be recorded on push.
+
+This completes isolated Task 3.
+>>>>>>> 8ebd6be (feat: add ingredient views (IngredientList, Detail, Form) modeled closely after recipe components)

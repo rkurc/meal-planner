@@ -579,3 +579,46 @@ def search_recipes(  # pylint: disable=too-many-branches
                 break  # Found matching ingredient in this recipe, move to next recipe
 
     return filtered_results
+
+
+# --- Ingredient views support (read-only, from recipes; no master storage) ---
+
+
+def get_recipes_for_ingredient(name: str) -> List[Recipe]:
+    """Return recipes containing an ingredient with the exact (trimmed, case-insensitive) name.
+    Used for IngredientDetail view. Pure read aggregation, does not modify any data.
+    """
+    if not name or not name.strip():
+        return []
+    normalized = name.strip().lower()
+    matching = []
+    for recipe in recipes_db:
+        for ing in recipe.ingredients:
+            if ing.name and ing.name.strip().lower() == normalized:
+                matching.append(recipe)
+                break
+    return matching
+
+
+def list_ingredients_summary() -> List[Dict[str, Union[str, int, Optional[str]]]]:
+    """Return sorted list of ingredient summaries derived from recipes.
+    Each: {name, usage_count, unit, location}. Used by IngredientList.
+    No separate persistence; always reflects current recipes.
+    """
+    summary_map: Dict[str, Dict] = {}
+    for recipe in recipes_db:
+        for ing in recipe.ingredients:
+            if not ing.name or not ing.name.strip():
+                continue
+            key = ing.name.strip()
+            if key not in summary_map:
+                summary_map[key] = {
+                    "name": key,
+                    "usage_count": 0,
+                    "unit": ing.unit or "",
+                    "location": getattr(ing, "location", None)
+                    or getattr(ing, "location_id", None)
+                    or "",
+                }
+            summary_map[key]["usage_count"] += 1
+    return sorted(summary_map.values(), key=lambda x: x["name"].lower())

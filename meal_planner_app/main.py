@@ -473,6 +473,38 @@ def api_get_units():
     return jsonify(units)
 
 
+@app.route("/api/ingredients/summary", methods=["GET"])
+def api_get_ingredients_summary():
+    """Return ingredient summaries (name, usage, unit, loc) for IngredientList.
+    Backed by recipes; /api/ingredients kept for autocomplete compat.
+    """
+    summaries = crud.list_ingredients_summary()  # pylint: disable=no-member
+    return jsonify(summaries)
+
+
+@app.route("/api/ingredients/info", methods=["GET"])
+def api_get_ingredient_info():
+    """API for IngredientDetail: {name, usage_count, recipes} for ?name= .
+    Exact name match. Read-only.
+    """
+    name = request.args.get("name", "").strip()
+    if not name:
+        abort(400, description="name query parameter is required")
+    recipes_using = crud.get_recipes_for_ingredient(name)  # pylint: disable=no-member
+    # slim to avoid full duplication of ingredients data
+    slim_recipes = [
+        {"id": str(r.recipe_id), "name": r.name, "description": r.description}
+        for r in recipes_using
+    ]
+    return jsonify(
+        {
+            "name": name,
+            "usage_count": len(recipes_using),
+            "recipes": slim_recipes,
+        }
+    )
+
+
 @app.route("/api/recipes", methods=["POST"])
 def api_create_recipe():
     """API endpoint to create a new recipe."""
