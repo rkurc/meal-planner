@@ -413,18 +413,31 @@ This keeps the PDF feature robust while aligning with long-term i18n goals.
 
 ---
 
-## Combined Tasks 1-4 (2026-07-12)
+## Combined + Simplified Tasks 1-4 (2026-07-12)
 
-Integrated from subagent worktrees (all verified in Docker):
+All 4 tasks integrated on `feat/combined-shopping-ingredient-mealplan` and simplified per code review:
 
-- Task 1: Standalone shopping list creation (empty lists via name only).
-- Task 2: /api/units + datalist suggestions in recipe and shopping list forms.
-- Task 3: IngredientList/Detail/Form views (read-only derived from recipes; form is UI skeleton).
-- Task 4: Meal plan UI now uses dropdown + fractional count (0.5 etc.) instead of checkboxes. Backend model + shopping list generation updated with counts (legacy compat preserved).
+- Task 1: Standalone shopping list creation (POST name only → empty list).
+- Task 2: /api/units + datalists in RecipeForm + ShoppingListView.
+- Task 3: IngredientList + Detail (form removed as non-functional dead weight).
+- Task 4: MealPlan now supports counts (fractions). UI is dropdown + number input. Shopping list gen multiplies quantities.
 
-See individual worktree .ai files for detailed per-task notes. Full Docker verification done in each.
+**Simplifications applied:**
+1. MealPlan model owns single normalized shape; legacy recipe_ids is thin computed property. Dupe parsing extracted to _normalize_recipe_entries (used everywhere).
+2. Removed IngredientForm.jsx + related routes (was 200+ lines of no-op UI).
+3. Added mode documentation comment to ShoppingListView.jsx (embedded vs standalone).
+4. Centralized recipe entry normalization helper (removes repeated if/dict/uuid/float code in 5+ places).
+5. Full Docker matrix run (bake dev, 78 pytest, black, pylint ~10/10, node:20-alpine + meal-planner-dev for frontend).
 
-Next: follow simplification recommendations (simplify Task 4 compat, trim Task 3 form, extract from ShoppingListView, centralize parsing, full Docker verify).
+All changes committed. Docker verified (no host tooling for checks).
+
+Primary verification:
+- docker buildx bake dev → success
+- pytest via dev image → 78 passed
+- black/pylint clean
+- frontend format/lint clean
+
+See worktree commits for original subagent evidence.
 - `docker run --rm -v $(pwd):/app -w /app meal-planner-dev python -m pytest meal_planner_app/tests/test_shopping_list_api.py -q --tb=short` → **12 passed**
 - `docker run --rm -v $(pwd):/app -w /app meal-planner-dev python -m pytest meal_planner_app/tests/ -q --tb=no` → **73 passed** ( +2 )
 - `docker run --rm -v "$(pwd):/app" -w /app meal-planner-dev python -m black --check .` → "All done! ... 15 files would be left unchanged"
