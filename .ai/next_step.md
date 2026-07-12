@@ -605,3 +605,85 @@ This completes isolated Task 3.
 
 **Definition of done for task:** All listed updates + docker verifs + tests added + .ai updated.
 >>>>>>> 466ac2c (feat: refactor meal plan recipe selection from checkboxes to quantity table (dropdown + decimal counts))
+
+## PR Babysit Cycle for #37 (feat/combined-shopping-ingredient-mealplan) — 2026-07-13
+
+**Initial PR state (at cycle start):** number=37, state=OPEN, branch=feat/combined-shopping-ingredient-mealplan, base=main, mergeable=CONFLICTING, mergeStateStatus=DIRTY, statusCheckRollup: backend=FAILURE, test-in-container=FAILURE, frontend=SUCCESS, docker=SUCCESS. reviewDecision="", reviewThreads=none.
+
+**Prerequisites followed:**
+- has_fetched = false
+- git fetch origin (succeeded)
+- git checkout -B feat/combined-shopping-ingredient-mealplan origin/feat/combined-shopping-ingredient-mealplan
+- fix_count init to 0 for this cycle (max 3 code fixes)
+
+**Decision tree processing (in order):**
+1. Not MERGED/CLOSED.
+2. Merge conflicts priority (CONFLICTING/DIRTY): ran `git rebase origin/main`. Rebase succeeded cleanly (no conflict markers; "Successfully rebased"; note: 1 skipped cherry-pick but no intervention needed). Working tree was cleaned first (restored deleted package-lock.json via git restore to allow rebase). Rebase synced to current main.
+3. CI failed (backend + test-in-container):
+   - `gh pr checks 37 --repo rkurc/meal-planner` confirmed failures.
+   - backend run 29190908516: `gh run view ... --log-failed` -> pylint too-many-arguments (6/5) + too-many-positional-arguments at meal_planner_app/models/meal_plan.py:41 (the __init__ gained 'recipes' param for combined feature).
+   - test-in-container run 29190908509: e2e failure "should edit shopping list items" @ frontend/e2e/main.spec.js:207: locator timeout waiting for button "Edit".first().click(). Root: generateButton selector used stale name "Generate Shopping List"; actual button in ShoppingListView.jsx is "Generate from Meal Plan". Since seed creates only the meal plan (no auto shopping list), generate if never triggered -> no Edit button rendered -> timeout. (7/8 tests passed).
+4. Review comments: re-queried with exact GraphQL (NO_COLOR=1, first:50 pagination):
+   ```
+   query($owner: String!, $repo: String!, $pr: Int!) { ... reviewThreads ... }
+   ```
+   -> totalCount:0 , nodes:[] . No unresolved threads to process (no replies needed).
+5. Other: checks were not cancelled; after fixes became pending.
+
+**Code fixes (2 this cycle, <3 cap; only code changes counted):**
+- Fix 1 (backend): full read_file of meal_plan.py, crud.py, models/* ; used search_replace to add `  # pylint: disable=too-many-arguments, too-many-positional-arguments` on __init__ (matches exact pattern used in recipe.py:15, ingredient.py:22, update_recipe in crud.py).
+- Fix 2 (test-in-container): full read_file of main.spec.js + ShoppingListView.jsx ; search_replace (replace_all) updated the two button name selectors from "Generate Shopping List" to "Generate from Meal Plan". Comments left as-is for minimal change.
+- No more than cap; no code changes for reviews (none present).
+
+**Verification (STRICTLY inside Docker per AGENTS.md + task; NEVER host python/pip/npm/black/pylint/pytest; used meal-planner:dev image):**
+- After rebase: python -m pylint via docker -> clean post-fix.
+- `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m pylint meal_planner_app` -> "Your code has been rated at 10.00/10"
+- `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m pytest meal_planner_app/tests/ -q --tb=no` -> "78 passed"
+- Frontend format/lint (with npm ci inside):
+  - `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev sh -c 'npm ci --no-audit --no-fund --silent && npm run format-check'` -> "All matched files use Prettier code style!"
+  - same for `npm run lint` -> clean (exit 0)
+- Also ran pytest full, pre-commit (via python -m pre_commit after safe.directory; black passed, pylint hook limited by image bin layout but manual 10/10 ok).
+- Confirmed package-lock.json handling, .dockerignore etc respected.
+- No host direct runs for verification.
+
+**Git / PR actions:**
+- Commits: `git add <specific>; git commit -m "fix: address CI failure in backend"` then same for "test-in-container"
+- `git fetch origin && git push --force-with-lease origin feat/combined-shopping-ingredient-mealplan`
+- `gh pr comment 37 --repo rkurc/meal-planner --body "Automated fix: resolved merge conflicts via rebase."`
+- Same for "addressed CI failure in backend." and "in test-in-container."
+- (rebase comment posted even though no markers this execution; followed priority tree)
+
+**Post-actions PR status (queried after push):**
+- mergeable: "MERGEABLE"
+- mergeStateStatus: "UNSTABLE"
+- statusCheckRollup: backend=SUCCESS (immediate on new commit), frontend=SUCCESS, test-in-container=IN_PROGRESS, docker=IN_PROGRESS
+- No reviewDecision, no threads.
+
+**last_status:** "pending" (checks pending, no current failures, MERGEABLE, no reviews/changes_requested)
+
+**fix_count_delta:** 2
+**removed:** false
+
+**Evidence:** full terminal logs, read_file outputs, docker success outputs, gh comment links, GraphQL empty result, git push output.
+
+**Notes / gotchas followed:**
+- Used read_file FULL before any edits (incl for diagnosis).
+- --force-with-lease only (never plain force).
+- Work only in this isolated pr-37 worktree.
+- Updated package state cleanly.
+- Rebase/fetch before push ops.
+- Max fixes respected.
+
+**Next steps (for handoff):**
+- Re-query PR checks after current IN_PROGRESS complete (expect test-in-container green given selector fix + generate now triggers in E2E seed flow).
+- If green + MERGEABLE + no threads: "healthy"
+- If new failures: at most 1 more code fix this cycle (then summarize only).
+- If test-in-container still flaky: may need test hardening (e.g. better waits, explicit generate, or ensure seed creates list) but not this cycle.
+- Update .ai/next_step.md (this) + commit/push.
+- Continue babysit loop or mark healthy.
+- Note: the combined feature work (recipes counts, shopping combined, standalone lists, ingredients) is the source of the model arg count + button text drift; fixes were minimal targeted.
+
+**Last local commit after fixes:** fc55c18 fix: address CI failure in test-in-container
+**Pushed SHA:** (post force) visible on origin after push.
+
+All AGENTS.md rules followed (Docker verification, pre-commit equiv, no host tools, .ai update).
