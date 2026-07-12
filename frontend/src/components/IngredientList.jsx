@@ -49,12 +49,9 @@ const IngredientList = () => {
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold text-gray-800">Ingredients</h2>
-        <Link
-          to="/ingredients/new"
-          className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
-        >
-          Add New Ingredient
-        </Link>
+        <span className="text-sm text-gray-500">
+          (derived from recipes — no master data yet)
+        </span>
       </div>
       <ul className="space-y-4">
         {ingredients.map((ingredient) => (

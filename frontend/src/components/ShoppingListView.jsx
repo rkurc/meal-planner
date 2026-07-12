@@ -6,6 +6,10 @@ const ShoppingListView = ({
   mealPlanName,
   shoppingListId: propShoppingListId,
 }) => {
+  // Supports two modes (documented for maintainability):
+  // 1. Embedded in MealPlanDetail (mealPlanId provided): generate from plan + edit items.
+  // 2. Standalone (/shopping-lists): create empty list + picker + direct load for any saved list.
+  // Item edit UI is shared.
   const [shoppingList, setShoppingList] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

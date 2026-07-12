@@ -8,7 +8,7 @@ from collections import defaultdict
 from typing import List, Dict, Optional, Union, Any
 from .models.recipe import Recipe
 from .models.ingredient import Ingredient
-from .models.meal_plan import MealPlan
+from .models.meal_plan import MealPlan, _normalize_recipe_entries
 from .models.shopping_list import ShoppingList, ShoppingListItem
 
 recipes_db: List[Recipe] = []
@@ -171,7 +171,10 @@ def create_meal_plan(
     Accepts legacy recipe_ids or new recipes list with counts (fractions ok).
     """
     if recipes is None and recipe_ids is not None:
-        recipes = [{"recipe_id": rid, "count": 1.0} for rid in recipe_ids]
+        recipes = _normalize_recipe_entries(
+            [{"recipe_id": rid, "count": 1.0} for rid in recipe_ids]
+        )
+    recipes = _normalize_recipe_entries(recipes)
     meal_plan = MealPlan(name=name, description=description, recipes=recipes)
     meal_plans_db.append(meal_plan)
     return meal_plan
@@ -255,11 +258,8 @@ def update_meal_plan(
     if description is not None:
         meal_plan.description = description
 
-    if recipes is not None:
-        meal_plan.recipes = recipes
-    elif recipe_ids is not None:
-        # Here we replace using legacy
-        meal_plan.recipe_ids = recipe_ids
+    if recipes is not None or recipe_ids is not None:
+        meal_plan.recipes = _normalize_recipe_entries(recipes or recipe_ids or [])
 
     return meal_plan
 
@@ -283,11 +283,9 @@ def generate_shopping_list(
 
     aggregated_ingredients: Dict[str, Dict[str, Union[str, float, List[str]]]] = {}
 
-    # Support both new recipes list with counts and legacy recipe_ids (default count 1)
-    recipe_entries = getattr(meal_plan, "recipes", None)
-    if not recipe_entries:
-        legacy_ids = getattr(meal_plan, "recipe_ids", []) or []
-        recipe_entries = [{"recipe_id": rid, "count": 1.0} for rid in legacy_ids]
+    recipe_entries = _normalize_recipe_entries(
+        getattr(meal_plan, "recipes", None) or getattr(meal_plan, "recipe_ids", None)
+    )
 
     for entry in recipe_entries:
         if isinstance(entry, dict):
