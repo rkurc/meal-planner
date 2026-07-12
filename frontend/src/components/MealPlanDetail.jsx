@@ -9,7 +9,7 @@ const MealPlanDetail = () => {
   const [mealPlan, setMealPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [recipesInPlan, setRecipesInPlan] = useState([]);
+  const [recipesInPlan, setRecipesInPlan] = useState([]); // now [{recipe, count}, ...]
 
   useEffect(() => {
     axios
@@ -25,7 +25,12 @@ const MealPlanDetail = () => {
   }, [id]);
 
   useEffect(() => {
-    if (!mealPlan || !mealPlan.recipe_ids || mealPlan.recipe_ids.length === 0) {
+    const entries =
+      (mealPlan && mealPlan.recipes) ||
+      (mealPlan && mealPlan.recipe_ids
+        ? mealPlan.recipe_ids.map((rid) => ({ id: rid, count: 1 }))
+        : []);
+    if (!mealPlan || !entries || entries.length === 0) {
       setRecipesInPlan([]);
       return;
     }
@@ -34,8 +39,15 @@ const MealPlanDetail = () => {
       .get("/api/recipes")
       .then((res) => {
         const byId = Object.fromEntries(res.data.map((r) => [r.id, r]));
-        const resolved = mealPlan.recipe_ids
-          .map((rid) => byId[rid])
+        const resolved = entries
+          .map((e) => {
+            const rid = e.id || e.recipe_id;
+            const rec = byId[rid];
+            if (!rec) return null;
+            const c =
+              typeof e.count === "number" ? e.count : parseFloat(e.count) || 1;
+            return { recipe: rec, count: c };
+          })
           .filter(Boolean);
         setRecipesInPlan(resolved);
       })
@@ -82,9 +94,15 @@ const MealPlanDetail = () => {
         <h3 className="text-2xl font-semibold text-gray-700 mb-4">Recipes</h3>
         {recipesInPlan.length > 0 ? (
           <ul className="space-y-2">
-            {recipesInPlan.map((recipe) => (
-              <li key={recipe.id} className="bg-gray-100 p-3 rounded-md">
+            {recipesInPlan.map(({ recipe, count }) => (
+              <li
+                key={recipe.id}
+                className="bg-gray-100 p-3 rounded-md flex justify-between items-center"
+              >
                 <span className="font-medium">{recipe.name}</span>
+                <span className="text-sm text-gray-600 font-mono">
+                  x {count}
+                </span>
               </li>
             ))}
           </ul>

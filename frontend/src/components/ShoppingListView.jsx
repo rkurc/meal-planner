@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 
-const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
+const ShoppingListView = ({
+  mealPlanId,
+  mealPlanName,
+  shoppingListId: propShoppingListId,
+}) => {
+  // Supports two modes (documented for maintainability):
+  // 1. Embedded in MealPlanDetail (mealPlanId provided): generate from plan + edit items.
+  // 2. Standalone (/shopping-lists): create empty list + picker + direct load for any saved list.
+  // Item edit UI is shared.
   const [shoppingList, setShoppingList] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -11,9 +19,37 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
   const [knownIngredients, setKnownIngredients] = useState([]);
   const [knownLocations, setKnownLocations] = useState([]);
   const [knownUnits, setKnownUnits] = useState([]);
+  const [otherLists, setOtherLists] = useState([]);
 
   useEffect(() => {
-    // Try to fetch existing shopping lists for this meal plan
+    // Load all lists for switching/discoverability of standalone lists
+    fetch("/api/shopping-lists")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((lists) => setOtherLists(Array.isArray(lists) ? lists : []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    if (propShoppingListId) {
+      // Direct load for standalone shopping list or specific id (reuses edit UI)
+      fetch(`/api/shopping-lists/${propShoppingListId}`)
+        .then((response) => {
+          if (!response.ok) throw new Error("Failed to load shopping list");
+          return response.json();
+        })
+        .then((data) => {
+          setShoppingList(data);
+          setEditedItems(data.items || []);
+          setLoading(false);
+        })
+        .catch((err) => {
+          setError(err.message);
+          setLoading(false);
+        });
+      return;
+    }
+    // Original: Try to fetch existing shopping lists for this meal plan
     fetch("/api/shopping-lists")
       .then((response) => response.json())
       .then((lists) => {
@@ -24,11 +60,11 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
         }
         setLoading(false);
       })
-      .catch((error) => {
-        setError(error.message);
+      .catch((err) => {
+        setError(err.message);
         setLoading(false);
       });
-  }, [mealPlanId]);
+  }, [mealPlanId, propShoppingListId]);
 
   useEffect(() => {
     // Fetch known ingredients and locations for suggestions (like in RecipeForm)
@@ -76,6 +112,7 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
   }, []);
 
   const handleGenerateList = () => {
+    if (!mealPlanId) return;
     setLoading(true);
     fetch("/api/shopping-lists", {
       method: "POST",
@@ -94,6 +131,36 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
         setShoppingList(data);
         setEditedItems(data.items || []);
         setLoading(false);
+      })
+      .catch((error) => {
+        setError(error.message);
+        setLoading(false);
+      });
+  };
+
+  const handleCreateNewList = (defaultName = "New Shopping List") => {
+    const listName =
+      window.prompt("Enter name for new shopping list:", defaultName) ||
+      defaultName;
+    setLoading(true);
+    fetch("/api/shopping-lists", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name: listName }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Failed to create shopping list");
+        }
+        return response.json();
+      })
+      .then((data) => {
+        setShoppingList(data);
+        setEditedItems(data.items || []);
+        setLoading(false);
+        setEditMode(false);
       })
       .catch((error) => {
         setError(error.message);
@@ -169,14 +236,25 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
           Shopping List
         </h2>
         <p className="text-gray-600 mb-4">
-          No shopping list has been generated yet for this meal plan.
+          No shopping list associated with this meal plan yet.
         </p>
+        {mealPlanId && (
+          <button
+            onClick={handleGenerateList}
+            className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded mr-2"
+          >
+            Generate from Meal Plan
+          </button>
+        )}
         <button
-          onClick={handleGenerateList}
-          className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded"
+          onClick={() => handleCreateNewList()}
+          className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
         >
-          Generate Shopping List
+          Create New Shopping List
         </button>
+        <p className="text-xs text-gray-500 mt-2">
+          Creates a standalone empty list (you can add items manually after).
+        </p>
       </div>
     );
   }
@@ -226,6 +304,35 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
           )}
         </div>
       </div>
+
+      {/* Minimal picker for other/standalone lists for discoverability (reuses existing load/edit) */}
+      {otherLists.length > 1 && (
+        <div className="mb-4 text-sm">
+          <span className="text-gray-600 mr-2">Switch to saved list:</span>
+          {otherLists
+            .filter((l) => l.id !== shoppingList.id)
+            .map((l) => (
+              <button
+                key={l.id}
+                onClick={() => {
+                  setShoppingList(l);
+                  setEditedItems(l.items || []);
+                  setEditMode(false);
+                }}
+                className="mr-2 mb-1 px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs"
+                title={l.meal_plan_id ? `From meal plan` : `Standalone`}
+              >
+                {l.name}
+              </button>
+            ))}
+          <button
+            onClick={() => handleCreateNewList("New List")}
+            className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs"
+          >
+            + New
+          </button>
+        </div>
+      )}
 
       {editMode ? (
         <div>
@@ -337,6 +444,7 @@ const ShoppingListView = ({ mealPlanId, mealPlanName }) => {
 ShoppingListView.propTypes = {
   mealPlanId: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
   mealPlanName: PropTypes.string,
+  shoppingListId: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
 };
 
 export default ShoppingListView;

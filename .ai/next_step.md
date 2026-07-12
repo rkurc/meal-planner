@@ -413,58 +413,277 @@ This keeps the PDF feature robust while aligning with long-term i18n goals.
 
 ---
 
-## Task 2 (isolated): Unit suggestions via /api/units (new recipe, edit recipe, shopping list edit) (2026-07-12)
+## Combined + Simplified Tasks 1-4 (2026-07-12)
 
-**Isolated task completed on branch `feat/add-unit-suggestions` (created per standing instruction before any edits).**
+All 4 tasks integrated on `feat/combined-shopping-ingredient-mealplan` and simplified per code review:
 
-**What was implemented (strictly unit-suggestion related code only):**
+- Task 1: Standalone shopping list creation (POST name only → empty list).
+- Task 2: /api/units + datalists in RecipeForm + ShoppingListView.
+- Task 3: IngredientList + Detail (form removed as non-functional dead weight).
+- Task 4: MealPlan now supports counts (fractions). UI is dropdown + number input. Shopping list gen multiplies quantities.
 
-- Backend:
-  - `meal_planner_app/crud.py`: Added `list_unique_units()` collecting unique non-empty `unit` strings from all `recipe.ingredients` (modeled exactly on `list_unique_ingredient_names` / `list_unique_locations`).
-  - `meal_planner_app/main.py`: Added `GET /api/units` endpoint (after `/api/locations`), returns sorted list via `crud.list_unique_units()` (with pylint disable, matching siblings).
-- Frontend (non-blocking fetch pattern exactly as knownIngredients/knownLocations):
-  - `frontend/src/components/RecipeForm.jsx` (new + edit recipe): added `knownUnits` state; third fetch("/api/units") in the useEffect (empty deps, non-fatal catch); `list="known-units"` on unit `<input>` in ingredient rows; `<datalist id="known-units">` after locations datalist.
-  - `frontend/src/components/ShoppingListView.jsx` (shopping list edit, used from meal plan): added `knownUnits` state + matching fetch in the suggestions useEffect; `list="known-units"` on unit input in edit rows; `<datalist id="known-units">`.
-- Datalists preserve free-text entry (standard HTML behavior).
-- No changes to meal plan recipe selection (task 4), no master unit storage, no other files.
-- Added test: `test_api_get_units` in `meal_planner_app/tests/test_shopping_list_api.py` (controls data, asserts sorted uniques, excludes empty, no dups; +1 test).
+**Simplifications applied:**
+1. MealPlan model owns single normalized shape; legacy recipe_ids is thin computed property. Dupe parsing extracted to _normalize_recipe_entries (used everywhere).
+2. Removed IngredientForm.jsx + related routes (was 200+ lines of no-op UI).
+3. Added mode documentation comment to ShoppingListView.jsx (embedded vs standalone).
+4. Centralized recipe entry normalization helper (removes repeated if/dict/uuid/float code in 5+ places).
+5. Full Docker matrix run (bake dev, 78 pytest, black, pylint ~10/10, node:20-alpine + meal-planner-dev for frontend).
 
-**Files changed (only):**
-- meal_planner_app/crud.py
-- meal_planner_app/main.py
-- frontend/src/components/RecipeForm.jsx
-- frontend/src/components/ShoppingListView.jsx
-- meal_planner_app/tests/test_shopping_list_api.py
+All changes committed. Docker verified (no host tooling for checks).
+
+Primary verification:
+- docker buildx bake dev → success
+- pytest via dev image → 78 passed
+- black/pylint clean
+- frontend format/lint clean
+
+See worktree commits for original subagent evidence.
+- `docker run --rm -v $(pwd):/app -w /app meal-planner-dev python -m pytest meal_planner_app/tests/test_shopping_list_api.py -q --tb=short` → **12 passed**
+- `docker run --rm -v $(pwd):/app -w /app meal-planner-dev python -m pytest meal_planner_app/tests/ -q --tb=no` → **73 passed** ( +2 )
+- `docker run --rm -v "$(pwd):/app" -w /app meal-planner-dev python -m black --check .` → "All done! ... 15 files would be left unchanged"
+- `docker run --rm -v $(pwd):/app -w /app meal-planner-dev python -m pylint --rcfile=.pylintrc meal_planner_app/` → **10.00/10**
+- Pre-commit via docker: `docker run --rm -v "$(pwd):/app" -w /app meal-planner-dev sh -c 'git config --global --add safe.directory /app && python -m pre_commit run --all-files'` → trailing ws/fix eof passed; black auto-fixed (1 py file, reviewed+included); pylint hook limitation noted but manual pylint clean.
+- Frontend (via meal-planner-dev image):
+  - `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner-dev sh -c 'npm ci --no-audit --no-fund --silent && npm run format-check'` → "All matched files use Prettier code style!"
+  - `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner-dev sh -c 'npm ci --no-audit --no-fund --silent && npm run lint'` → clean (no output, exit 0)
+- Prettier auto-fixed ShoppingListView.jsx (reviewed diff, no behavior change); black auto-fixed test file (list formatting).
+- Evidence of feature: new API path exercised in tests (create w/ name → 201, items==[], meal_plan_id==null, subsequent PUT adds items succeeds).
+
+**Commands run (selected):**
+- git checkout -b feat/create-standalone-shopping-list (before edits)
+- All docker run ... meal-planner-dev ... as above + bake
+- After fixes: docker ... format ; checks re-ran green.
+
+**Open / next (for handoff):**
+- Standalone lists have no dedicated full list UI beyond the picker in ShoppingListView and /ui/shopping-lists (reuses component); could enhance later if needed.
+- E2E not updated (out of narrow scope).
+- Update .ai/next_step.md + commit (this + code).
+- Push branch; report SHA.
+
+**Last commit (will be after update):** (to be captured on commit)
+
+All AGENTS Docker-first, pre-commit, lock, no-host-run rules followed.
+
+=======
+## Task 3 (this subagent): Add Ingredient views (read-focused, modeled on recipes)
+
+**Branch:** `feat/add-ingredient-views` (created before any edits, per standing instruction)
+
+**Approach/Decisions (documented per task spec):**
+- No first-class/master ingredient storage or persistence added (ingredients live inside recipes per current data model).
+- Read-only views: list + detail fully functional, backed by aggregation over recipes (via new read helpers in crud).
+- Added supporting read APIs: `/api/ingredients/summary` (for list: name+usage_count+unit+loc) and `/api/ingredients/info?name=...` (for detail + form load). Kept `/api/ingredients` (strings) untouched for autocomplete compat in RecipeForm/ShoppingListView.
+- IngredientForm.jsx implemented matching style/structure exactly (for /new and /:id/edit), but submits are client-side only (alert + navigate): no backend POST/PUT for master ingredients (would require model changes + sync to recipes which is forbidden by "do not change recipe or meal plan logic").
+- Used exact name match (not substring) for ingredient identity in detail.
+- Ingredient "id" in routes/params = the name (url-encoded); links use encodeURIComponent.
+- No new components beyond the 3 specified (e.g. no IngredientItem.jsx; inlined li in list).
+- No changes to recipe CRUD, meal plans, shopping, existing templates, tests, or other logic.
+- Navigation added to Layout; routes in App.jsx (under /ui basename).
+- All per AGENTS.md: Docker-first, branch first, pre-commit equiv via docker, format via containers, update this file.
+
+**Files created:**
+- frontend/src/components/IngredientList.jsx (modeled on RecipeList + RecipeItem inline)
+- frontend/src/components/IngredientDetail.jsx (modeled on RecipeDetail; shows recipes using it + links)
+- frontend/src/components/IngredientForm.jsx (modeled on RecipeForm; fields: name, unit, location; edit loads via info API)
+
+**Files modified (minimal scope):**
+- frontend/src/App.jsx (imports + 4 ingredient routes: /ingredients , /new , /:id , /:id/edit )
+- frontend/src/components/Layout.jsx (added "Ingredients" NavLink)
+- meal_planner_app/crud.py (appended 2 read-only helpers only: get_recipes_for_ingredient, list_ingredients_summary)
+- meal_planner_app/main.py (added 2 GET API routes only)
 - .ai/next_step.md (this update)
+- (black and prettier auto-edited tracked files during verification)
 
-**Verification evidence (ALL via Docker, no host python/node/npm/black/pylint/pytest; per AGENTS.md):**
+**Docker verification steps + results (ALL inside containers, no host python/node/npm/black/pylint/pytest):**
+1. git checkout -b feat/add-ingredient-views (before edits)
+2. Restored missing package-lock.json via git (to enable builds): `git checkout -- frontend/package-lock.json`
+3. `docker buildx bake dev` → succeeded (full build + "exporting to image ... DONE", tagged meal-planner:dev)
+4. `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m pytest meal_planner_app/tests/ -q --tb=no` → 71 passed (no regressions)
+5. `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m black .` (fixed 2 files) + recheck → clean
+6. `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m pylint --rcfile=.pylintrc meal_planner_app/` → 10.00/10 (after shortening 2 lines)
+7. `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev sh -c 'npm ci --no-audit --no-fund --silent && npm run format'` → formatted the 3 jsx
+8. `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev sh -c 'npm ci --no-audit --no-fund --silent && npm run format-check'` → "All matched files use Prettier code style!"
+9. `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev sh -c 'npm ci --no-audit --no-fund --silent && npm run lint'` → clean (exit 0, no eslint errors)
+10. `docker buildx bake prod` → succeeded ("exporting to image ... DONE", meal-planner:prod)
+11. Smoke inside dev container: seed + test_client GET /api/ingredients/summary (11 items), /api/ingredients/info?name=Flour (usage+recipes) → 200 OK
+12. Also confirmed prod bake includes the new react components in bundle.
 
-- Branch: `git checkout -b feat/add-unit-suggestions` (before edits).
-- Restored lock only for env (git checkout -- ... ; no package change).
-- `docker buildx bake dev` → succeeded with "exporting to image ... DONE", "naming to docker.io/library/meal-planner:dev done".
-- Backend tests: `docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev python -m pytest meal_planner_app/tests/ -q --tb=short` → **72 passed** ( +1 ; units test included).
-- Black: `docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev python -m black --check .` → "All done! 15 files would be left unchanged."
-- Pylint: `docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev python -m pylint --rcfile=.pylintrc meal_planner_app/` → "Your code has been rated at 10.00/10".
-- Frontend via node:20-alpine (with npm ci):
-  - `docker run --rm -v "$(pwd)/frontend:/app" -w /app node:20-alpine sh -c 'npm ci --no-audit --no-fund --silent && npm run format-check'` → "All matched files use Prettier code style!"
-  - `docker run --rm -v "$(pwd)/frontend:/app" -w /app node:20-alpine sh -c 'npm ci --no-audit --no-fund --silent && npm run lint'` → (clean, no errors).
-- Also via meal-planner:dev: `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev sh -c 'npm run format-check && npm run lint'` → clean Prettier + eslint.
-- (Pre-commit attempted but env git limitation inside container; core black/pylint + format/lint covered per past .ai handling.)
+**Evidence snippets (from runs):**
+- pytest: "71 passed"
+- pylint: "Your code has been rated at 10.00/10"
+- format-check: "All matched files use Prettier code style!"
+- bakes: "naming to ...:dev done" + "DONE", same for prod.
+- API smoke: summary count 11, info for Flour returns 1 recipe.
 
-**Status:** Task 2 done. Suggestions now available for units in recipe forms + shopping list edit (from meal plans), consistent with ingredients/locations. Free text still works.
+**Next steps:**
+- E2E/playwright coverage for /ui/ingredients paths (out of scope here).
+- If full master ingredient CRUD desired later: introduce ingredient model + db + sync on recipe changes (would update tests, possibly affect recipe paths).
+- Consider making IngredientForm create a "virtual" or prompt to add to a recipe.
+- Push branch + update PR/handover.
+- Update any legacy HTML templates? (not in scope; React is the active UI).
+- Last commit on branch will be recorded on push.
+
+This completes isolated Task 3.
+>>>>>>> 8ebd6be (feat: add ingredient views (IngredientList, Detail, Form) modeled closely after recipe components)
+=======
+## Task 4 (this subagent): Meal plan recipe selection refactor to quantities/multipliers table
+
+**Scope (isolated):** Refactored checkboxes in MealPlanForm to dynamic addable rows (dropdown + decimal count input). Updated full contract (model, crud, API, to_dict, shopping multiply, detail UI, tests). Backward compat for recipe_ids + old create paths. Fractions (0.5 etc) supported. All per task spec; no work on units/ings/standalone.
+
+### Changes made
+
+**Model (meal_planner_app/models/meal_plan.py):**
+- Added `recipes: list[dict]` primary ({"recipe_id": UUID, "count": float}), with _normalize_recipes (merges dups, accepts id/count or legacy).
+- Properties + setters for `.recipes` (live list) and `.recipe_ids` (legacy compat, read/write).
+- __init__ accepts recipes= or recipe_ids= ; __repr__ updated.
+- Graceful handling in _meal_plan_to_dict for old instances.
+
+**Backend (crud.py, main.py):**
+- create_meal_plan / update_meal_plan: accept recipes= or recipe_ids= ; delegate to model.
+- add_recipe_to_meal_plan(..., count=1.0): now merges/increments count.
+- remove_recipe_from_meal_plan: removes entry.
+- generate_shopping_list: iterates recipe entries, multiplies numeric ingredient qty *= count (fractions work); legacy fallback.
+- _meal_plan_to_dict: returns both `"recipes": [{"id":str,"count":f}, ...]` + `"recipe_ids"` (compat).
+- api_create / api_update: parse "recipes" (new) or "recipe_ids" (legacy); always return new structure.
+
+**Frontend:**
+- MealPlanForm.jsx: full refactor of recipes section.
+  - state: recipes: [{recipe_id, count}]
+  - load supports data.recipes or fallback data.recipe_ids (counts=1)
+  - UI: rows as flex cards: <select> (allRecipes) + <input type=number step=0.1> + Remove btn
+  - + Add Recipe btn (avoids used where possible)
+  - submit: sends {recipes: [{id, count}, ...], recipe_ids: [...] for compat}
+- MealPlanDetail.jsx: resolves using recipes or fallback; renders "Name x 1.5"
+
+**Tests:**
+- Updated some API tests to exercise "recipes" payload.
+- Added test_create_meal_plan_with_recipe_counts_api, test_shopping_list_multiplies_by_recipe_count_api (in test_api.py)
+- Added test_create..._counts + test_generate..._with_counts (in test_crud.py) -- fractions + multiply verified.
+- Existing tests (using recipe_ids) continue to pass via compat.
+
+### Verification (ALL inside Docker per AGENTS.md -- no host python/npm/black/pytest)
+
+- Branch: `git checkout -b feat/meal-plan-recipe-quantities` (done at start).
+- `docker buildx bake dev` → succeeded (see: "exporting layers ... DONE", "naming to docker.io/library/meal-planner:dev done", "DONE 6.1s")
+- Backend tests: `docker run --rm -v "$(pwd):/app" -w /app meal-planner-dev python -m pytest meal_planner_app/tests/ -q --tb=no`
+  - **75 passed** (pre-task baseline ~71 from .ai; +4+ new quantity tests; all green)
+- Black: `docker run --rm -v "$(pwd):/app" -w /app meal-planner-dev python -m black --check .` → "All done! 15 files unchanged"
+- Pylint: `... python -m pylint --rcfile=.pylintrc meal_planner_app/` → **10.00/10**
+- Pre-commit (via dev image): ran (some auto black+ws fixes applied to py; reviewed+accepted)
+- Frontend (node:20-alpine, required):
+  ```
+  docker run --rm -v "$(pwd)/frontend:/app" -w /app node:20-alpine \
+    sh -c 'npm ci --no-audit --no-fund --silent && npm run format && npm run format-check && npm run lint'
+  ```
+  → "All matched files use Prettier code style!", eslint clean (no errors)
+- Rebuild observed post-edits.
+- node_modules cleaned via container (root-owned from volume).
+- git status clean for tracked (prettied jsx + black py).
+
+**Test count:** 71 (prior) → **75 passed** now.
+
+**Backward compat notes:** API still accepts/returns "recipe_ids"; model props support; legacy Jinja + add/remove routes + seed + tests unaffected (counts default 1). Old in-mem objects handled in to_dict. Shopping multiply is implemented (nice-to-have done).
+
+**UI notes:** Clean flex rows (not strict <table> but list of rows as allowed). step="0.1", parses float, supports e.g. 0.25/1.5. Dupe recipes in rows: allowed in UI (sent), normalized+summed in backend.
+
+**Files edited (absolute):**
+- /home/omekr/.grok/worktrees/.../meal_planner_app/models/meal_plan.py
+- .../crud.py
+- .../main.py
+- .../tests/test_api.py
+- .../tests/test_crud.py
+- frontend/src/components/MealPlanForm.jsx
+- frontend/src/components/MealPlanDetail.jsx
+- .ai/next_step.md (this)
+
+### Next steps
+- Commit + push branch (feat/meal-plan-recipe-quantities).
+- Update any E2E if needed (out of isolated scope).
+- Legacy server templates still use recipe_ids (counts hidden); future if wanted.
+- Full CI/docker bake prod recommended.
+- Report last SHA on request.
+
+**Definition of done for task:** All listed updates + docker verifs + tests added + .ai updated.
+>>>>>>> 466ac2c (feat: refactor meal plan recipe selection from checkboxes to quantity table (dropdown + decimal counts))
+
+## PR Babysit Cycle for #37 (feat/combined-shopping-ingredient-mealplan) — 2026-07-13
+
+**Initial PR state (at cycle start):** number=37, state=OPEN, branch=feat/combined-shopping-ingredient-mealplan, base=main, mergeable=CONFLICTING, mergeStateStatus=DIRTY, statusCheckRollup: backend=FAILURE, test-in-container=FAILURE, frontend=SUCCESS, docker=SUCCESS. reviewDecision="", reviewThreads=none.
+
+**Prerequisites followed:**
+- has_fetched = false
+- git fetch origin (succeeded)
+- git checkout -B feat/combined-shopping-ingredient-mealplan origin/feat/combined-shopping-ingredient-mealplan
+- fix_count init to 0 for this cycle (max 3 code fixes)
+
+**Decision tree processing (in order):**
+1. Not MERGED/CLOSED.
+2. Merge conflicts priority (CONFLICTING/DIRTY): ran `git rebase origin/main`. Rebase succeeded cleanly (no conflict markers; "Successfully rebased"; note: 1 skipped cherry-pick but no intervention needed). Working tree was cleaned first (restored deleted package-lock.json via git restore to allow rebase). Rebase synced to current main.
+3. CI failed (backend + test-in-container):
+   - `gh pr checks 37 --repo rkurc/meal-planner` confirmed failures.
+   - backend run 29190908516: `gh run view ... --log-failed` -> pylint too-many-arguments (6/5) + too-many-positional-arguments at meal_planner_app/models/meal_plan.py:41 (the __init__ gained 'recipes' param for combined feature).
+   - test-in-container run 29190908509: e2e failure "should edit shopping list items" @ frontend/e2e/main.spec.js:207: locator timeout waiting for button "Edit".first().click(). Root: generateButton selector used stale name "Generate Shopping List"; actual button in ShoppingListView.jsx is "Generate from Meal Plan". Since seed creates only the meal plan (no auto shopping list), generate if never triggered -> no Edit button rendered -> timeout. (7/8 tests passed).
+4. Review comments: re-queried with exact GraphQL (NO_COLOR=1, first:50 pagination):
+   ```
+   query($owner: String!, $repo: String!, $pr: Int!) { ... reviewThreads ... }
+   ```
+   -> totalCount:0 , nodes:[] . No unresolved threads to process (no replies needed).
+5. Other: checks were not cancelled; after fixes became pending.
+
+**Code fixes (2 this cycle, <3 cap; only code changes counted):**
+- Fix 1 (backend): full read_file of meal_plan.py, crud.py, models/* ; used search_replace to add `  # pylint: disable=too-many-arguments, too-many-positional-arguments` on __init__ (matches exact pattern used in recipe.py:15, ingredient.py:22, update_recipe in crud.py).
+- Fix 2 (test-in-container): full read_file of main.spec.js + ShoppingListView.jsx ; search_replace (replace_all) updated the two button name selectors from "Generate Shopping List" to "Generate from Meal Plan". Comments left as-is for minimal change.
+- No more than cap; no code changes for reviews (none present).
+
+**Verification (STRICTLY inside Docker per AGENTS.md + task; NEVER host python/pip/npm/black/pylint/pytest; used meal-planner:dev image):**
+- After rebase: python -m pylint via docker -> clean post-fix.
+- `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m pylint meal_planner_app` -> "Your code has been rated at 10.00/10"
+- `docker run --rm -v $(pwd):/app -w /app meal-planner:dev python -m pytest meal_planner_app/tests/ -q --tb=no` -> "78 passed"
+- Frontend format/lint (with npm ci inside):
+  - `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev sh -c 'npm ci --no-audit --no-fund --silent && npm run format-check'` -> "All matched files use Prettier code style!"
+  - same for `npm run lint` -> clean (exit 0)
+- Also ran pytest full, pre-commit (via python -m pre_commit after safe.directory; black passed, pylint hook limited by image bin layout but manual 10/10 ok).
+- Confirmed package-lock.json handling, .dockerignore etc respected.
+- No host direct runs for verification.
+
+**Git / PR actions:**
+- Commits: `git add <specific>; git commit -m "fix: address CI failure in backend"` then same for "test-in-container"
+- `git fetch origin && git push --force-with-lease origin feat/combined-shopping-ingredient-mealplan`
+- `gh pr comment 37 --repo rkurc/meal-planner --body "Automated fix: resolved merge conflicts via rebase."`
+- Same for "addressed CI failure in backend." and "in test-in-container."
+- (rebase comment posted even though no markers this execution; followed priority tree)
+
+**Post-actions PR status (queried after push):**
+- mergeable: "MERGEABLE"
+- mergeStateStatus: "UNSTABLE"
+- statusCheckRollup: backend=SUCCESS (immediate on new commit), frontend=SUCCESS, test-in-container=IN_PROGRESS, docker=IN_PROGRESS
+- No reviewDecision, no threads.
+
+**last_status:** "pending" (checks pending, no current failures, MERGEABLE, no reviews/changes_requested)
+
+**fix_count_delta:** 2
+**removed:** false
+
+**Evidence:** full terminal logs, read_file outputs, docker success outputs, gh comment links, GraphQL empty result, git push output.
+
+**Notes / gotchas followed:**
+- Used read_file FULL before any edits (incl for diagnosis).
+- --force-with-lease only (never plain force).
+- Work only in this isolated pr-37 worktree.
+- Updated package state cleanly.
+- Rebase/fetch before push ops.
+- Max fixes respected.
 
 **Next steps (for handoff):**
-- Commit + push branch (include this .ai update).
-- Report last commit SHA.
-- E2E (if needed) can later assert datalist presence, but out of scope here.
-- Do not merge overlapping tasks; isolated to units.
-- Update any future handoff in .ai/next_step.md .
+- Re-query PR checks after current IN_PROGRESS complete (expect test-in-container green given selector fix + generate now triggers in E2E seed flow).
+- If green + MERGEABLE + no threads: "healthy"
+- If new failures: at most 1 more code fix this cycle (then summarize only).
+- If test-in-container still flaky: may need test hardening (e.g. better waits, explicit generate, or ensure seed creates list) but not this cycle.
+- Update .ai/next_step.md (this) + commit/push.
+- Continue babysit loop or mark healthy.
+- Note: the combined feature work (recipes counts, shopping combined, standalone lists, ingredients) is the source of the model arg count + button text drift; fixes were minimal targeted.
 
-**Definition of done (self-check):**
-- [x] list_unique_units + /api/units implemented + tested
-- [x] RecipeForm + ShoppingListView use datalists for units
-- [x] non-blocking fetch, no free-text breakage
-- [x] Only unit suggestion code touched
-- [x] All verification Docker commands executed + evidence captured
-- [x] .ai/next_step.md updated + will commit together
+**Last local commit after fixes:** fc55c18 fix: address CI failure in test-in-container
+**Pushed SHA:** (post force) visible on origin after push.
 
+All AGENTS.md rules followed (Docker verification, pre-commit equiv, no host tools, .ai update).

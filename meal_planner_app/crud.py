@@ -5,10 +5,10 @@ using in-memory data structures. Also includes shopping list generation and reci
 
 import uuid
 from collections import defaultdict
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union, Any
 from .models.recipe import Recipe
 from .models.ingredient import Ingredient
-from .models.meal_plan import MealPlan
+from .models.meal_plan import MealPlan, _normalize_recipe_entries
 from .models.shopping_list import ShoppingList, ShoppingListItem
 
 recipes_db: List[Recipe] = []
@@ -165,11 +165,17 @@ def create_meal_plan(
     name: str,
     description: str = "",
     recipe_ids: Optional[List[uuid.UUID]] = None,
+    recipes: Optional[List[Dict[str, Any]]] = None,
 ) -> MealPlan:
-    """Creates a new meal plan."""
-    if recipe_ids is None:
-        recipe_ids = []
-    meal_plan = MealPlan(name=name, description=description, recipe_ids=recipe_ids)
+    """Creates a new meal plan.
+    Accepts legacy recipe_ids or new recipes list with counts (fractions ok).
+    """
+    if recipes is None and recipe_ids is not None:
+        recipes = _normalize_recipe_entries(
+            [{"recipe_id": rid, "count": 1.0} for rid in recipe_ids]
+        )
+    recipes = _normalize_recipe_entries(recipes)
+    meal_plan = MealPlan(name=name, description=description, recipes=recipes)
     meal_plans_db.append(meal_plan)
     return meal_plan
 
@@ -188,9 +194,11 @@ def list_meal_plans() -> List[MealPlan]:
 
 
 def add_recipe_to_meal_plan(
-    meal_plan_id: uuid.UUID, recipe_id: uuid.UUID
+    meal_plan_id: uuid.UUID, recipe_id: uuid.UUID, count: float = 1.0
 ) -> Optional[MealPlan]:
-    """Adds a recipe ID to a meal plan's recipe_ids list."""
+    """Adds a recipe to a meal plan (or increases count if already present).
+    Defaults to count=1 for legacy callers.
+    """
     meal_plan = get_meal_plan(meal_plan_id)
     recipe = get_recipe(recipe_id)  # Check if recipe exists
 
@@ -200,21 +208,24 @@ def add_recipe_to_meal_plan(
         # Depending on desired behavior, could raise error or just not add
         return meal_plan  # Or None, if we want to signify failure due to non-existent recipe
 
-    if recipe_id not in meal_plan.recipe_ids:
-        meal_plan.recipe_ids.append(recipe_id)
+    existing = next((e for e in meal_plan.recipes if e["recipe_id"] == recipe_id), None)
+    cnt = float(count)
+    if existing:
+        existing["count"] = float(existing.get("count", 1.0)) + cnt
+    else:
+        meal_plan.recipes.append({"recipe_id": recipe_id, "count": cnt})
     return meal_plan
 
 
 def remove_recipe_from_meal_plan(
     meal_plan_id: uuid.UUID, recipe_id: uuid.UUID
 ) -> Optional[MealPlan]:
-    """Removes a recipe ID from a meal plan's recipe_ids list."""
+    """Removes a recipe from a meal plan (by id, regardless of count)."""
     meal_plan = get_meal_plan(meal_plan_id)
     if not meal_plan:
         return None
 
-    if recipe_id in meal_plan.recipe_ids:
-        meal_plan.recipe_ids.remove(recipe_id)
+    meal_plan.recipes = [e for e in meal_plan.recipes if e["recipe_id"] != recipe_id]
     return meal_plan
 
 
@@ -232,8 +243,11 @@ def update_meal_plan(
     name: Optional[str] = None,
     description: Optional[str] = None,
     recipe_ids: Optional[List[uuid.UUID]] = None,
+    recipes: Optional[List[Dict[str, Any]]] = None,
 ) -> Optional[MealPlan]:
-    """Updates an existing meal plan's name and/or recipe list."""
+    """Updates an existing meal plan's name and/or recipe list (with counts).
+    Prefers 'recipes' arg if provided (new structure); falls back to recipe_ids for legacy.
+    """
     meal_plan = get_meal_plan(meal_plan_id)
     if not meal_plan:
         return None
@@ -244,9 +258,8 @@ def update_meal_plan(
     if description is not None:
         meal_plan.description = description
 
-    if recipe_ids is not None:
-        # Here we replace the entire list of recipe_ids
-        meal_plan.recipe_ids = recipe_ids
+    if recipes is not None or recipe_ids is not None:
+        meal_plan.recipes = _normalize_recipe_entries(recipes or recipe_ids or [])
 
     return meal_plan
 
@@ -270,7 +283,17 @@ def generate_shopping_list(
 
     aggregated_ingredients: Dict[str, Dict[str, Union[str, float, List[str]]]] = {}
 
-    for recipe_id in meal_plan.recipe_ids:
+    recipe_entries = _normalize_recipe_entries(
+        getattr(meal_plan, "recipes", None) or getattr(meal_plan, "recipe_ids", None)
+    )
+
+    for entry in recipe_entries:
+        if isinstance(entry, dict):
+            recipe_id = entry.get("recipe_id") or entry.get("id")
+            count = float(entry.get("count", 1.0))
+        else:
+            recipe_id = entry
+            count = 1.0
         recipe = get_recipe(recipe_id)
         if not recipe:
             continue  # Skip if a recipe ID in the plan doesn't exist
@@ -288,6 +311,11 @@ def generate_shopping_list(
             except (ValueError, TypeError):
                 # Quantity is not a simple float (e.g., "to taste", "1-2", or empty)
                 pass
+
+            # Multiply by recipe count (multiplier) if numeric. Supports fractions like 0.5
+            if current_quantity_numeric is not None:
+                current_quantity_numeric = current_quantity_numeric * count
+                current_quantity_str = str(current_quantity_numeric)
 
             if ingredient_key in aggregated_ingredients:
                 existing_entry = aggregated_ingredients[ingredient_key]
@@ -413,47 +441,61 @@ def reset_shopping_lists_db():
     shopping_lists_db = []
 
 
-def create_shopping_list(meal_plan_id: uuid.UUID) -> Optional[ShoppingList]:
+def create_shopping_list(
+    meal_plan_id: Optional[uuid.UUID] = None, name: Optional[str] = None
+) -> Optional[ShoppingList]:
     """
-    Generates a shopping list from a meal plan and saves it to the database.
+    Creates a shopping list.
+    - If meal_plan_id is provided: generates from the meal plan (original behavior).
+    - If no meal_plan_id: creates a standalone empty list with the given name (or default).
     """
-    meal_plan = get_meal_plan(meal_plan_id)
-    if not meal_plan:
-        return None
+    if meal_plan_id:
+        meal_plan = get_meal_plan(meal_plan_id)
+        if not meal_plan:
+            return None
 
-    # Use the existing generator function
-    generated = generate_shopping_list(meal_plan_id)
-    if generated is None:
-        return None  # Should not happen if meal_plan exists
+        # Use the existing generator function
+        generated = generate_shopping_list(meal_plan_id)
+        if generated is None:
+            return None  # Should not happen if meal_plan exists
 
-    # generated is now grouped {loc: [items...]} ; flatten for persisted ShoppingList
-    if isinstance(generated, dict):
-        flat = []
-        for loc_items in generated.values():
-            flat.extend(loc_items)
-        generated_items = flat
-    else:
-        generated_items = generated or []
+        # generated is now grouped {loc: [items...]} ; flatten for persisted ShoppingList
+        if isinstance(generated, dict):
+            flat = []
+            for loc_items in generated.values():
+                flat.extend(loc_items)
+            generated_items = flat
+        else:
+            generated_items = generated or []
 
-    # Convert generated items (dicts) to ShoppingListItem objects
-    list_items = [
-        ShoppingListItem(
-            name=item["name"],
-            quantity=item["quantity"],
-            unit=item["unit"],
-            purchased=False,  # Default to not purchased
-            location=item.get("location"),
-            location_id=item.get("location_id"),
+        # Convert generated items (dicts) to ShoppingListItem objects
+        list_items = [
+            ShoppingListItem(
+                name=item["name"],
+                quantity=item["quantity"],
+                unit=item["unit"],
+                purchased=False,  # Default to not purchased
+                location=item.get("location"),
+                location_id=item.get("location_id"),
+            )
+            for item in generated_items
+        ]
+
+        # Create the new shopping list object
+        list_name = name or f"Shopping List for {meal_plan.name}"
+        new_shopping_list = ShoppingList(
+            name=list_name,
+            items=list_items,
+            meal_plan_id=meal_plan_id,
         )
-        for item in generated_items
-    ]
-
-    # Create the new shopping list object
-    new_shopping_list = ShoppingList(
-        name=f"Shopping List for {meal_plan.name}",
-        items=list_items,
-        meal_plan_id=meal_plan_id,
-    )
+    else:
+        # Standalone empty list (for "a new list")
+        list_name = name or "New Shopping List"
+        new_shopping_list = ShoppingList(
+            name=list_name,
+            items=[],
+            meal_plan_id=None,
+        )
 
     shopping_lists_db.append(new_shopping_list)
     return new_shopping_list
@@ -565,3 +607,46 @@ def search_recipes(  # pylint: disable=too-many-branches
                 break  # Found matching ingredient in this recipe, move to next recipe
 
     return filtered_results
+
+
+# --- Ingredient views support (read-only, from recipes; no master storage) ---
+
+
+def get_recipes_for_ingredient(name: str) -> List[Recipe]:
+    """Return recipes containing an ingredient with the exact (trimmed, case-insensitive) name.
+    Used for IngredientDetail view. Pure read aggregation, does not modify any data.
+    """
+    if not name or not name.strip():
+        return []
+    normalized = name.strip().lower()
+    matching = []
+    for recipe in recipes_db:
+        for ing in recipe.ingredients:
+            if ing.name and ing.name.strip().lower() == normalized:
+                matching.append(recipe)
+                break
+    return matching
+
+
+def list_ingredients_summary() -> List[Dict[str, Union[str, int, Optional[str]]]]:
+    """Return sorted list of ingredient summaries derived from recipes.
+    Each: {name, usage_count, unit, location}. Used by IngredientList.
+    No separate persistence; always reflects current recipes.
+    """
+    summary_map: Dict[str, Dict] = {}
+    for recipe in recipes_db:
+        for ing in recipe.ingredients:
+            if not ing.name or not ing.name.strip():
+                continue
+            key = ing.name.strip()
+            if key not in summary_map:
+                summary_map[key] = {
+                    "name": key,
+                    "usage_count": 0,
+                    "unit": ing.unit or "",
+                    "location": getattr(ing, "location", None)
+                    or getattr(ing, "location_id", None)
+                    or "",
+                }
+            summary_map[key]["usage_count"] += 1
+    return sorted(summary_map.values(), key=lambda x: x["name"].lower())

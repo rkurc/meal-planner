@@ -256,6 +256,61 @@ class ShoppingListApiTestCase(unittest.TestCase):
         self.assertIn("Dairy", locs)
         self.assertIn("Bakery", locs)
 
+    def test_create_standalone_shopping_list(self):
+        """
+        Test creating a new standalone shopping list (no meal_plan_id) with a name.
+        It should be empty and usable for manual item editing.
+        """
+        response = self.client.post(
+            "/api/shopping-lists",
+            content_type="application/json",
+            data=json.dumps({"name": "My Standalone Groceries"}),
+        )
+        self.assertEqual(response.status_code, 201)
+        created = response.get_json()
+        self.assertIn("id", created)
+        self.assertEqual(created["name"], "My Standalone Groceries")
+        self.assertIn("items", created)
+        self.assertEqual(created["items"], [])  # empty
+        self.assertIsNone(created["meal_plan_id"])
+
+        # Verify via GET list and single
+        get_resp = self.client.get(f"/api/shopping-lists/{created['id']}")
+        self.assertEqual(get_resp.status_code, 200)
+        self.assertEqual(get_resp.get_json()["name"], "My Standalone Groceries")
+
+        list_resp = self.client.get("/api/shopping-lists")
+        self.assertEqual(list_resp.status_code, 200)
+        ids = [l["id"] for l in list_resp.get_json()]
+        self.assertIn(created["id"], ids)
+
+        # Can "edit" by adding item via PUT (existing pattern)
+        created["items"] = [
+            {"name": "Milk", "quantity": "1", "unit": "l", "purchased": False}
+        ]
+        put_resp = self.client.put(
+            f"/api/shopping-lists/{created['id']}",
+            content_type="application/json",
+            data=json.dumps(created),
+        )
+        self.assertEqual(put_resp.status_code, 200)
+        updated = put_resp.get_json()
+        self.assertEqual(len(updated["items"]), 1)
+        self.assertEqual(updated["items"][0]["name"], "Milk")
+
+    def test_create_standalone_default_name(self):
+        """Creating without name or meal_plan_id yields default name and empty list."""
+        response = self.client.post(
+            "/api/shopping-lists",
+            content_type="application/json",
+            data=json.dumps({}),
+        )
+        self.assertEqual(response.status_code, 201)
+        created = response.get_json()
+        self.assertEqual(created["name"], "New Shopping List")
+        self.assertEqual(created["items"], [])
+        self.assertIsNone(created["meal_plan_id"])
+
     def test_api_get_units(self):
         """GET /api/units returns sorted unique non-empty unit strings from recipes."""
         # Reset and seed controlled data with mix of units (incl. empty)

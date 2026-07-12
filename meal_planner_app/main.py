@@ -23,7 +23,7 @@ from markupsafe import escape, Markup
 
 from meal_planner_app import crud
 from meal_planner_app.seed_db import seed_database
-from meal_planner_app.models.meal_plan import MealPlan
+from meal_planner_app.models.meal_plan import MealPlan, _normalize_recipe_entries
 from meal_planner_app.models.recipe import Recipe
 from meal_planner_app.services import generate_shopping_list_pdf
 from dataclasses import asdict
@@ -436,12 +436,18 @@ def _recipe_to_dict(recipe: Recipe) -> dict:
 
 
 def _meal_plan_to_dict(meal_plan: MealPlan) -> dict:
-    """Serializes a MealPlan object to a dictionary."""
+    """Serializes using the primary 'recipes' shape + legacy 'recipe_ids' for compat."""
+    recipes_out = []
+    for e in meal_plan.recipes or []:
+        rid = e.get("recipe_id") or e.get("id")
+        if rid:
+            recipes_out.append({"id": str(rid), "count": float(e.get("count", 1.0))})
     return {
         "id": str(meal_plan.meal_plan_id),
         "name": meal_plan.name,
         "description": meal_plan.description,
-        "recipe_ids": [str(rid) for rid in meal_plan.recipe_ids],
+        "recipe_ids": [r["id"] for r in recipes_out],
+        "recipes": recipes_out,
     }
 
 
@@ -471,6 +477,38 @@ def api_get_units():
     """API endpoint to get unique units for suggestions (collected from recipe ingredients)."""
     units = crud.list_unique_units()  # pylint: disable=no-member
     return jsonify(units)
+
+
+@app.route("/api/ingredients/summary", methods=["GET"])
+def api_get_ingredients_summary():
+    """Return ingredient summaries (name, usage, unit, loc) for IngredientList.
+    Backed by recipes; /api/ingredients kept for autocomplete compat.
+    """
+    summaries = crud.list_ingredients_summary()  # pylint: disable=no-member
+    return jsonify(summaries)
+
+
+@app.route("/api/ingredients/info", methods=["GET"])
+def api_get_ingredient_info():
+    """API for IngredientDetail: {name, usage_count, recipes} for ?name= .
+    Exact name match. Read-only.
+    """
+    name = request.args.get("name", "").strip()
+    if not name:
+        abort(400, description="name query parameter is required")
+    recipes_using = crud.get_recipes_for_ingredient(name)  # pylint: disable=no-member
+    # slim to avoid full duplication of ingredients data
+    slim_recipes = [
+        {"id": str(r.recipe_id), "name": r.name, "description": r.description}
+        for r in recipes_using
+    ]
+    return jsonify(
+        {
+            "name": name,
+            "usage_count": len(recipes_using),
+            "recipes": slim_recipes,
+        }
+    )
 
 
 @app.route("/api/recipes", methods=["POST"])
@@ -546,18 +584,21 @@ def api_get_meal_plans():
 
 @app.route("/api/meal-plans", methods=["POST"])
 def api_create_meal_plan():
-    """API endpoint to create a new meal plan."""
+    """API endpoint to create a new meal plan.
+    Accepts new 'recipes': [{'id': uuidstr, 'count': float}, ...] or legacy 'recipe_ids'.
+    """
     data = request.get_json()
     if not data or not data.get("name"):
         abort(400, description="Name is required.")
 
     name = data["name"]
     description = data.get("description", "")
-    recipe_ids_str = data.get("recipe_ids", [])
-    recipe_ids = [uuid.UUID(rid) for rid in recipe_ids_str]
 
-    created_meal_plan = crud.create_meal_plan(
-        name, description=description, recipe_ids=recipe_ids
+    recipes_input = data.get("recipes") or data.get("recipe_ids")
+    recipes_arg = _normalize_recipe_entries(recipes_input)
+
+    created_meal_plan = crud.create_meal_plan(  # pylint: disable=unexpected-keyword-arg
+        name, description=description, recipes=recipes_arg
     )
     return jsonify(_meal_plan_to_dict(created_meal_plan)), 201
 
@@ -573,22 +614,24 @@ def api_get_meal_plan(meal_plan_id: uuid.UUID):
 
 @app.route("/api/meal-plans/<uuid:meal_plan_id>", methods=["PUT"])
 def api_update_meal_plan(meal_plan_id: uuid.UUID):
-    """API endpoint to update an existing meal plan."""
+    """API endpoint to update an existing meal plan.
+    Supports 'recipes' list with counts (fractional ok) or legacy 'recipe_ids'.
+    """
     data = request.get_json()
     if not data:
         abort(400)
 
     name = data.get("name")
     description = data.get("description")
-    recipe_ids_str = data.get("recipe_ids")
-    recipe_ids = (
-        [uuid.UUID(rid) for rid in recipe_ids_str]
-        if recipe_ids_str is not None
-        else None
-    )
 
-    updated_meal_plan = crud.update_meal_plan(
-        meal_plan_id, name=name, description=description, recipe_ids=recipe_ids
+    recipes_input = data.get("recipes") or data.get("recipe_ids")
+    recipes_arg = _normalize_recipe_entries(recipes_input)
+
+    updated_meal_plan = crud.update_meal_plan(  # pylint: disable=unexpected-keyword-arg
+        meal_plan_id,
+        name=name,
+        description=description,
+        recipes=recipes_arg,
     )
     if not updated_meal_plan:
         abort(404)
@@ -645,25 +688,34 @@ def _shopping_list_to_dict(shopping_list: ShoppingList) -> dict:
     """Serializes a ShoppingList object to a dictionary."""
     sl_dict = asdict(shopping_list)
     sl_dict["id"] = str(sl_dict["id"])
-    sl_dict["meal_plan_id"] = str(sl_dict["meal_plan_id"])
+    mp_id = sl_dict.get("meal_plan_id")
+    sl_dict["meal_plan_id"] = str(mp_id) if mp_id else None
     return sl_dict
 
 
 @app.route("/api/shopping-lists", methods=["POST"])
 def api_create_shopping_list():
-    """API endpoint to create a new shopping list from a meal plan."""
-    data = request.get_json()
-    if not data or not data.get("meal_plan_id"):
-        abort(400, description="meal_plan_id is required.")
+    """API endpoint to create a new shopping list.
+    Supports:
+    - { "meal_plan_id": "..." }  (optionally with "name")
+    - { "name": "My List" } for a new standalone empty shopping list.
+    """
+    data = request.get_json() or {}
+    meal_plan_id_str = data.get("meal_plan_id")
+    name = data.get("name")
 
-    try:
-        meal_plan_id = uuid.UUID(data["meal_plan_id"])
-    except ValueError:
-        abort(400, description="Invalid meal_plan_id format.")
+    if meal_plan_id_str:
+        try:
+            meal_plan_id = uuid.UUID(meal_plan_id_str)
+        except ValueError:
+            abort(400, description="Invalid meal_plan_id format.")
 
-    shopping_list = crud.create_shopping_list(meal_plan_id)
-    if not shopping_list:
-        abort(404, description="Meal plan not found.")
+        shopping_list = crud.create_shopping_list(meal_plan_id=meal_plan_id, name=name)
+        if not shopping_list:
+            abort(404, description="Meal plan not found.")
+    else:
+        # Standalone "new list" - name optional, defaults in crud
+        shopping_list = crud.create_shopping_list(name=name)
 
     return jsonify(_shopping_list_to_dict(shopping_list)), 201
 

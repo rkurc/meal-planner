@@ -8,9 +8,12 @@ import Layout from "./components/Layout";
 import RecipeList from "./components/RecipeList";
 import RecipeDetail from "./components/RecipeDetail";
 import RecipeForm from "./components/RecipeForm";
+import IngredientList from "./components/IngredientList";
+import IngredientDetail from "./components/IngredientDetail";
 import MealPlanList from "./components/MealPlanList";
 import MealPlanDetail from "./components/MealPlanDetail";
 import MealPlanForm from "./components/MealPlanForm";
+import ShoppingListView from "./components/ShoppingListView";
 
 const router = createBrowserRouter(
   [
@@ -39,6 +42,14 @@ const router = createBrowserRouter(
           element: <RecipeForm />,
         },
         {
+          path: "ingredients",
+          element: <IngredientList />,
+        },
+        {
+          path: "ingredients/:name",
+          element: <IngredientDetail />,
+        },
+        {
           path: "meal-plans",
           element: <MealPlanList />,
         },
@@ -53,6 +64,10 @@ const router = createBrowserRouter(
         {
           path: "meal-plans/:id/edit",
           element: <MealPlanForm />,
+        },
+        {
+          path: "shopping-lists",
+          element: <ShoppingListView />,
         },
       ],
     },
