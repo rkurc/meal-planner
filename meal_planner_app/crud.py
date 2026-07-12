@@ -5,7 +5,7 @@ using in-memory data structures. Also includes shopping list generation and reci
 
 import uuid
 from collections import defaultdict
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union, Any
 from .models.recipe import Recipe
 from .models.ingredient import Ingredient
 from .models.meal_plan import MealPlan
@@ -165,11 +165,14 @@ def create_meal_plan(
     name: str,
     description: str = "",
     recipe_ids: Optional[List[uuid.UUID]] = None,
+    recipes: Optional[List[Dict[str, Any]]] = None,
 ) -> MealPlan:
-    """Creates a new meal plan."""
-    if recipe_ids is None:
-        recipe_ids = []
-    meal_plan = MealPlan(name=name, description=description, recipe_ids=recipe_ids)
+    """Creates a new meal plan.
+    Accepts legacy recipe_ids or new recipes list with counts (fractions ok).
+    """
+    if recipes is None and recipe_ids is not None:
+        recipes = [{"recipe_id": rid, "count": 1.0} for rid in recipe_ids]
+    meal_plan = MealPlan(name=name, description=description, recipes=recipes)
     meal_plans_db.append(meal_plan)
     return meal_plan
 
@@ -188,9 +191,11 @@ def list_meal_plans() -> List[MealPlan]:
 
 
 def add_recipe_to_meal_plan(
-    meal_plan_id: uuid.UUID, recipe_id: uuid.UUID
+    meal_plan_id: uuid.UUID, recipe_id: uuid.UUID, count: float = 1.0
 ) -> Optional[MealPlan]:
-    """Adds a recipe ID to a meal plan's recipe_ids list."""
+    """Adds a recipe to a meal plan (or increases count if already present).
+    Defaults to count=1 for legacy callers.
+    """
     meal_plan = get_meal_plan(meal_plan_id)
     recipe = get_recipe(recipe_id)  # Check if recipe exists
 
@@ -200,21 +205,24 @@ def add_recipe_to_meal_plan(
         # Depending on desired behavior, could raise error or just not add
         return meal_plan  # Or None, if we want to signify failure due to non-existent recipe
 
-    if recipe_id not in meal_plan.recipe_ids:
-        meal_plan.recipe_ids.append(recipe_id)
+    existing = next((e for e in meal_plan.recipes if e["recipe_id"] == recipe_id), None)
+    cnt = float(count)
+    if existing:
+        existing["count"] = float(existing.get("count", 1.0)) + cnt
+    else:
+        meal_plan.recipes.append({"recipe_id": recipe_id, "count": cnt})
     return meal_plan
 
 
 def remove_recipe_from_meal_plan(
     meal_plan_id: uuid.UUID, recipe_id: uuid.UUID
 ) -> Optional[MealPlan]:
-    """Removes a recipe ID from a meal plan's recipe_ids list."""
+    """Removes a recipe from a meal plan (by id, regardless of count)."""
     meal_plan = get_meal_plan(meal_plan_id)
     if not meal_plan:
         return None
 
-    if recipe_id in meal_plan.recipe_ids:
-        meal_plan.recipe_ids.remove(recipe_id)
+    meal_plan.recipes = [e for e in meal_plan.recipes if e["recipe_id"] != recipe_id]
     return meal_plan
 
 
@@ -232,8 +240,11 @@ def update_meal_plan(
     name: Optional[str] = None,
     description: Optional[str] = None,
     recipe_ids: Optional[List[uuid.UUID]] = None,
+    recipes: Optional[List[Dict[str, Any]]] = None,
 ) -> Optional[MealPlan]:
-    """Updates an existing meal plan's name and/or recipe list."""
+    """Updates an existing meal plan's name and/or recipe list (with counts).
+    Prefers 'recipes' arg if provided (new structure); falls back to recipe_ids for legacy.
+    """
     meal_plan = get_meal_plan(meal_plan_id)
     if not meal_plan:
         return None
@@ -244,8 +255,10 @@ def update_meal_plan(
     if description is not None:
         meal_plan.description = description
 
-    if recipe_ids is not None:
-        # Here we replace the entire list of recipe_ids
+    if recipes is not None:
+        meal_plan.recipes = recipes
+    elif recipe_ids is not None:
+        # Here we replace using legacy
         meal_plan.recipe_ids = recipe_ids
 
     return meal_plan
@@ -270,7 +283,19 @@ def generate_shopping_list(
 
     aggregated_ingredients: Dict[str, Dict[str, Union[str, float, List[str]]]] = {}
 
-    for recipe_id in meal_plan.recipe_ids:
+    # Support both new recipes list with counts and legacy recipe_ids (default count 1)
+    recipe_entries = getattr(meal_plan, "recipes", None)
+    if not recipe_entries:
+        legacy_ids = getattr(meal_plan, "recipe_ids", []) or []
+        recipe_entries = [{"recipe_id": rid, "count": 1.0} for rid in legacy_ids]
+
+    for entry in recipe_entries:
+        if isinstance(entry, dict):
+            recipe_id = entry.get("recipe_id") or entry.get("id")
+            count = float(entry.get("count", 1.0))
+        else:
+            recipe_id = entry
+            count = 1.0
         recipe = get_recipe(recipe_id)
         if not recipe:
             continue  # Skip if a recipe ID in the plan doesn't exist
@@ -288,6 +313,11 @@ def generate_shopping_list(
             except (ValueError, TypeError):
                 # Quantity is not a simple float (e.g., "to taste", "1-2", or empty)
                 pass
+
+            # Multiply by recipe count (multiplier) if numeric. Supports fractions like 0.5
+            if current_quantity_numeric is not None:
+                current_quantity_numeric = current_quantity_numeric * count
+                current_quantity_str = str(current_quantity_numeric)
 
             if ingredient_key in aggregated_ingredients:
                 existing_entry = aggregated_ingredients[ingredient_key]

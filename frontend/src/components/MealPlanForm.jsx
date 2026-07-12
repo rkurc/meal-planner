@@ -8,7 +8,7 @@ const MealPlanForm = () => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    recipe_ids: [],
+    recipes: [], // now [{recipe_id: str, count: number}, ...] supporting fractions
   });
   const [allRecipes, setAllRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,10 +26,28 @@ const MealPlanForm = () => {
         setAllRecipes(recipesResponse.data);
         if (mealPlanResponse) {
           const data = mealPlanResponse.data;
+          let loadedRecipes = [];
+          if (Array.isArray(data.recipes)) {
+            loadedRecipes = data.recipes
+              .map((r) => ({
+                recipe_id: r.id || r.recipe_id,
+                count:
+                  typeof r.count === "number"
+                    ? r.count
+                    : parseFloat(r.count) || 1,
+              }))
+              .filter((r) => r.recipe_id);
+          } else if (Array.isArray(data.recipe_ids)) {
+            // graceful support for old format
+            loadedRecipes = data.recipe_ids.map((rid) => ({
+              recipe_id: rid,
+              count: 1,
+            }));
+          }
           setFormData({
             name: data.name || "",
             description: data.description || "",
-            recipe_ids: Array.isArray(data.recipe_ids) ? data.recipe_ids : [],
+            recipes: loadedRecipes,
           });
         }
         setLoading(false);
@@ -45,22 +63,61 @@ const MealPlanForm = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleRecipeChange = (e) => {
-    const { value, checked } = e.target;
-    const recipeId = value; // keep as string UUID from API
+  const addRecipeRow = () => {
+    // Add a new row; prefer a recipe not yet selected
+    const usedIds = new Set(formData.recipes.map((r) => r.recipe_id));
+    const available =
+      allRecipes.find((r) => !usedIds.has(r.id)) || allRecipes[0];
+    const newRow = {
+      recipe_id: available ? available.id : "",
+      count: 1,
+    };
+    setFormData((prev) => ({
+      ...prev,
+      recipes: [...prev.recipes, newRow],
+    }));
+  };
+
+  const updateRecipeRow = (index, field, value) => {
     setFormData((prev) => {
-      const newRecipeIds = checked
-        ? [...prev.recipe_ids, recipeId]
-        : prev.recipe_ids.filter((id) => id !== recipeId);
-      return { ...prev, recipe_ids: newRecipeIds };
+      const updated = [...prev.recipes];
+      if (field === "recipe_id") {
+        updated[index] = { ...updated[index], recipe_id: value };
+      } else if (field === "count") {
+        // accept any decimal, default to 0 if invalid
+        const num = parseFloat(value);
+        updated[index] = { ...updated[index], count: isNaN(num) ? 0 : num };
+      }
+      return { ...prev, recipes: updated };
     });
+  };
+
+  const removeRecipeRow = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      recipes: prev.recipes.filter((_, i) => i !== index),
+    }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    // Send new structure; include legacy recipe_ids for maximum compat if needed
+    const recipesPayload = formData.recipes
+      .filter((r) => r.recipe_id)
+      .map((r) => ({
+        id: r.recipe_id,
+        count: parseFloat(r.count) || 1,
+      }));
+    const submitData = {
+      name: formData.name,
+      description: formData.description,
+      recipes: recipesPayload,
+      // recipe_ids kept for old consumers if desired
+      recipe_ids: recipesPayload.map((r) => r.id),
+    };
     const apiCall = id
-      ? axios.put(`/api/meal-plans/${id}`, formData)
-      : axios.post("/api/meal-plans", formData);
+      ? axios.put(`/api/meal-plans/${id}`, submitData)
+      : axios.post("/api/meal-plans", submitData);
 
     apiCall
       .then((response) => {
@@ -121,21 +178,67 @@ const MealPlanForm = () => {
         </div>
         <div className="mb-6">
           <label className="block text-gray-700 font-bold mb-2">Recipes</label>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {allRecipes.map((recipe) => (
-              <div key={recipe.id} className="flex items-center">
-                <input
-                  type="checkbox"
-                  id={`recipe-${recipe.id}`}
-                  value={recipe.id}
-                  checked={formData.recipe_ids.includes(recipe.id)}
-                  onChange={handleRecipeChange}
-                  className="mr-2"
-                />
-                <label htmlFor={`recipe-${recipe.id}`}>{recipe.name}</label>
+          <div className="space-y-3 mb-3">
+            {formData.recipes.length === 0 && (
+              <p className="text-sm text-gray-500">
+                No recipes added yet. Click below to add.
+              </p>
+            )}
+            {formData.recipes.map((item, index) => (
+              <div
+                key={index}
+                className="flex flex-col sm:flex-row items-start sm:items-center gap-2 border rounded p-3 bg-gray-50"
+              >
+                <select
+                  value={item.recipe_id}
+                  onChange={(e) =>
+                    updateRecipeRow(index, "recipe_id", e.target.value)
+                  }
+                  className="flex-1 shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                >
+                  <option value="">-- Select a recipe --</option>
+                  {allRecipes.map((recipe) => (
+                    <option key={recipe.id} value={recipe.id}>
+                      {recipe.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-600 whitespace-nowrap">
+                    Times:
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={item.count}
+                    onChange={(e) =>
+                      updateRecipeRow(index, "count", e.target.value)
+                    }
+                    className="w-24 shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeRecipeRow(index)}
+                  className="bg-red-500 hover:bg-red-700 text-white text-sm font-bold py-1 px-3 rounded"
+                >
+                  Remove
+                </button>
               </div>
             ))}
           </div>
+          <button
+            type="button"
+            onClick={addRecipeRow}
+            className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-sm"
+          >
+            + Add Recipe
+          </button>
+          <p className="text-xs text-gray-500 mt-1">
+            Use decimals for fractions e.g. 0.5, 1.25. Each row selects a recipe
+            and its multiplier.
+          </p>
         </div>
         <div className="flex items-center justify-between">
           <button

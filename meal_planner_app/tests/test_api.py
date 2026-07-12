@@ -296,7 +296,7 @@ class TestMealPlanApi(unittest.TestCase):
             json={
                 "name": "New API Plan",
                 "description": "A plan for the new API.",
-                "recipe_ids": [str(self.recipe1.recipe_id)],
+                "recipes": [{"id": str(self.recipe1.recipe_id), "count": 1}],
             },
         )
         self.assertEqual(response.status_code, 201)
@@ -304,6 +304,7 @@ class TestMealPlanApi(unittest.TestCase):
         self.assertEqual(data["name"], "New API Plan")
         self.assertEqual(data["description"], "A plan for the new API.")
         self.assertIn(str(self.recipe1.recipe_id), data["recipe_ids"])
+        self.assertEqual(data["recipes"][0]["count"], 1)
         self.assertIn("id", data)
 
         # Verify it was actually created
@@ -337,7 +338,7 @@ class TestMealPlanApi(unittest.TestCase):
         update_data = {
             "name": "New Name",
             "description": "New Description",
-            "recipe_ids": [str(self.recipe2.recipe_id)],
+            "recipes": [{"id": str(self.recipe2.recipe_id), "count": 1.0}],
         }
         response = self.client.put(
             f"/api/meal-plans/{mp.meal_plan_id}", json=update_data
@@ -347,6 +348,7 @@ class TestMealPlanApi(unittest.TestCase):
         self.assertEqual(data["name"], "New Name")
         self.assertEqual(data["description"], "New Description")
         self.assertEqual(data["recipe_ids"], [str(self.recipe2.recipe_id)])
+        self.assertEqual(data["recipes"][0]["count"], 1.0)
 
         # Verify changes in DB
         updated_mp = crud.get_meal_plan(mp.meal_plan_id)
@@ -422,6 +424,75 @@ class TestMealPlanApi(unittest.TestCase):
         self.assertIsNotNone(flour_item)
         self.assertEqual(flour_item["quantity"], 200)
         self.assertEqual(flour_item["unit"], "g")
+
+    def test_create_update_meal_plan_with_recipe_counts_api(self):
+        """Test POST/PUT /api/meal-plans using new 'recipes' payload with fractional counts.
+        Also verifies response includes both recipes and recipe_ids, and compat load.
+        """
+        # Create with fractions
+        create_resp = self.client.post(
+            "/api/meal-plans",
+            json={
+                "name": "Fraction Plan",
+                "recipes": [
+                    {"id": str(self.recipe1.recipe_id), "count": 1.5},
+                    {"recipe_id": str(self.recipe2.recipe_id), "count": 0.25},
+                ],
+            },
+        )
+        self.assertEqual(create_resp.status_code, 201)
+        data = json.loads(create_resp.data)
+        self.assertEqual(data["name"], "Fraction Plan")
+        self.assertIn("recipes", data)
+        self.assertEqual(len(data["recipes"]), 2)
+        counts = {r["id"]: r["count"] for r in data["recipes"]}
+        self.assertEqual(counts[str(self.recipe1.recipe_id)], 1.5)
+        self.assertEqual(counts[str(self.recipe2.recipe_id)], 0.25)
+        self.assertEqual(len(data["recipe_ids"]), 2)  # legacy still there
+
+        mp_id = data["id"]
+
+        # GET returns same
+        get_resp = self.client.get(f"/api/meal-plans/{mp_id}")
+        gdata = json.loads(get_resp.data)
+        self.assertEqual(gdata["recipes"][0]["count"], 1.5)
+
+        # Update to change counts
+        put_resp = self.client.put(
+            f"/api/meal-plans/{mp_id}",
+            json={"recipes": [{"id": str(self.recipe1.recipe_id), "count": 3.0}]},
+        )
+        self.assertEqual(put_resp.status_code, 200)
+        pdata = json.loads(put_resp.data)
+        self.assertEqual(len(pdata["recipes"]), 1)
+        self.assertEqual(pdata["recipes"][0]["count"], 3.0)
+
+    def test_shopping_list_multiplies_by_recipe_count_api(self):
+        """Verify that when creating mealplan with count, /shopping-list endpoint multiplies."""
+        self.recipe1.ingredients.append(Ingredient(name="Rice", quantity=100, unit="g"))
+        self.recipe2.ingredients.append(Ingredient(name="Rice", quantity=50, unit="g"))
+
+        mp_resp = self.client.post(
+            "/api/meal-plans",
+            json={
+                "name": "Scale Plan",
+                "recipes": [
+                    {"id": str(self.recipe1.recipe_id), "count": 2},  # 200g
+                    {"id": str(self.recipe2.recipe_id), "count": 0.5},  # 25g
+                ],
+            },
+        )
+        mp_id = json.loads(mp_resp.data)["id"]
+
+        sl_resp = self.client.get(f"/api/meal-plans/{mp_id}/shopping-list")
+        self.assertEqual(sl_resp.status_code, 200)
+        sl_data = json.loads(sl_resp.data)
+        all_items = []
+        for items in sl_data.values():
+            all_items.extend(items)
+        rice = next((it for it in all_items if it["name"] == "Rice"), None)
+        self.assertIsNotNone(rice)
+        self.assertEqual(rice["quantity"], 225)  # 200 + 25
 
 
 if __name__ == "__main__":

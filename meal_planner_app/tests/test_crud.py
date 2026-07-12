@@ -270,6 +270,64 @@ class TestMealPlanCRUD(unittest.TestCase):
         # Update non-existent
         self.assertIsNone(crud.update_meal_plan(uuid.uuid4(), name="Doesn't Matter"))
 
+    def test_create_meal_plan_with_recipe_counts(self):
+        """Test new recipe quantities (counts/multipliers) including fractions."""
+        # create using new structure
+        mp = crud.create_meal_plan(  # pylint: disable=unexpected-keyword-arg
+            name="Quant Plan",
+            recipes=[
+                {"recipe_id": self.recipe1.recipe_id, "count": 2},
+                {"id": self.recipe2.recipe_id, "count": 0.5},  # fractional
+            ],
+        )
+        self.assertEqual(len(mp.recipes), 2)
+        self.assertEqual(mp.recipes[0]["count"], 2.0)
+        self.assertEqual(mp.recipes[1]["count"], 0.5)
+        # legacy compat still works
+        self.assertEqual(len(mp.recipe_ids), 2)
+        self.assertIn(self.recipe1.recipe_id, mp.recipe_ids)
+
+        # update using recipes
+        updated = crud.update_meal_plan(  # pylint: disable=unexpected-keyword-arg
+            mp.meal_plan_id,
+            recipes=[{"recipe_id": self.recipe1.recipe_id, "count": 1.25}],
+        )
+        self.assertEqual(len(updated.recipes), 1)
+        self.assertEqual(updated.recipes[0]["count"], 1.25)
+
+        # add increases count
+        added = crud.add_recipe_to_meal_plan(  # pylint: disable=unexpected-keyword-arg
+            mp.meal_plan_id, self.recipe1.recipe_id, count=0.75
+        )
+        entry = next(
+            e for e in added.recipes if e["recipe_id"] == self.recipe1.recipe_id
+        )
+        self.assertEqual(entry["count"], 2.0)  # 1.25 + 0.75
+
+    def test_generate_shopping_list_with_counts(self):
+        """Test that generate_shopping_list multiplies ingredient qty by recipe count."""
+        # recipe1: 2 eggs; recipe2: 3 eggs. Use count 2 and 0.5
+        self.recipe1.ingredients = [Ingredient(name="Egg", quantity=2, unit="pc")]
+        self.recipe2.ingredients = [Ingredient(name="Egg", quantity=3, unit="pc")]
+
+        mp = crud.create_meal_plan(  # pylint: disable=unexpected-keyword-arg
+            name="Multiplier Plan",
+            recipes=[
+                {"recipe_id": self.recipe1.recipe_id, "count": 2.0},  # 2*2 = 4
+                {"recipe_id": self.recipe2.recipe_id, "count": 0.5},  # 0.5*3 = 1.5
+            ],
+        )
+        shopping = crud.generate_shopping_list(mp.meal_plan_id)
+        self.assertIsNotNone(shopping)
+        # flatten
+        all_items = []
+        for items in shopping.values():
+            all_items.extend(items)
+        egg = next((it for it in all_items if it["name"] == "Egg"), None)
+        self.assertIsNotNone(egg)
+        # 4 + 1.5 = 5.5
+        self.assertEqual(egg["quantity"], 5.5)
+
 
 class TestRecipeSearch(unittest.TestCase):
     """Tests for the recipe search functionality."""

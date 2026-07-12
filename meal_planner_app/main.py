@@ -436,12 +436,39 @@ def _recipe_to_dict(recipe: Recipe) -> dict:
 
 
 def _meal_plan_to_dict(meal_plan: MealPlan) -> dict:
-    """Serializes a MealPlan object to a dictionary."""
+    """Serializes a MealPlan object to a dictionary.
+    Always includes 'recipes': [{'id': str, 'count': float}, ...] for new contract.
+    Also includes 'recipe_ids' for legacy/backward compatibility.
+    Gracefully handles pre-existing objects that may only have recipe_ids.
+    """
+    # Determine entries supporting legacy or new model
+    entries = []
+    if hasattr(meal_plan, "recipes") and meal_plan.recipes:
+        entries = meal_plan.recipes
+    else:
+        rids = getattr(meal_plan, "recipe_ids", []) or []
+        entries = [{"recipe_id": rid, "count": 1.0} for rid in rids]
+
+    recipes_out = []
+    recipe_ids_out = []
+    for e in entries:
+        if isinstance(e, dict):
+            rid = e.get("recipe_id") or e.get("id")
+            cnt = float(e.get("count", 1.0))
+        else:
+            rid = e
+            cnt = 1.0
+        if rid:
+            rid_str = str(rid)
+            recipe_ids_out.append(rid_str)
+            recipes_out.append({"id": rid_str, "count": cnt})
+
     return {
         "id": str(meal_plan.meal_plan_id),
         "name": meal_plan.name,
         "description": meal_plan.description,
-        "recipe_ids": [str(rid) for rid in meal_plan.recipe_ids],
+        "recipe_ids": recipe_ids_out,
+        "recipes": recipes_out,
     }
 
 
@@ -578,18 +605,40 @@ def api_get_meal_plans():
 
 @app.route("/api/meal-plans", methods=["POST"])
 def api_create_meal_plan():
-    """API endpoint to create a new meal plan."""
+    """API endpoint to create a new meal plan.
+    Accepts new 'recipes': [{'id': uuidstr, 'count': float}, ...] or legacy 'recipe_ids'.
+    """
     data = request.get_json()
     if not data or not data.get("name"):
         abort(400, description="Name is required.")
 
     name = data["name"]
     description = data.get("description", "")
-    recipe_ids_str = data.get("recipe_ids", [])
-    recipe_ids = [uuid.UUID(rid) for rid in recipe_ids_str]
 
-    created_meal_plan = crud.create_meal_plan(
-        name, description=description, recipe_ids=recipe_ids
+    recipes_arg = None
+    recipe_ids_arg = None
+    recipes_input = data.get("recipes")
+    if recipes_input is not None and isinstance(recipes_input, list):
+        parsed = []
+        for r in recipes_input:
+            if isinstance(r, dict):
+                rid = r.get("id") or r.get("recipe_id")
+                if rid:
+                    try:
+                        cnt = float(r.get("count", r.get("quantity", 1)))
+                        parsed.append({"recipe_id": uuid.UUID(str(rid)), "count": cnt})
+                    except (ValueError, TypeError):
+                        continue
+        recipes_arg = parsed
+    else:
+        recipe_ids_str = data.get("recipe_ids", []) or []
+        try:
+            recipe_ids_arg = [uuid.UUID(str(rid)) for rid in recipe_ids_str]
+        except (ValueError, TypeError):
+            recipe_ids_arg = []
+
+    created_meal_plan = crud.create_meal_plan(  # pylint: disable=unexpected-keyword-arg
+        name, description=description, recipes=recipes_arg, recipe_ids=recipe_ids_arg
     )
     return jsonify(_meal_plan_to_dict(created_meal_plan)), 201
 
@@ -605,22 +654,45 @@ def api_get_meal_plan(meal_plan_id: uuid.UUID):
 
 @app.route("/api/meal-plans/<uuid:meal_plan_id>", methods=["PUT"])
 def api_update_meal_plan(meal_plan_id: uuid.UUID):
-    """API endpoint to update an existing meal plan."""
+    """API endpoint to update an existing meal plan.
+    Supports 'recipes' list with counts (fractional ok) or legacy 'recipe_ids'.
+    """
     data = request.get_json()
     if not data:
         abort(400)
 
     name = data.get("name")
     description = data.get("description")
-    recipe_ids_str = data.get("recipe_ids")
-    recipe_ids = (
-        [uuid.UUID(rid) for rid in recipe_ids_str]
-        if recipe_ids_str is not None
-        else None
-    )
 
-    updated_meal_plan = crud.update_meal_plan(
-        meal_plan_id, name=name, description=description, recipe_ids=recipe_ids
+    recipes_arg = None
+    recipe_ids_arg = None
+    recipes_input = data.get("recipes")
+    if recipes_input is not None and isinstance(recipes_input, list):
+        parsed = []
+        for r in recipes_input:
+            if isinstance(r, dict):
+                rid = r.get("id") or r.get("recipe_id")
+                if rid:
+                    try:
+                        cnt = float(r.get("count", r.get("quantity", 1)))
+                        parsed.append({"recipe_id": uuid.UUID(str(rid)), "count": cnt})
+                    except (ValueError, TypeError):
+                        continue
+        recipes_arg = parsed
+    else:
+        recipe_ids_str = data.get("recipe_ids")
+        if recipe_ids_str is not None:
+            try:
+                recipe_ids_arg = [uuid.UUID(str(rid)) for rid in recipe_ids_str]
+            except (ValueError, TypeError):
+                recipe_ids_arg = []
+
+    updated_meal_plan = crud.update_meal_plan(  # pylint: disable=unexpected-keyword-arg
+        meal_plan_id,
+        name=name,
+        description=description,
+        recipes=recipes_arg,
+        recipe_ids=recipe_ids_arg,
     )
     if not updated_meal_plan:
         abort(404)

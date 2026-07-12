@@ -413,27 +413,18 @@ This keeps the PDF feature robust while aligning with long-term i18n goals.
 
 ---
 
-<<<<<<< HEAD
-## Isolated Task 1: Create support for "a new list" (standalone shopping list) — 2026-07-12
+## Combined Tasks 1-4 (2026-07-12)
 
-**Branch:** `feat/create-standalone-shopping-list` (created before any edits, per standing instruction)
+Integrated from subagent worktrees (all verified in Docker):
 
-**Goal (narrow scope):** Allow creating a new standalone/empty shopping list (not tied to meal plan) via name only. Created list is empty so user can manually edit/add items later using existing UI. After create, view/edit uses existing patterns (ShoppingListView + PUT).
+- Task 1: Standalone shopping list creation (empty lists via name only).
+- Task 2: /api/units + datalist suggestions in recipe and shopping list forms.
+- Task 3: IngredientList/Detail/Form views (read-only derived from recipes; form is UI skeleton).
+- Task 4: Meal plan UI now uses dropdown + fractional count (0.5 etc.) instead of checkboxes. Backend model + shopping list generation updated with counts (legacy compat preserved).
 
-**Changes (minimal, no unrelated files touched):**
-- `meal_planner_app/models/shopping_list.py`: Made `meal_plan_id: Optional[uuid.UUID] = None` (necessary for standalone; was always defaulting to random uuid4).
-- `meal_planner_app/crud.py`: Extended `create_shopping_list(meal_plan_id=None, name=None)` to support standalone path (empty items=[], custom or default name) while preserving full original meal-plan generation behavior.
-- `meal_planner_app/main.py`: Updated `api_create_shopping_list` to accept `{"name": "..."}` (or with optional name+meal_plan_id); updated `_shopping_list_to_dict` to serialize `meal_plan_id` as null when absent.
-- `frontend/src/components/ShoppingListView.jsx`: Added `shoppingListId` prop support for direct load (to view/edit any list incl. standalone); added `handleCreateNewList` (POST {name}); updated no-list UI with "Create New Shopping List" button + explanatory text; added other-lists picker for switching/discoverability (reuses edit/add/remove/PDF/save).
-- `frontend/src/App.jsx`: Added import + route `shopping-lists` -> `<ShoppingListView />` (reuses the component for standalone manager when no mealplan props).
-- `frontend/src/components/Layout.jsx`: Added "Shopping Lists" nav link for discoverability.
-- `meal_planner_app/tests/test_shopping_list_api.py`: Added 2 new tests: `test_create_standalone_shopping_list` (name, empty, GET/PUT/edit flow) + `test_create_standalone_default_name`.
+See individual worktree .ai files for detailed per-task notes. Full Docker verification done in each.
 
-**No files created** (used edits only + inline reuse). No recipe/meal-plan/ingredient model or logic touched. Backend create supports empty lists.
-
-**Verification (ALL executed via Docker per AGENTS.md — no host python/npm/black/pylint/pytest runs for checks):**
-
-- `docker buildx bake dev` → succeeded ("exporting to image ... DONE", tagged meal-planner:dev + meal-planner-dev)
+Next: follow simplification recommendations (simplify Task 4 compat, trim Task 3 form, extract from ShoppingListView, centralize parsing, full Docker verify).
 - `docker run --rm -v $(pwd):/app -w /app meal-planner-dev python -m pytest meal_planner_app/tests/test_shopping_list_api.py -q --tb=short` → **12 passed**
 - `docker run --rm -v $(pwd):/app -w /app meal-planner-dev python -m pytest meal_planner_app/tests/ -q --tb=no` → **73 passed** ( +2 )
 - `docker run --rm -v "$(pwd):/app" -w /app meal-planner-dev python -m black --check .` → "All done! ... 15 files would be left unchanged"
@@ -521,3 +512,83 @@ All AGENTS Docker-first, pre-commit, lock, no-host-run rules followed.
 
 This completes isolated Task 3.
 >>>>>>> 8ebd6be (feat: add ingredient views (IngredientList, Detail, Form) modeled closely after recipe components)
+=======
+## Task 4 (this subagent): Meal plan recipe selection refactor to quantities/multipliers table
+
+**Scope (isolated):** Refactored checkboxes in MealPlanForm to dynamic addable rows (dropdown + decimal count input). Updated full contract (model, crud, API, to_dict, shopping multiply, detail UI, tests). Backward compat for recipe_ids + old create paths. Fractions (0.5 etc) supported. All per task spec; no work on units/ings/standalone.
+
+### Changes made
+
+**Model (meal_planner_app/models/meal_plan.py):**
+- Added `recipes: list[dict]` primary ({"recipe_id": UUID, "count": float}), with _normalize_recipes (merges dups, accepts id/count or legacy).
+- Properties + setters for `.recipes` (live list) and `.recipe_ids` (legacy compat, read/write).
+- __init__ accepts recipes= or recipe_ids= ; __repr__ updated.
+- Graceful handling in _meal_plan_to_dict for old instances.
+
+**Backend (crud.py, main.py):**
+- create_meal_plan / update_meal_plan: accept recipes= or recipe_ids= ; delegate to model.
+- add_recipe_to_meal_plan(..., count=1.0): now merges/increments count.
+- remove_recipe_from_meal_plan: removes entry.
+- generate_shopping_list: iterates recipe entries, multiplies numeric ingredient qty *= count (fractions work); legacy fallback.
+- _meal_plan_to_dict: returns both `"recipes": [{"id":str,"count":f}, ...]` + `"recipe_ids"` (compat).
+- api_create / api_update: parse "recipes" (new) or "recipe_ids" (legacy); always return new structure.
+
+**Frontend:**
+- MealPlanForm.jsx: full refactor of recipes section.
+  - state: recipes: [{recipe_id, count}]
+  - load supports data.recipes or fallback data.recipe_ids (counts=1)
+  - UI: rows as flex cards: <select> (allRecipes) + <input type=number step=0.1> + Remove btn
+  - + Add Recipe btn (avoids used where possible)
+  - submit: sends {recipes: [{id, count}, ...], recipe_ids: [...] for compat}
+- MealPlanDetail.jsx: resolves using recipes or fallback; renders "Name x 1.5"
+
+**Tests:**
+- Updated some API tests to exercise "recipes" payload.
+- Added test_create_meal_plan_with_recipe_counts_api, test_shopping_list_multiplies_by_recipe_count_api (in test_api.py)
+- Added test_create..._counts + test_generate..._with_counts (in test_crud.py) -- fractions + multiply verified.
+- Existing tests (using recipe_ids) continue to pass via compat.
+
+### Verification (ALL inside Docker per AGENTS.md -- no host python/npm/black/pytest)
+
+- Branch: `git checkout -b feat/meal-plan-recipe-quantities` (done at start).
+- `docker buildx bake dev` → succeeded (see: "exporting layers ... DONE", "naming to docker.io/library/meal-planner:dev done", "DONE 6.1s")
+- Backend tests: `docker run --rm -v "$(pwd):/app" -w /app meal-planner-dev python -m pytest meal_planner_app/tests/ -q --tb=no`
+  - **75 passed** (pre-task baseline ~71 from .ai; +4+ new quantity tests; all green)
+- Black: `docker run --rm -v "$(pwd):/app" -w /app meal-planner-dev python -m black --check .` → "All done! 15 files unchanged"
+- Pylint: `... python -m pylint --rcfile=.pylintrc meal_planner_app/` → **10.00/10**
+- Pre-commit (via dev image): ran (some auto black+ws fixes applied to py; reviewed+accepted)
+- Frontend (node:20-alpine, required):
+  ```
+  docker run --rm -v "$(pwd)/frontend:/app" -w /app node:20-alpine \
+    sh -c 'npm ci --no-audit --no-fund --silent && npm run format && npm run format-check && npm run lint'
+  ```
+  → "All matched files use Prettier code style!", eslint clean (no errors)
+- Rebuild observed post-edits.
+- node_modules cleaned via container (root-owned from volume).
+- git status clean for tracked (prettied jsx + black py).
+
+**Test count:** 71 (prior) → **75 passed** now.
+
+**Backward compat notes:** API still accepts/returns "recipe_ids"; model props support; legacy Jinja + add/remove routes + seed + tests unaffected (counts default 1). Old in-mem objects handled in to_dict. Shopping multiply is implemented (nice-to-have done).
+
+**UI notes:** Clean flex rows (not strict <table> but list of rows as allowed). step="0.1", parses float, supports e.g. 0.25/1.5. Dupe recipes in rows: allowed in UI (sent), normalized+summed in backend.
+
+**Files edited (absolute):**
+- /home/omekr/.grok/worktrees/.../meal_planner_app/models/meal_plan.py
+- .../crud.py
+- .../main.py
+- .../tests/test_api.py
+- .../tests/test_crud.py
+- frontend/src/components/MealPlanForm.jsx
+- frontend/src/components/MealPlanDetail.jsx
+- .ai/next_step.md (this)
+
+### Next steps
+- Commit + push branch (feat/meal-plan-recipe-quantities).
+- Update any E2E if needed (out of isolated scope).
+- Legacy server templates still use recipe_ids (counts hidden); future if wanted.
+- Full CI/docker bake prod recommended.
+- Report last SHA on request.
+
+**Definition of done for task:** All listed updates + docker verifs + tests added + .ai updated.
+>>>>>>> 466ac2c (feat: refactor meal plan recipe selection from checkboxes to quantity table (dropdown + decimal counts))
