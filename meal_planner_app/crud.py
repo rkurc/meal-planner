@@ -413,47 +413,61 @@ def reset_shopping_lists_db():
     shopping_lists_db = []
 
 
-def create_shopping_list(meal_plan_id: uuid.UUID) -> Optional[ShoppingList]:
+def create_shopping_list(
+    meal_plan_id: Optional[uuid.UUID] = None, name: Optional[str] = None
+) -> Optional[ShoppingList]:
     """
-    Generates a shopping list from a meal plan and saves it to the database.
+    Creates a shopping list.
+    - If meal_plan_id is provided: generates from the meal plan (original behavior).
+    - If no meal_plan_id: creates a standalone empty list with the given name (or default).
     """
-    meal_plan = get_meal_plan(meal_plan_id)
-    if not meal_plan:
-        return None
+    if meal_plan_id:
+        meal_plan = get_meal_plan(meal_plan_id)
+        if not meal_plan:
+            return None
 
-    # Use the existing generator function
-    generated = generate_shopping_list(meal_plan_id)
-    if generated is None:
-        return None  # Should not happen if meal_plan exists
+        # Use the existing generator function
+        generated = generate_shopping_list(meal_plan_id)
+        if generated is None:
+            return None  # Should not happen if meal_plan exists
 
-    # generated is now grouped {loc: [items...]} ; flatten for persisted ShoppingList
-    if isinstance(generated, dict):
-        flat = []
-        for loc_items in generated.values():
-            flat.extend(loc_items)
-        generated_items = flat
-    else:
-        generated_items = generated or []
+        # generated is now grouped {loc: [items...]} ; flatten for persisted ShoppingList
+        if isinstance(generated, dict):
+            flat = []
+            for loc_items in generated.values():
+                flat.extend(loc_items)
+            generated_items = flat
+        else:
+            generated_items = generated or []
 
-    # Convert generated items (dicts) to ShoppingListItem objects
-    list_items = [
-        ShoppingListItem(
-            name=item["name"],
-            quantity=item["quantity"],
-            unit=item["unit"],
-            purchased=False,  # Default to not purchased
-            location=item.get("location"),
-            location_id=item.get("location_id"),
+        # Convert generated items (dicts) to ShoppingListItem objects
+        list_items = [
+            ShoppingListItem(
+                name=item["name"],
+                quantity=item["quantity"],
+                unit=item["unit"],
+                purchased=False,  # Default to not purchased
+                location=item.get("location"),
+                location_id=item.get("location_id"),
+            )
+            for item in generated_items
+        ]
+
+        # Create the new shopping list object
+        list_name = name or f"Shopping List for {meal_plan.name}"
+        new_shopping_list = ShoppingList(
+            name=list_name,
+            items=list_items,
+            meal_plan_id=meal_plan_id,
         )
-        for item in generated_items
-    ]
-
-    # Create the new shopping list object
-    new_shopping_list = ShoppingList(
-        name=f"Shopping List for {meal_plan.name}",
-        items=list_items,
-        meal_plan_id=meal_plan_id,
-    )
+    else:
+        # Standalone empty list (for "a new list")
+        list_name = name or "New Shopping List"
+        new_shopping_list = ShoppingList(
+            name=list_name,
+            items=[],
+            meal_plan_id=None,
+        )
 
     shopping_lists_db.append(new_shopping_list)
     return new_shopping_list

@@ -22,4 +22,4 @@ class ShoppingList:
     name: str
     items: List[ShoppingListItem] = field(default_factory=list)
     id: uuid.UUID = field(default_factory=uuid.uuid4)
-    meal_plan_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    meal_plan_id: Optional[uuid.UUID] = None

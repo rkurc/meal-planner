@@ -31,6 +31,18 @@ const Layout = () => {
                 Meal Plans
               </NavLink>
             </li>
+            <li>
+              <NavLink
+                to="/shopping-lists"
+                className={({ isActive }) =>
+                  isActive
+                    ? "text-white bg-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                    : "text-gray-300 hover:bg-gray-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+                }
+              >
+                Shopping Lists
+              </NavLink>
+            </li>
           </ul>
         </div>
       </nav>

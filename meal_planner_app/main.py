@@ -645,25 +645,34 @@ def _shopping_list_to_dict(shopping_list: ShoppingList) -> dict:
     """Serializes a ShoppingList object to a dictionary."""
     sl_dict = asdict(shopping_list)
     sl_dict["id"] = str(sl_dict["id"])
-    sl_dict["meal_plan_id"] = str(sl_dict["meal_plan_id"])
+    mp_id = sl_dict.get("meal_plan_id")
+    sl_dict["meal_plan_id"] = str(mp_id) if mp_id else None
     return sl_dict
 
 
 @app.route("/api/shopping-lists", methods=["POST"])
 def api_create_shopping_list():
-    """API endpoint to create a new shopping list from a meal plan."""
-    data = request.get_json()
-    if not data or not data.get("meal_plan_id"):
-        abort(400, description="meal_plan_id is required.")
+    """API endpoint to create a new shopping list.
+    Supports:
+    - { "meal_plan_id": "..." }  (optionally with "name")
+    - { "name": "My List" } for a new standalone empty shopping list.
+    """
+    data = request.get_json() or {}
+    meal_plan_id_str = data.get("meal_plan_id")
+    name = data.get("name")
 
-    try:
-        meal_plan_id = uuid.UUID(data["meal_plan_id"])
-    except ValueError:
-        abort(400, description="Invalid meal_plan_id format.")
+    if meal_plan_id_str:
+        try:
+            meal_plan_id = uuid.UUID(meal_plan_id_str)
+        except ValueError:
+            abort(400, description="Invalid meal_plan_id format.")
 
-    shopping_list = crud.create_shopping_list(meal_plan_id)
-    if not shopping_list:
-        abort(404, description="Meal plan not found.")
+        shopping_list = crud.create_shopping_list(meal_plan_id=meal_plan_id, name=name)
+        if not shopping_list:
+            abort(404, description="Meal plan not found.")
+    else:
+        # Standalone "new list" - name optional, defaults in crud
+        shopping_list = crud.create_shopping_list(name=name)
 
     return jsonify(_shopping_list_to_dict(shopping_list)), 201
 

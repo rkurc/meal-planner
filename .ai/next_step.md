@@ -413,58 +413,49 @@ This keeps the PDF feature robust while aligning with long-term i18n goals.
 
 ---
 
-## Task 2 (isolated): Unit suggestions via /api/units (new recipe, edit recipe, shopping list edit) (2026-07-12)
+## Isolated Task 1: Create support for "a new list" (standalone shopping list) — 2026-07-12
 
-**Isolated task completed on branch `feat/add-unit-suggestions` (created per standing instruction before any edits).**
+**Branch:** `feat/create-standalone-shopping-list` (created before any edits, per standing instruction)
 
-**What was implemented (strictly unit-suggestion related code only):**
+**Goal (narrow scope):** Allow creating a new standalone/empty shopping list (not tied to meal plan) via name only. Created list is empty so user can manually edit/add items later using existing UI. After create, view/edit uses existing patterns (ShoppingListView + PUT).
 
-- Backend:
-  - `meal_planner_app/crud.py`: Added `list_unique_units()` collecting unique non-empty `unit` strings from all `recipe.ingredients` (modeled exactly on `list_unique_ingredient_names` / `list_unique_locations`).
-  - `meal_planner_app/main.py`: Added `GET /api/units` endpoint (after `/api/locations`), returns sorted list via `crud.list_unique_units()` (with pylint disable, matching siblings).
-- Frontend (non-blocking fetch pattern exactly as knownIngredients/knownLocations):
-  - `frontend/src/components/RecipeForm.jsx` (new + edit recipe): added `knownUnits` state; third fetch("/api/units") in the useEffect (empty deps, non-fatal catch); `list="known-units"` on unit `<input>` in ingredient rows; `<datalist id="known-units">` after locations datalist.
-  - `frontend/src/components/ShoppingListView.jsx` (shopping list edit, used from meal plan): added `knownUnits` state + matching fetch in the suggestions useEffect; `list="known-units"` on unit input in edit rows; `<datalist id="known-units">`.
-- Datalists preserve free-text entry (standard HTML behavior).
-- No changes to meal plan recipe selection (task 4), no master unit storage, no other files.
-- Added test: `test_api_get_units` in `meal_planner_app/tests/test_shopping_list_api.py` (controls data, asserts sorted uniques, excludes empty, no dups; +1 test).
+**Changes (minimal, no unrelated files touched):**
+- `meal_planner_app/models/shopping_list.py`: Made `meal_plan_id: Optional[uuid.UUID] = None` (necessary for standalone; was always defaulting to random uuid4).
+- `meal_planner_app/crud.py`: Extended `create_shopping_list(meal_plan_id=None, name=None)` to support standalone path (empty items=[], custom or default name) while preserving full original meal-plan generation behavior.
+- `meal_planner_app/main.py`: Updated `api_create_shopping_list` to accept `{"name": "..."}` (or with optional name+meal_plan_id); updated `_shopping_list_to_dict` to serialize `meal_plan_id` as null when absent.
+- `frontend/src/components/ShoppingListView.jsx`: Added `shoppingListId` prop support for direct load (to view/edit any list incl. standalone); added `handleCreateNewList` (POST {name}); updated no-list UI with "Create New Shopping List" button + explanatory text; added other-lists picker for switching/discoverability (reuses edit/add/remove/PDF/save).
+- `frontend/src/App.jsx`: Added import + route `shopping-lists` -> `<ShoppingListView />` (reuses the component for standalone manager when no mealplan props).
+- `frontend/src/components/Layout.jsx`: Added "Shopping Lists" nav link for discoverability.
+- `meal_planner_app/tests/test_shopping_list_api.py`: Added 2 new tests: `test_create_standalone_shopping_list` (name, empty, GET/PUT/edit flow) + `test_create_standalone_default_name`.
 
-**Files changed (only):**
-- meal_planner_app/crud.py
-- meal_planner_app/main.py
-- frontend/src/components/RecipeForm.jsx
-- frontend/src/components/ShoppingListView.jsx
-- meal_planner_app/tests/test_shopping_list_api.py
-- .ai/next_step.md (this update)
+**No files created** (used edits only + inline reuse). No recipe/meal-plan/ingredient model or logic touched. Backend create supports empty lists.
 
-**Verification evidence (ALL via Docker, no host python/node/npm/black/pylint/pytest; per AGENTS.md):**
+**Verification (ALL executed via Docker per AGENTS.md — no host python/npm/black/pylint/pytest runs for checks):**
 
-- Branch: `git checkout -b feat/add-unit-suggestions` (before edits).
-- Restored lock only for env (git checkout -- ... ; no package change).
-- `docker buildx bake dev` → succeeded with "exporting to image ... DONE", "naming to docker.io/library/meal-planner:dev done".
-- Backend tests: `docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev python -m pytest meal_planner_app/tests/ -q --tb=short` → **72 passed** ( +1 ; units test included).
-- Black: `docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev python -m black --check .` → "All done! 15 files would be left unchanged."
-- Pylint: `docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev python -m pylint --rcfile=.pylintrc meal_planner_app/` → "Your code has been rated at 10.00/10".
-- Frontend via node:20-alpine (with npm ci):
-  - `docker run --rm -v "$(pwd)/frontend:/app" -w /app node:20-alpine sh -c 'npm ci --no-audit --no-fund --silent && npm run format-check'` → "All matched files use Prettier code style!"
-  - `docker run --rm -v "$(pwd)/frontend:/app" -w /app node:20-alpine sh -c 'npm ci --no-audit --no-fund --silent && npm run lint'` → (clean, no errors).
-- Also via meal-planner:dev: `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev sh -c 'npm run format-check && npm run lint'` → clean Prettier + eslint.
-- (Pre-commit attempted but env git limitation inside container; core black/pylint + format/lint covered per past .ai handling.)
+- `docker buildx bake dev` → succeeded ("exporting to image ... DONE", tagged meal-planner:dev + meal-planner-dev)
+- `docker run --rm -v $(pwd):/app -w /app meal-planner-dev python -m pytest meal_planner_app/tests/test_shopping_list_api.py -q --tb=short` → **12 passed**
+- `docker run --rm -v $(pwd):/app -w /app meal-planner-dev python -m pytest meal_planner_app/tests/ -q --tb=no` → **73 passed** ( +2 )
+- `docker run --rm -v "$(pwd):/app" -w /app meal-planner-dev python -m black --check .` → "All done! ... 15 files would be left unchanged"
+- `docker run --rm -v $(pwd):/app -w /app meal-planner-dev python -m pylint --rcfile=.pylintrc meal_planner_app/` → **10.00/10**
+- Pre-commit via docker: `docker run --rm -v "$(pwd):/app" -w /app meal-planner-dev sh -c 'git config --global --add safe.directory /app && python -m pre_commit run --all-files'` → trailing ws/fix eof passed; black auto-fixed (1 py file, reviewed+included); pylint hook limitation noted but manual pylint clean.
+- Frontend (via meal-planner-dev image):
+  - `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner-dev sh -c 'npm ci --no-audit --no-fund --silent && npm run format-check'` → "All matched files use Prettier code style!"
+  - `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner-dev sh -c 'npm ci --no-audit --no-fund --silent && npm run lint'` → clean (no output, exit 0)
+- Prettier auto-fixed ShoppingListView.jsx (reviewed diff, no behavior change); black auto-fixed test file (list formatting).
+- Evidence of feature: new API path exercised in tests (create w/ name → 201, items==[], meal_plan_id==null, subsequent PUT adds items succeeds).
 
-**Status:** Task 2 done. Suggestions now available for units in recipe forms + shopping list edit (from meal plans), consistent with ingredients/locations. Free text still works.
+**Commands run (selected):**
+- git checkout -b feat/create-standalone-shopping-list (before edits)
+- All docker run ... meal-planner-dev ... as above + bake
+- After fixes: docker ... format ; checks re-ran green.
 
-**Next steps (for handoff):**
-- Commit + push branch (include this .ai update).
-- Report last commit SHA.
-- E2E (if needed) can later assert datalist presence, but out of scope here.
-- Do not merge overlapping tasks; isolated to units.
-- Update any future handoff in .ai/next_step.md .
+**Open / next (for handoff):**
+- Standalone lists have no dedicated full list UI beyond the picker in ShoppingListView and /ui/shopping-lists (reuses component); could enhance later if needed.
+- E2E not updated (out of narrow scope).
+- Update .ai/next_step.md + commit (this + code).
+- Push branch; report SHA.
 
-**Definition of done (self-check):**
-- [x] list_unique_units + /api/units implemented + tested
-- [x] RecipeForm + ShoppingListView use datalists for units
-- [x] non-blocking fetch, no free-text breakage
-- [x] Only unit suggestion code touched
-- [x] All verification Docker commands executed + evidence captured
-- [x] .ai/next_step.md updated + will commit together
+**Last commit (will be after update):** (to be captured on commit)
+
+All AGENTS Docker-first, pre-commit, lock, no-host-run rules followed.
 
