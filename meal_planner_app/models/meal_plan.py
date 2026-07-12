@@ -38,7 +38,7 @@ def _normalize_recipe_entries(entries):
 class MealPlan:
     """Represents a meal plan (collection of recipes with optional counts/multipliers)."""
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-arguments, too-many-positional-arguments
         self,
         name: str,
         description: str = "",
