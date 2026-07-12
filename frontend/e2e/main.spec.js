@@ -169,7 +169,7 @@ test("should generate shopping list from meal plan", async ({ page }) => {
 
   // Check if "Generate Shopping List" button exists (if not already generated)
   const generateButton = page.getByRole("button", {
-    name: "Generate Shopping List",
+    name: "Generate from Meal Plan",
   });
   const editButton = page.getByRole("button", { name: "Edit" });
 
@@ -196,7 +196,7 @@ test("should edit shopping list items", async ({ page }) => {
 
   // Generate shopping list if not already present
   const generateButton = page.getByRole("button", {
-    name: "Generate Shopping List",
+    name: "Generate from Meal Plan",
   });
   if (await generateButton.isVisible()) {
     await generateButton.click();
