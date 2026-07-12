@@ -132,6 +132,16 @@ def list_unique_locations() -> List[str]:
     return sorted(locs)
 
 
+def list_unique_units() -> List[str]:
+    """Returns a sorted list of unique non-empty unit strings from all recipe ingredients."""
+    units: set = set()
+    for recipe in recipes_db:
+        for ing in recipe.ingredients:
+            if ing.unit and str(ing.unit).strip():
+                units.add(str(ing.unit).strip())
+    return sorted(units)
+
+
 def reset_recipes_db():
     """Helper function to reset the database, primarily for testing."""
     # pylint: disable=global-statement

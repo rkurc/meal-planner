@@ -466,6 +466,13 @@ def api_get_locations():
     return jsonify(locs)
 
 
+@app.route("/api/units", methods=["GET"])
+def api_get_units():
+    """API endpoint to get unique units for suggestions (collected from recipe ingredients)."""
+    units = crud.list_unique_units()  # pylint: disable=no-member
+    return jsonify(units)
+
+
 @app.route("/api/recipes", methods=["POST"])
 def api_create_recipe():
     """API endpoint to create a new recipe."""
