@@ -732,4 +732,7 @@ All AGENTS.md rules followed (Docker verification, pre-commit equiv, no host too
 - Push branch; report SHA.
 - (Optional 3rd agent: full e2e if servers can be stood up, but not required for this pass.)
 
-**Last commit (will be after this update + add):** (recorded below on commit)
+**Last commit (final after amend for pre-commit ws fix):** cebe1b42c8c8ed4211ba9c32dedb4a6cd1f29570
+**Git log:** cebe1b4 feat: default ingredient unit on add; ...
+
+**Code review (via requesting-code-review dispatched subagent):** Clean approval. "Ready to merge / no blocking issues." No Critical or Important. Minors noted (dead IngredientDetail.jsx opportunity, minor dupe of default map fetch, delete UX asymmetry in picker). All functional reqs met, Docker evidence verified again by reviewer. .ai + commit satisfy handoff.
