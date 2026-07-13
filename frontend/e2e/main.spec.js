@@ -60,10 +60,11 @@ test("should create a new recipe", async ({ page }) => {
   await page.fill("#source_url", "https://example.com/recipe");
   await page.fill("#instructions", "Step 1: Do this\nStep 2: Do that");
 
-  // Add an ingredient
-  await page.fill("input[placeholder='Ingredient name']", "Test Ingredient");
+  // Add an ingredient; rely on auto-populate of default unit from /api/ingredients/summary
+  // (tests the Ingredient UX default-unit requirement in RecipeForm)
+  await page.fill("input[placeholder='Ingredient name']", "Flour");
   await page.fill("input[placeholder='Quantity']", "2");
-  await page.fill("input[placeholder='Unit']", "cups");
+  // Do not fill unit here; it should auto-set to "cups" (from summary for Flour) unless user pre-set.
 
   // Submit the form
   await page.getByRole("button", { name: "Create Recipe" }).click();
@@ -76,7 +77,7 @@ test("should create a new recipe", async ({ page }) => {
     page.getByRole("heading", { name: "E2E Test Recipe" }),
   ).toBeVisible();
   await expect(page.getByText("A recipe created by E2E test")).toBeVisible();
-  await expect(page.getByText("2 cups Test Ingredient")).toBeVisible();
+  await expect(page.getByText("2 cups Flour")).toBeVisible();
 });
 
 test("should view recipe details", async ({ page }) => {
@@ -212,15 +213,15 @@ test("should edit shopping list items", async ({ page }) => {
   // Find the last ingredient input set and fill it
   const nameInputs = await page.locator("input[placeholder='Item name']").all();
   const lastNameInput = nameInputs[nameInputs.length - 1];
-  await lastNameInput.fill("E2E Test Item");
+  // Use a seeded ingredient name with known default unit; do not pre-fill unit to test auto-populate
+  // (covers default-unit requirement in ShoppingListView handleItemChange)
+  await lastNameInput.fill("Milk");
 
   const qtyInputs = await page.locator("input[placeholder='Qty']").all();
   const lastQtyInput = qtyInputs[qtyInputs.length - 1];
   await lastQtyInput.fill("5");
 
-  const unitInputs = await page.locator("input[placeholder='Unit']").all();
-  const lastUnitInput = unitInputs[unitInputs.length - 1];
-  await lastUnitInput.fill("kg");
+  // Do not fill unit; expect auto "cups" from summary (Milk default)
 
   // Save the changes
   await page.getByRole("button", { name: "Save" }).click();
@@ -229,6 +230,55 @@ test("should edit shopping list items", async ({ page }) => {
   page.on("dialog", (dialog) => dialog.accept());
   await page.waitForTimeout(500);
 
-  // Verify the item is in the list
-  await expect(page.getByText("5 kg E2E Test Item")).toBeVisible();
+  // Verify the item is in the list (auto unit applied)
+  await expect(page.getByText("5 cups Milk")).toBeVisible();
+});
+
+test("should auto-populate default unit on name change but not overwrite if unit pre-entered (recipe + shopping)", async ({
+  page,
+}) => {
+  // Covers both RecipeForm and ShoppingListView default-unit UX + "unless already changed"
+  await page.goto("/ui/recipes/new");
+  await page.fill("#name", "Default Unit Unless Test");
+  await page.fill("#instructions", "Verify auto vs manual unit.");
+
+  // Case 1: name first -> auto unit (Baking Powder default is "tsp" from summary)
+  await page.fill("input[placeholder='Ingredient name']", "Baking Powder");
+  await page.fill("input[placeholder='Quantity']", "3");
+  const firstUnit = page.locator("input[placeholder='Unit']").first();
+  await expect(firstUnit).toHaveValue("tsp");
+
+  // Case 2: pre-enter unit, then name -> do not overwrite (unless behavior)
+  await page.getByRole("button", { name: "Add Ingredient" }).click();
+  const allNames = await page
+    .locator("input[placeholder='Ingredient name']")
+    .all();
+  const allUnits = await page.locator("input[placeholder='Unit']").all();
+  const secondUnit = allUnits[allUnits.length - 1];
+  await secondUnit.fill("manual-unit");
+  await allNames[allNames.length - 1].fill("Sugar");
+  await expect(secondUnit).toHaveValue("manual-unit"); // not "tbsp"
+
+  // create minimal
+  await page.getByRole("button", { name: "Create Recipe" }).click();
+  await page.waitForURL("**/recipes/*", { waitUntil: "networkidle" });
+
+  // Also smoke shopping list item add (embedded flow) for defaulting
+  await page.goto("/ui/meal-plans");
+  await page.getByRole("link", { name: "Weekly Meal Plan" }).click();
+  await page.waitForURL("**/meal-plans/*");
+  const genBtn = page.getByRole("button", { name: "Generate from Meal Plan" });
+  if (await genBtn.isVisible()) {
+    await genBtn.click();
+    await page.waitForTimeout(500);
+  }
+  const editBtn = page.getByRole("button", { name: "Edit" }).first();
+  await editBtn.click();
+  await page.getByRole("button", { name: "Add Item" }).click();
+  const sNames = await page.locator("input[placeholder='Item name']").all();
+  const sUnits = await page.locator("input[placeholder='Unit']").all();
+  const sLastUnit = sUnits[sUnits.length - 1];
+  await sLastUnit.fill("pre-unit");
+  await sNames[sNames.length - 1].fill("Butter");
+  await expect(sLastUnit).toHaveValue("pre-unit"); // not auto "tbsp"
 });

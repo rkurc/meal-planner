@@ -49,32 +49,34 @@ const IngredientList = () => {
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold text-gray-800">Ingredients</h2>
-        <span className="text-sm text-gray-500">
-          (derived from recipes — no master data yet)
-        </span>
+        <Link
+          to="/recipes/new"
+          className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded"
+        >
+          Add new ingredient
+        </Link>
       </div>
-      <ul className="space-y-4">
-        {ingredients.map((ingredient) => (
-          <li
-            key={ingredient.name}
-            className="bg-white shadow-md rounded-lg p-4 hover:shadow-lg transition-shadow"
-          >
-            <Link
-              to={`/ingredients/${encodeURIComponent(ingredient.name)}`}
-              className="block"
+      <ul className="space-y-2">
+        {ingredients.map((ingredient) => {
+          const count = ingredient.usage_count || 0;
+          const unit = ingredient.unit || "";
+          const loc = ingredient.location || "";
+          return (
+            <li
+              key={ingredient.name}
+              className="bg-white shadow-md rounded-lg p-3 flex justify-between items-center hover:shadow-lg transition-shadow"
             >
-              <h3 className="text-xl font-semibold text-gray-800 hover:text-blue-600 transition-colors">
+              <span className="text-xl font-semibold text-gray-800">
                 {ingredient.name}
-              </h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Used in {ingredient.usage_count} recipe
-                {ingredient.usage_count !== 1 ? "s" : ""}
-                {ingredient.unit ? ` • default unit: ${ingredient.unit}` : ""}
-                {ingredient.location ? ` • ${ingredient.location}` : ""}
-              </p>
-            </Link>
-          </li>
-        ))}
+              </span>
+              <span className="text-sm text-gray-600">
+                Used in {count} recipe{count !== 1 ? "s" : ""}
+                {unit ? ` • unit: ${unit}` : ""}
+                {loc ? ` • ${loc}` : ""}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

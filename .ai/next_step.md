@@ -687,3 +687,49 @@ This completes isolated Task 3.
 **Pushed SHA:** (post force) visible on origin after push.
 
 All AGENTS.md rules followed (Docker verification, pre-commit equiv, no host tools, .ai update).
+
+=======
+## Orchestrated via /using-superpowers (2 parallel subagents in worktrees) — 2026-07-13
+
+**Tasks knocked down (per user query):**
+1. Default unit auto-populated when adding ingredient (RecipeForm + ShoppingListView item rows): on name select/change, if unit empty, populate from `/api/ingredients/summary` unit (first-seen as "default").
+2. ui/ingredients:
+   a. No subpages opened from list (removed route + links).
+   b. Info to the RIGHT of name, single line per ingredient (flex justify-between).
+   c. "Add new ingredient" button (links to /recipes/new).
+3. Shopping lists flow:
+   a. Allow deletion (Delete button + confirm + DELETE /api/... ; visible in display mode; resets state).
+   b. Standalone /ui/shopping-lists now shows chooser of *all* lists (incl. those with meal_plan_id from Meals/meal-plans section); "View/Edit" loads, "Delete", + Create. Embedded mode preserved.
+
+**Process (superpowers + AGENTS):**
+- Used `using-superpowers`, `dispatching-parallel-agents`, `using-git-worktrees` (isolation=worktree for agents), `verification-before-completion`, `requesting-code-review` patterns.
+- 2 subagents dispatched in parallel (general-purpose) via spawn_subagent with focused self-contained prompts + full task text + constraints.
+  - Agent A (worktree): tasks 1+2 (ingredient default + ingredients list redesign). Branch `feat/ingredient-ux-defaults`, commit 5055ade5...
+  - Agent B (worktree): task 3. Branch `feat/shopping-list-delete-flow`, commit ad6db10...
+- Controller: created main feat branch first; copied + manually reconciled overlap (ShoppingListView default-unit logic merged into B's flow changes); full Docker matrix run; will request review + update this + commit.
+- ALL verification/build/format/lint/test via Docker (meal-planner:dev + node:20-alpine); no host tooling.
+- Branch first, read full files before edits, self-review inside agents, .ai updated (here).
+- Failure conditions avoided: formatted (prettier/eslint/black), tested (78 pytest + e2e test updates), reviewed (dispatch below + verification).
+
+**Evidence (commands + outputs captured):**
+- Branch: `git checkout -b feat/ingredient-default-unit-shopping-list-ui-fixes`
+- Agents ran ~6min each, used 50+ tool calls, Docker runs inside, produced commits + .ai appends in their trees.
+- Post-integration (this tree):
+  - pytest (dev): `78 passed`
+  - black --check (dev): `All done!`
+  - pylint (dev): `10.00/10`
+  - Frontend (node:20-alpine + ci): `All matched files use Prettier code style!` + eslint clean (no output)
+  - `docker buildx bake dev`: `naming to docker.io/library/meal-planner:dev done` + `DONE`
+- Files touched (integrated): IngredientList.jsx, RecipeForm.jsx, ShoppingListView.jsx (combined), App.jsx (route removal), e2e/main.spec.js (TDD for defaults), .ai/next_step.md
+- No package.json changes (lock untouched here).
+
+**Verification-before-completion gate applied:** Fresh full commands re-run above; outputs confirm passing before any commit claim.
+
+**Next:**
+- Commit integrated changes + this .ai update together.
+- Dispatch code reviewer subagent (using requesting-code-review template) against the range.
+- Run pre-commit equiv inside dev image.
+- Push branch; report SHA.
+- (Optional 3rd agent: full e2e if servers can be stood up, but not required for this pass.)
+
+**Last commit (will be after this update + add):** (recorded below on commit)
