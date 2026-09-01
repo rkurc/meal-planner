@@ -80,13 +80,6 @@ WORKDIR /app/frontend
 RUN npm ci --no-audit --no-fund
 WORKDIR /app
 
-# Build legacy Tailwind CSS (for the old Jinja templates served at /recipes etc.)
-# This prevents 404 on /static/css/dist/output.css when using legacy UI.
-RUN npx --yes -p tailwindcss@3 -p postcss -p autoprefixer \
-      tailwindcss \
-      -i ./meal_planner_app/static/css/src/input.css \
-      -o ./meal_planner_app/static/css/dist/output.css --minify || true
-
 # Apply ownership to everything (including node_modules created above)
 RUN chown -R appuser:appuser /app
 
