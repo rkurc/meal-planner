@@ -1,6 +1,6 @@
 # Jinja UI Decommission Implementation Plan
 
-> **Status (2026-09-02):** Tasks 1–6 complete on `feat/decommission-jinja-ui` (commits `5b2df09`, `a526cd8`, `789212c`, `e273724`, plus the docs commit). React at `/ui/` is the only HTML UI. **Task 7 (full Docker verification) is next** — do not claim the definition of done until that gate is observed.
+> **Status (2026-09-02):** Tasks 1–6 complete on `feat/decommission-jinja-ui` (commits `5b2df09`, `a526cd8`, `789212c`, `e273724`, `7d63129`). Task 7 verification **ran** in Docker (`meal-planner:dev` / `meal-planner:prod`). Bake/pytest/black/pylint/frontend/grep/redirect/PDF are green. Playwright is **9/10**: the new search test passed; the pre-existing default-unit test fails on full-page `GET /ui/recipes/new` (Vite `base: "./"` → nested `./assets/` 404). Do not treat the full Playwright suite as green.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -127,7 +127,7 @@ Automatic recipe discovery, master ingredient CRUD, auth, OpenAPI, persistent DB
 - [x] Root `package.json` no longer has `build:css` / tailwind 3
 - [x] `pyproject.toml` package-data no longer lists templates
 - [x] Docs updated (progress, migration plan, README)
-- [ ] Docker verification list all green (below) — Task 7; not claimed in the docs pass
+- [ ] Docker verification list all green (below) — Task 7 ran; Playwright full suite not 10/10 (see Task 7)
 
 ---
 
@@ -783,15 +783,15 @@ git commit -m "docs: mark Jinja decommission complete; React is the only HTML UI
 
 Run the **After Phase B** block in “Verification list” above. Do not claim done until:
 
-- [ ] `docker buildx bake dev` and `prod` observed DONE
-- [ ] pytest all green in the dev image
-- [ ] black `--check` clean
-- [ ] pylint 10.00/10
-- [ ] frontend format-check + lint clean
-- [ ] Playwright including the new search test
-- [ ] `rg render_template meal_planner_app` has no `main.py` hits
-- [ ] `GET /` 302 `/ui/`
-- [ ] A persisted shopping-list PDF still starts with `%PDF`
+- [x] `docker buildx bake dev` and `prod` observed DONE (`#46 naming to docker.io/library/meal-planner:dev done` / `#44 naming to docker.io/library/meal-planner:prod done`; no `tailwindcss@3` / `input.css`)
+- [x] pytest all green in the dev image (`83 passed, 4 warnings in 0.65s`)
+- [x] black `--check` clean (`15 files would be left unchanged`)
+- [x] pylint 10.00/10
+- [x] frontend format-check + lint clean (Prettier “All matched files”; eslint exit 0)
+- [ ] Playwright including the new search test — **search passed**; full suite **9 passed / 1 failed** (`should auto-populate default unit…` timeout on `#name` after `goto("/ui/recipes/new")`; Vite `base: "./"`; retry failed the same way)
+- [x] `rg render_template meal_planner_app` has no `main.py` hits (no matches under `meal_planner_app` at all)
+- [x] `GET /` 302 `/ui/` (gunicorn `Location: /ui/`; Flask test_client same)
+- [x] A persisted shopping-list PDF still starts with `%PDF` (pytest magic + live `GET /shopping-lists/<id>/pdf` → `200 application/pdf`, magic `b'%PDF-1.3'`)
 
 ---
 
