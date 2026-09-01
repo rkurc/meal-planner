@@ -1,52 +1,57 @@
-> **STANDING INSTRUCTION (for all agents):**
-> **Whenever you start a new task, create a new branch first** (see AGENTS.md → "Branching Policy").
-> Read this file first, then run `git checkout -b <appropriate-branch-name>` before editing code.
-
 # .ai/next_step.md — Handoff
 
-**Last updated:** 2026-09-03 (PR #38 babysit: Vite `base` fix for nested SPA routes)
+**Branch:** `feat/decommission-jinja-ui` (do not switch branches for remaining decommission tasks)
+**Last updated:** 2026-09-02
 
-## Current branch / code
+## Standing instruction
+Create a new branch only when starting **unrelated** work. This decommission work stays on `feat/decommission-jinja-ui`.
 
-- **Branch:** `feat/ingredient-default-unit-shopping-list-ui-fixes` (PR #38)
-- **Base:** `main`
-- **This session:** CI `test-in-container` failed on Playwright deep-link `/ui/recipes/new`.
+## Context
+Phase 3 of `.ai/migration_plan.md`: decommission Jinja so `/ui` React is the only search/list UI. Jinja templates still exist and must not be deleted until later tasks.
 
-## What this session did
+## Completed
 
-CI job `test-in-container`: 8/9 Playwright tests passed. The only failure was:
+### Task 1 (prior) — API search filters
+Commit `5b2df09`: `GET /api/recipes?q=&ingredient=` filters via `crud.search_recipes`. Empty both params still lists all.
 
-`e2e/main.spec.js:237 › should auto-populate default unit on name change...`
+### Task 2 (this) — React recipe search UI + E2E
+Commit message: `feat: add recipe search and ingredient filter to React list`
 
-Timeout waiting for `#name` after `page.goto("/ui/recipes/new")`.
+**What landed**
+- `RecipeList` reads `q` / `ingredient` from the URL (`useSearchParams`), fetches `/api/recipes` with those params, and keeps the search form visible even when the list is empty or loading (no early return before the form).
+- Search inputs: `#recipe-search`, `#ingredient-filter`, submit button **Search**.
+- Clear control is a **link** named **Clear** (`getByRole("link", { name: "Clear" })`), shown only when a filter is active; navigates to `/recipes` and clears params.
+- Existing `RecipeItem` headings unchanged (`Classic Pancakes` / `Simple Omelette`).
+- Basename remains `/ui`.
+- Backend not changed in this task.
 
-**Root cause:** `frontend/vite.config.js` had `base: "./"`. Flask/gunicorn serves the SPA at `/ui/`. A full-page load of `/ui/recipes/new` made the browser resolve `./assets/*.js` as `/ui/recipes/assets/*.js` → 404. Flask catch-all still returned `index.html` (200), so `#name` never appeared. Client-side navigations from `/ui/recipes` still worked (create/edit/delete tests passed).
+**TDD**
+1. E2E appended first: `should filter recipes by search query and ingredient` in `frontend/e2e/main.spec.js`.
+2. Red proven: `#recipe-search` absent from `RecipeList.jsx` before implementation.
+3. Implementation then format/lint.
 
-**Fix:** set Vite `base` to `"/ui/"` so built assets are always `/ui/assets/...`. Plugins, `outDir`, and proxy unchanged. `App.jsx` already has `basename: "/ui"`.
+**Verification (Docker-first, no host npm/python)**
+- `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev sh -c 'npm ci --no-audit --no-fund --silent && npm run format && npm run format-check && npm run lint'`
+  - Prettier: "All matched files use Prettier code style!"
+  - eslint: exit 0
+- API smoke (seeded): `q=Pancake` → Classic Pancakes only; `ingredient=Cheese` → Simple Omelette only.
+- Playwright (gunicorn `TESTING=true`, `BASE_URL=http://127.0.0.1:5000`, mounted source + `npm run build` so `/ui` served the new bundle):
+  - `✓ should filter recipes by search query and ingredient (338ms)` — 1 passed
 
-**Verification (Docker, node:20-alpine):**
+**Files**
+- `frontend/src/components/RecipeList.jsx`
+- `frontend/e2e/main.spec.js`
+- `.ai/next_step.md` (this)
 
-```bash
-docker run --rm -v "$(pwd)/frontend:/app" -w /app node:20-alpine \
-  sh -c 'npm ci --no-audit --no-fund --silent && npm run format-check && npm run lint && npx vite build --outDir /tmp/react_build --emptyOutDir'
-```
+## Next (later decommission tasks)
+Do **not** delete Jinja in this commit. Remaining Phase 3 work (separate tasks):
+1. Confirm remaining Jinja-only UI has React parity (meal plans, shopping, recipe CRUD already on `/ui`).
+2. Remove Jinja HTML routes in `meal_planner_app/main.py` (keep `/api/*` and `/ui` SPA serving).
+3. Delete `meal_planner_app/templates/*.html` and leftover Jinja-only form handling.
+4. Point any leftover links/docs at `/ui`; keep E2E on `/ui/` + `BASE_URL=http://localhost:5000`.
+5. Re-run full Playwright suite + pytest in Docker after route deletion.
 
-- prettier `--check`: All matched files use Prettier code style
-- eslint: clean
-- built `index.html` now has `src="/ui/assets/index-C9PrhREh.js"` and CSS `/ui/assets/index-Hp2rs4_N.css`
-
-Full Playwright vs gunicorn was not re-run locally (CI image rebuild is heavy); CI will re-run on push.
-
-## Next steps
-
-1. Wait for PR #38 CI (`test-in-container`) to go green after this push.
-2. Do **not** merge from this babysit pass; do **not** touch `feat/decommission-jinja-ui`.
-3. Land this branch on `main` only if the default-unit / shopping-list UX is accepted.
-4. Remaining product gaps (not this PR): Jinja decommission plan, dead `IngredientDetail.jsx`, persistent DB, auth, OpenAPI.
-
-## Definition of done for *this* fix
-
-- [x] Vite `base` set to `"/ui/"`
-- [x] Docker prettier + eslint clean
-- [x] Vite production build emits absolute `/ui/assets/` URLs
-- [ ] CI Playwright `test-in-container` green (pending this push)
+## Out of scope / notes
+- Do not push unless asked.
+- Do not change backend search contract (`q`, `ingredient`).
+- Generated `meal_planner_app/static/react_app/{index.html,assets/}` from local E2E rebuild is untracked; do not commit.
