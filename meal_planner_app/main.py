@@ -453,8 +453,13 @@ def _meal_plan_to_dict(meal_plan: MealPlan) -> dict:
 
 @app.route("/api/recipes", methods=["GET"])
 def api_get_recipes():
-    """API endpoint to get a list of all recipes."""
-    recipes = crud.list_recipes()
+    """List recipes, optionally filtered with q / ingredient (Jinja search parity)."""
+    query = (request.args.get("q") or "").strip()
+    ingredient = (request.args.get("ingredient") or "").strip()
+    if query or ingredient:
+        recipes = crud.search_recipes(query=query, filter_ingredient=ingredient)
+    else:
+        recipes = crud.list_recipes()
     return jsonify([_recipe_to_dict(recipe) for recipe in recipes])
 
 

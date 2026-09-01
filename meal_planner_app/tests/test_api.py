@@ -266,6 +266,53 @@ class TestApi(unittest.TestCase):
         response = self.client.delete(f"/api/recipes/{non_existent_id}")
         self.assertEqual(response.status_code, 404)
 
+    def test_get_recipes_api_search_by_q(self):
+        crud.create_recipe(name="Classic Pancakes", instructions="Mix")
+        crud.create_recipe(name="Simple Omelette", instructions="Fold")
+        response = self.client.get("/api/recipes?q=pancake")
+        self.assertEqual(response.status_code, 200)
+        names = [r["name"] for r in response.get_json()]
+        self.assertEqual(names, ["Classic Pancakes"])
+
+    def test_get_recipes_api_filter_ingredient(self):
+        crud.create_recipe(
+            name="Pancakes",
+            instructions="Mix",
+            ingredients_data=[{"name": "Flour", "quantity": 1, "unit": "cup"}],
+        )
+        crud.create_recipe(
+            name="Omelette",
+            instructions="Fold",
+            ingredients_data=[{"name": "Cheese", "quantity": 1, "unit": "oz"}],
+        )
+        response = self.client.get("/api/recipes?ingredient=Cheese")
+        self.assertEqual(response.status_code, 200)
+        names = [r["name"] for r in response.get_json()]
+        self.assertEqual(names, ["Omelette"])
+
+    def test_get_recipes_api_q_and_ingredient(self):
+        crud.create_recipe(
+            name="Cheese Omelette",
+            instructions="Fold",
+            ingredients_data=[{"name": "Cheese", "quantity": 1, "unit": "oz"}],
+        )
+        crud.create_recipe(
+            name="Cheese Sandwich",
+            instructions="Assemble",
+            ingredients_data=[{"name": "Cheese", "quantity": 1, "unit": "oz"}],
+        )
+        response = self.client.get("/api/recipes?q=omelette&ingredient=Cheese")
+        self.assertEqual(response.status_code, 200)
+        names = [r["name"] for r in response.get_json()]
+        self.assertEqual(names, ["Cheese Omelette"])
+
+    def test_get_recipes_api_no_params_returns_all(self):
+        crud.create_recipe(name="A", instructions="a")
+        crud.create_recipe(name="B", instructions="b")
+        response = self.client.get("/api/recipes")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.get_json()), 2)
+
 
 class TestMealPlanApi(unittest.TestCase):
     """Tests specifically for the Meal Plan API endpoints."""
