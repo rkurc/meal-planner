@@ -7,51 +7,53 @@
 Create a new branch only when starting **unrelated** work. This decommission work stays on `feat/decommission-jinja-ui`.
 
 ## Context
-Phase 3 of `.ai/migration_plan.md`: decommission Jinja so `/ui` React is the only search/list UI. Jinja templates still exist and must not be deleted until later tasks.
+Phase 3 of `.ai/migration_plan.md`: decommission Jinja so `/ui` React is the only HTML UI. Legacy GET paths now 302 into `/ui/…`. Templates and form POST handlers are gone.
 
 ## Completed
 
 ### Task 1 (prior) — API search filters
 Commit `5b2df09`: `GET /api/recipes?q=&ingredient=` filters via `crud.search_recipes`. Empty both params still lists all.
 
-### Task 2 (this) — React recipe search UI + E2E
-Commit message: `feat: add recipe search and ingredient filter to React list`
+### Task 2 (prior) — React recipe search UI + E2E
+Commit `a526cd8`: `feat: add recipe search and ingredient filter to React list`
+
+### Tasks 3+4 (this) — Legacy GET redirects + remove Jinja
+Commit message: `feat: decommission Jinja UI; redirect legacy GET paths to /ui/`
 
 **What landed**
-- `RecipeList` reads `q` / `ingredient` from the URL (`useSearchParams`), fetches `/api/recipes` with those params, and keeps the search form visible even when the list is empty or loading (no early return before the form).
-- Search inputs: `#recipe-search`, `#ingredient-filter`, submit button **Search**.
-- Clear control is a **link** named **Clear** (`getByRole("link", { name: "Clear" })`), shown only when a filter is active; navigates to `/recipes` and clears params.
-- Existing `RecipeItem` headings unchanged (`Classic Pancakes` / `Simple Omelette`).
-- Basename remains `/ui`.
-- Backend not changed in this task.
+- TDD: redirect tests added first; `TestApi::test_root_redirects_to_ui` failed `200 != 302` while Jinja still rendered.
+- GET-only 302s: `/` → `/ui/`; `/recipes`, `/recipes/new`, `/recipes/<id>`, `/recipes/<id>/edit`; `/meal-plans`, `/meal-plans/new`, `/meal-plans/<id>`, `/meal-plans/<id>/edit`.
+- Shopping HTML GET `/meal-plans/<id>/shopping-list` → `/ui/meal-plans/<id>` (not a shopping-list path).
+- No POST form aliases (`/recipes/new`, `/delete`, `/add-recipe`, etc.).
+- Deleted `nl2br`, `parse_ingredients_from_textarea`, and all Jinja HTML handlers (`recipe_list` through `shopping_list_detail_route`).
+- Deleted `meal_planner_app/templates/` (8 HTML files).
+- Failed meal-plan PDF (`generate_shopping_list` is None) now `abort(404)` instead of redirecting to deleted HTML.
+- Kept: `remove_trailing_slash`, `_pdf_attachment_response`, both PDF routes (`/meal-plans/<id>/shopping-list/pdf` and `/shopping-lists/<id>/pdf`), `/api/*`, `/ui` catch-all.
+- Dropped unused imports: `render_template`, `url_for`, `Markup`, `escape`. `render_template` is gone from `main.py`.
+- Removed form POST tests: `test_create_recipe_via_form`, `test_edit_recipe_via_form`, `test_delete_recipe_via_form`, `test_create_meal_plan_via_form`, `test_generate_shopping_list_route`.
 
-**TDD**
-1. E2E appended first: `should filter recipes by search query and ingredient` in `frontend/e2e/main.spec.js`.
-2. Red proven: `#recipe-search` absent from `RecipeList.jsx` before implementation.
-3. Implementation then format/lint.
-
-**Verification (Docker-first, no host npm/python)**
-- `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev sh -c 'npm ci --no-audit --no-fund --silent && npm run format && npm run format-check && npm run lint'`
-  - Prettier: "All matched files use Prettier code style!"
-  - eslint: exit 0
-- API smoke (seeded): `q=Pancake` → Classic Pancakes only; `ingredient=Cheese` → Simple Omelette only.
-- Playwright (gunicorn `TESTING=true`, `BASE_URL=http://127.0.0.1:5000`, mounted source + `npm run build` so `/ui` served the new bundle):
-  - `✓ should filter recipes by search query and ingredient (338ms)` — 1 passed
+**Verification (Docker-first, `meal-planner:dev`)**
+- Red: `pytest meal_planner_app/tests/test_api.py::TestApi::test_root_redirects_to_ui` → `AssertionError: 200 != 302`
+- Green: `python -m pytest meal_planner_app/tests/ -q --tb=short` → **83 passed**, 4 warnings (fpdf2 `ln` deprecation in PDF tests)
+- Redirect tests 302; PDF tests still 200 `application/pdf`
+- `python -m black .` — 15 files unchanged after format
+- `python -m pylint --rcfile=.pylintrc meal_planner_app` — **10.00/10**
+  - `TestApi` has `# pylint: disable=too-many-public-methods` (21 methods / 20 default) so redirect tests stay on `TestApi` as specified.
 
 **Files**
-- `frontend/src/components/RecipeList.jsx`
-- `frontend/e2e/main.spec.js`
+- `meal_planner_app/main.py`
+- `meal_planner_app/tests/test_api.py`
+- `meal_planner_app/templates/*.html` (deleted)
 - `.ai/next_step.md` (this)
 
-## Next (later decommission tasks)
-Do **not** delete Jinja in this commit. Remaining Phase 3 work (separate tasks):
-1. Confirm remaining Jinja-only UI has React parity (meal plans, shopping, recipe CRUD already on `/ui`).
-2. Remove Jinja HTML routes in `meal_planner_app/main.py` (keep `/api/*` and `/ui` SPA serving).
-3. Delete `meal_planner_app/templates/*.html` and leftover Jinja-only form handling.
-4. Point any leftover links/docs at `/ui`; keep E2E on `/ui/` + `BASE_URL=http://localhost:5000`.
-5. Re-run full Playwright suite + pytest in Docker after route deletion.
+## Next (remaining decommission tasks)
+Do **not** switch branches. Remaining work (separate tasks):
+1. **Task 5 — CSS pipeline:** drop leftover Jinja Tailwind/PostCSS build in `Dockerfile` (comment still says "legacy Tailwind CSS for old Jinja templates"). Keep React/Vite CSS.
+2. **Task 6 — docs rewrite:** README, `.ai/*.md`, `pyproject.toml` package-data `templates/**/*`, stack/requirements still describe dual Jinja+React UI.
+3. Re-run full Playwright suite in Docker against `/ui/` after these backend route changes (pytest already green).
 
 ## Out of scope / notes
 - Do not push unless asked.
-- Do not change backend search contract (`q`, `ingredient`).
-- Generated `meal_planner_app/static/react_app/{index.html,assets/}` from local E2E rebuild is untracked; do not commit.
+- Keep `/ui` basename.
+- Keep both PDF routes.
+- Do not restore POST form aliases.
