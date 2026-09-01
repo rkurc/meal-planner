@@ -26,7 +26,6 @@ coverage.xml
 .pytest_cache/
 
 # Build outputs / generated
-meal_planner_app/static/css/dist/
 *.egg-info/
 dist/
 build/

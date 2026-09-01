@@ -65,7 +65,7 @@ COPY --from=backend-builder /usr/local/bin/gunicorn /usr/local/bin/gunicorn
 # Copy built React assets from the frontend-builder stage
 COPY --from=frontend-builder /app/meal_planner_app/static/react_app/ /app/meal_planner_app/static/react_app/
 
-# Copy only the app package (source layout for runtime paths + templates + static base)
+# Copy only the app package (source layout for runtime paths + static assets)
 # NO broad "COPY . ." which would pull in frontend/ node_modules, dev files, and cause root ownership
 COPY meal_planner_app/ ./meal_planner_app/
 
