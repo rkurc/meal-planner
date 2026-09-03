@@ -19,6 +19,7 @@ const RecipeForm = () => {
   const [knownIngredients, setKnownIngredients] = useState([]);
   const [knownLocations, setKnownLocations] = useState([]);
   const [knownUnits, setKnownUnits] = useState([]);
+  const [ingredientDefaultUnits, setIngredientDefaultUnits] = useState({});
 
   useEffect(() => {
     if (isEditing) {
@@ -68,6 +69,28 @@ const RecipeForm = () => {
         // non-fatal for suggestions
       });
 
+    // Fetch richer summary data to support default unit auto-populate (name -> unit)
+    // Follows exact existing pattern of separate fetch + non-fatal catch for known data.
+    fetch("/api/ingredients/summary")
+      .then((response) => {
+        if (!response.ok) return [];
+        return response.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) {
+          const map = {};
+          data.forEach((item) => {
+            if (item && item.name) {
+              map[item.name] = item.unit || "";
+            }
+          });
+          setIngredientDefaultUnits(map);
+        }
+      })
+      .catch(() => {
+        // non-fatal
+      });
+
     fetch("/api/locations")
       .then((response) => {
         if (!response.ok) return [];
@@ -107,7 +130,21 @@ const RecipeForm = () => {
 
   const handleIngredientChange = (index, field, value) => {
     const updatedIngredients = [...formData.ingredients];
+    const currentUnit = updatedIngredients[index].unit;
     updatedIngredients[index][field] = value;
+    // Auto-populate unit with ingredient's default (from summary) ONLY if unit field is currently empty/falsy.
+    // This supports "when adding an ingredient" UX; does not overwrite if user already entered/changed unit.
+    if (
+      field === "name" &&
+      value &&
+      (!currentUnit || currentUnit.trim() === "")
+    ) {
+      const trimmedName = value.trim();
+      const defUnit = ingredientDefaultUnits[trimmedName];
+      if (defUnit) {
+        updatedIngredients[index].unit = defUnit;
+      }
+    }
     setFormData((prev) => ({
       ...prev,
       ingredients: updatedIngredients,
