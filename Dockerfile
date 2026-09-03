@@ -65,7 +65,7 @@ COPY --from=backend-builder /usr/local/bin/gunicorn /usr/local/bin/gunicorn
 # Copy built React assets from the frontend-builder stage
 COPY --from=frontend-builder /app/meal_planner_app/static/react_app/ /app/meal_planner_app/static/react_app/
 
-# Copy only the app package (source layout for runtime paths + templates + static base)
+# Copy only the app package (source layout for runtime paths + static assets)
 # NO broad "COPY . ." which would pull in frontend/ node_modules, dev files, and cause root ownership
 COPY meal_planner_app/ ./meal_planner_app/
 
@@ -79,13 +79,6 @@ RUN chmod +x start_and_seed.sh
 WORKDIR /app/frontend
 RUN npm ci --no-audit --no-fund
 WORKDIR /app
-
-# Build legacy Tailwind CSS (for the old Jinja templates served at /recipes etc.)
-# This prevents 404 on /static/css/dist/output.css when using legacy UI.
-RUN npx --yes -p tailwindcss@3 -p postcss -p autoprefixer \
-      tailwindcss \
-      -i ./meal_planner_app/static/css/src/input.css \
-      -o ./meal_planner_app/static/css/dist/output.css --minify || true
 
 # Apply ownership to everything (including node_modules created above)
 RUN chown -R appuser:appuser /app

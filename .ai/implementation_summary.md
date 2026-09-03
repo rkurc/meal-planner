@@ -1,75 +1,78 @@
 # Implementation Summary
 
-This document provides an overview of the features currently implemented in the Meal Planner application and outlines the work that remains to be done, based on the project's requirements and migration plan.
+Overview of what is implemented versus remaining work. **Reconciled 2026-09-02 against `feat/decommission-jinja-ui`.** Canonical matrix: `.ai/progress.md`.
+
+The 2026-08-25 snapshot (hybrid Jinja + React, 78 pytest, 9 E2E, search Jinja-only) is obsolete. Jinja HTML is **gone**.
 
 ## 1. Current Implemented Features
 
-The application provides a functional headless API backend with full feature coverage for core domains, a complete traditional server-rendered UI (Jinja2), and a modern UI (React) with parity for recipes, meal plans, and shopping lists. All backend tests pass. (Verified 2026-06-16 via Docker.)
+Headless-ish Flask API (JSON + PDF + SPA static + legacy GET **redirects**), React SPA at `/ui/` as the **only HTML UI**. Storage is **in-memory** (lost on process restart; seed / migrate on start).
 
-### Backend & API (Full)
+### Backend & API
 
-*   **Recipe API (`/api/recipes`):** Full CRUD implemented: `GET /api/recipes`, `POST /api/recipes`, `GET /api/recipes/<id>`, `PUT /api/recipes/<id>`, `DELETE /api/recipes/<id>`.
-*   **Meal Plan API (`/api/meal-plans`):** Full CRUD + recipe association: `GET/POST /api/meal-plans`, per-ID GET/PUT/DELETE, `POST/DELETE /api/meal-plans/<id>/recipes/<rid>`, and `GET /api/meal-plans/<id>/shopping-list` for generation.
-*   **Shopping List API (`/api/shopping-lists`):** Full persistent CRUD: `POST /api/shopping-lists` (from meal plan), `GET /api/shopping-lists`, `GET/PUT/DELETE /api/shopping-lists/<id>`.
-*   **Database Models:** In-memory `dataclass` models are in place for `Recipe`, `Ingredient` (embedded), `MealPlan`, and `ShoppingList`.
-*   **CRUD Logic:** Business logic for all CRUD operations (plus shopping consolidation) exists in `meal_planner_app/crud.py` and `services.py`.
+*   **Recipe API (`/api/recipes`):** GET list (optional `q` + `ingredient` filters via `crud.search_recipes`), POST, GET/PUT/DELETE by id. Ingredients include `location` / `location_id`. Empty search params still list all.
+*   **Meal Plan API (`/api/meal-plans`):** CRUD; `recipes: [{id, count}]` plus legacy `recipe_ids`; add/remove recipe; `GET .../shopping-list` returns **grouped-by-location** dict (qty multiplied by count).
+*   **Shopping List API (`/api/shopping-lists`):** POST from `meal_plan_id` **or** standalone `{name}`; GET list/id; PUT items; DELETE.
+*   **Suggestion / aggregation APIs:**
+    *   `GET /api/ingredients` — unique names
+    *   `GET /api/ingredients/summary` — name, usage_count, unit, location
+    *   `GET /api/ingredients/info?name=` — usage + slim recipes
+    *   `GET /api/locations`, `GET /api/units`
+*   **PDF:** `GET /shopping-lists/<id>/pdf` (persisted, exclude purchased); `GET /meal-plans/<id>/shopping-list/pdf` (generated; missing list → 404). Helpers in `crud.shopping_list_to_pdf_data` + `services.generate_shopping_list_pdf`.
+*   **Models (dataclasses / classes, in-memory lists):** `Recipe`, `Ingredient`, `MealPlan`, `ShoppingList` / `ShoppingListItem`.
+*   **Search:** `crud.search_recipes(query, filter_ingredient)` exposed as `GET /api/recipes?q=&ingredient=`.
+*   **Legacy ingest:** `migrate_legacy.py` (relational CSV preferred over heuristic `.odb`). `migrate_legacy.parse_ingredients_from_text` remains for CSV ingest (not Jinja).
+*   **HTML:** no `render_template`. `GET /` 302 → `/ui/`. Other former Jinja GETs 302 into `/ui/…`. Form POSTs are not served (404/405). `templates/` directory is gone.
 
-### Traditional UI (Jinja2 Templates) - Complete
+### Traditional UI (Jinja2) — decommissioned
 
-The following features are fully implemented and accessible via the server-rendered Jinja2 templates:
+Removed: eight HTML templates, form POST handlers, `parse_ingredients_from_textarea`, `nl2br`, Tailwind v3 `static/css` pipeline.
 
-*   **Recipe Management:** Full CRUD functionality for recipes.
-*   **Meal Plan Management:** Full CRUD functionality for meal plans (including adding recipes).
-*   **Shopping List Generation + PDF:** Generate consolidated shopping list from a meal plan; manual edits; download as PDF (legacy route).
+### Modern UI (React @ `/ui/`) — only HTML UI
 
-### Modern UI (React @ `/static/react_app/` or `/ui/`)
-
-*   **Recipe Management:** Full CRUD via React (`RecipeList`, `RecipeDetail`, `RecipeForm`): list, create, view, edit, delete. Uses API.
-*   **Meal Plan Management:** Full via React (`MealPlanList`, `MealPlanDetail`, `MealPlanForm`): list, create, detail (with recipes + generate shopping), edit. (API contract fixes from sibling PRs applied.)
-*   **Shopping List View:** `ShoppingListView` component for viewing/editing persisted shopping lists (integrated in meal plan detail flow).
-*   **Build System:** Vite + Tailwind configured; format/lint scripts present (`npm run format`, `npm run format-check`, `npm run lint`); E2E via Playwright.
-*   **E2E Coverage:** 8 Playwright tests covering homepage, seeded display, recipe CRUD flows, generate/edit shopping list.
+*   **Recipes:** `RecipeList` (search + ingredient filter), `RecipeDetail`, `RecipeForm` (dynamic ingredient rows, datalists, default unit).
+*   **Ingredients:** `IngredientList` only (no subpages). `IngredientDetail.jsx` is **orphaned**.
+*   **Meal plans:** list / detail (shows `x {count}`) / form (dropdown + decimal count).
+*   **Shopping:** `ShoppingListView` embedded in meal-plan detail **and** standalone `/ui/shopping-lists` (chooser of all lists, create, edit, delete, PDF).
+*   **Build:** Vite 7 + Tailwind 4; `npm run format` / `format-check` / `lint`; Playwright.
 
 ### Testing & Environment
 
-*   **Backend Tests:** 65 pytest tests all green (covers API, CRUD, shopping list logic).
-*   **E2E Tests:** 8 tests (green after seed/E2E PRs).
-*   **Docker:** Dev image (`.devcontainer/Dockerfile` -> `meal-planner-dev`) fully functional for tests/builds/verification. (Prod Dockerfile runtime was fixed in a sibling PR.)
-*   **Seeding:** `seed_db.py` + `start_and_seed.sh` populate via API.
-*   **Code Quality:** pre-commit (black, pylint) + frontend prettier enforced.
+*   **Backend:** **83** pytest functions (`test_api`, `test_crud`, `test_shopping_list`, `test_shopping_list_api`). Includes search API tests and legacy GET redirect tests. Jinja form HTML tests are gone.
+*   **E2E:** **10** Playwright tests in `frontend/e2e/main.spec.js` (recipe CRUD, shopping generate/edit, default unit, **recipe search**).
+*   **Docker:** `docker-bake.hcl` targets `dev` / `prod` / `ci`. Task 5 observed `docker buildx bake prod` DONE. Full Task 7 suite is a separate verification pass.
+*   **Seed:** `seed_db.py` + `start_and_seed.sh` + `/api/test/seed-db` (guarded).
+*   **Quality:** pre-commit black + pylint; prettier + eslint.
 
-### Legacy Note
-Jinja2 templates and routes remain fully functional for all features (no decommission started).
+## 2. Remaining Work
 
-## 2. Remaining Work & Future Features
+### Not started (not Jinja leftovers)
 
-The following features are **not started** or partial. (High-level migration work for recipes/meal-plans/shopping is complete in both API and React.)
+*   **Automatic Recipe Discovery** (FR-1.1).
+*   **Master ingredient CRUD** (FR-1.3.1–1.3.3) and any sync into recipes.
+*   **API authentication.**
+*   **OpenAPI/Swagger.**
+*   **Persistent database.**
+*   **Recipe prep / actual time / shelf life** (specified in FR-1.2.1, never modeled).
+*   **Meal calendar / date range.**
+*   **Frontend unit tests** (Jest/RTL).
 
-### Not Yet Started
+### Partial
 
-*   **Automatic Recipe Discovery:** No code. See requirements for search-based and URL-based extraction (would use scraping + NLP).
-*   **Standalone Ingredient Management:** No master list CRUD or dedicated `/api/ingredients` endpoints. Ingredients exist only embedded within recipes (via `Ingredient` dataclass + form parsing in legacy).
-*   **API Authentication:** Not implemented (no JWT, login, tokens, or protected routes).
-*   **Decommission Legacy UI:** Not started. Jinja2 templates + routes are still complete and active.
+*   **Ingredient views:** list + APIs; no detail route; no master writes.
+*   **PDF:** shopping list yes; not a meal-plan document export.
+*   **i18n:** PDF sanitization + optional DejaVu; UI not localized.
+*   **Prod image:** works but includes Node/Vite for the shared start script.
+*   **E2E:** recipes (including search) + embedded shopping happy path; not ingredients, standalone lists, delete, or PDF.
+*   **`list_unique_locations`:** can return unresolved IDs mixed with names.
 
-### Partially Implemented
+### Cleanup opportunities
 
-*   **PDF Export:** First-class support exists only in legacy Jinja2 (route + template link + `services.generate_shopping_list_pdf` using fpdf2). No React UI integration for export (no buttons or calls from React components).
-*   **Advanced Search / Filtering:** Basic legacy search exists in Jinja; React has none beyond client fetch.
+*   Remove or re-route `IngredientDetail.jsx`.
+*   Combine suggestion fetches (`Promise.all` / shared hook).
 
-### Future / Desired (Post current migration)
+### Testing status (inventory, not a fresh Task 7 run)
 
-1.  **Automatic Recipe Discovery (FR-1.1):**
-    *   URL-Based Extraction and Search-Based Discovery not started.
-
-2.  **Advanced Functionality:**
-    *   **PDF Export:** Make available from React meal plan / shopping views.
-    *   **Advanced Recipe Search:** Powerful local search/filter in React UI.
-
-3.  **Full Migration Cleanup:**
-    *   Once React is the only UI, remove legacy Jinja2 templates, related Flask routes, and supporting form parsing if unused.
-
-### Testing Status (current)
-- Backend: 65/65 passing (verified via `docker run ... meal-planner-dev python -m pytest ...`).
-- E2E: 8 tests exercising React flows for recipes + shopping.
-- All verifications for docs reconciliation performed using the Docker dev image.
+- Backend: 83 tests in tree.
+- E2E: 10 tests in `main.spec.js`.
+- Missing tests called out in `.ai/progress.md` and `.ai/test_plan.md`.

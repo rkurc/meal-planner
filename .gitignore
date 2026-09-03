@@ -21,9 +21,6 @@ frontend/node_modules/
 frontend/package-lock.json
 frontend/dist/
 
-# Generated CSS
-meal_planner_app/static/css/dist/
-
 # Log files
 *.log
 

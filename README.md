@@ -1,13 +1,16 @@
 # Meal Planner Application
 
-This is a web application for managing recipes and meal plans. It features a Flask backend (full REST API) + dual UIs (complete legacy Jinja2 + modern React SPA with feature parity for recipes, meal plans, and shopping lists).
+This is a web application for managing recipes and meal plans. It features a Flask backend (REST API + PDF) and a **React-only** HTML UI at `/ui/`. `GET /` redirects (302) to `/ui/`. Jinja templates are gone.
 
-**Current reality (as of 2026-06-16):**
-- Full CRUD APIs + React for recipes, meal plans, shopping lists.
-- 65 backend tests passing; 8 E2E.
-- No Automatic Recipe Discovery or standalone ingredient master list (future).
-- Dev via Docker strongly preferred for all checks (see AGENTS.md).
-- Legacy UI coexists with React.
+**Current reality (as of 2026-09-02):**
+- Full CRUD APIs + React for recipes, meal plans, and shopping lists (including standalone lists, delete, persisted PDF).
+- Recipe **search** on `GET /api/recipes?q=&ingredient=` and the React recipe list.
+- Meal-plan recipe **counts** (fractions) multiply shopping-list quantities.
+- Ingredients: embedded on recipes + read-only aggregated list at `/ui/ingredients`. No master CRUD. Suggestion APIs for names/units/locations; default unit auto-fill.
+- **83** backend pytest tests in tree; **10** Playwright E2E tests.
+- No Automatic Recipe Discovery, no auth, no persistent DB (in-memory).
+- Dev/verification via Docker (see AGENTS.md). Canonical status: `.ai/progress.md`.
+- Former Jinja HTML GET paths 302 into `/ui/…`. Form POSTs are not served.
 
 ## Development
 
@@ -57,14 +60,14 @@ Once the Dev Container is running, you can open a new terminal within VS Code (`
     ```bash
     docker run --rm -v $(pwd):/app -w /app meal-planner-dev python -m pytest meal_planner_app/tests/ -q
     ```
-    (65 tests currently pass.)
+    (83 tests in tree as of 2026-09-02.)
 
 *   **Run Frontend E2E Tests:**
     Use Docker or ensure servers up. From project root:
     ```bash
     docker run --rm -v $(pwd)/frontend:/app/frontend -w /app/frontend meal-planner-dev npm run test
     ```
-    (8 E2E tests for React flows.)
+    (10 E2E tests for React recipe, search, and shopping flows.)
 
 ## Running with Docker on Windows (Recommended)
 
@@ -129,9 +132,9 @@ docker stop meal-planner-dev && docker rm meal-planner-dev
 
 ### 3. Connect from Windows Browser
 
-- **React UI (recommended, with hot reload):** http://localhost:5173/ui/
+- **React UI (only HTML UI, hot reload):** http://localhost:5173/ui/
 - **API directly:** http://localhost:5000/api/recipes
-- **React via backend (if using prod image static assets):** http://localhost:5000/ui/
+- **React via backend:** http://localhost:5000/ui/ (`http://localhost:5000/` 302-redirects here)
 
 The frontend proxies `/api/*` requests to the backend.
 
@@ -147,8 +150,8 @@ npm install
 npm run dev
 ```
 
-- UI: http://localhost:5173/ui/
-- API: http://localhost:5000
+- UI: http://localhost:5173/ui/ (or http://localhost:5000/ which redirects to `/ui/`)
+- API: http://localhost:5000/api/recipes
 
 ### 5. Recommended: 2-Step Legacy Migration (Reliable CSV Export)
 

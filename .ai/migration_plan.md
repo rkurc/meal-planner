@@ -2,63 +2,63 @@
 
 ## 1. Introduction
 
-This document outlines a strategic plan for migrating the Meal Planner application from its current hybrid architecture (part server-rendered Jinja2, part React) to a modern, fully decoupled architecture consisting of a headless Flask API and a comprehensive React single-page application (SPA).
+Strategic plan to finish moving from a hybrid Flask (Jinja + JSON) app to a headless API + React SPA.
 
-**Goal:** To improve scalability, developer experience, and user experience by completing the transition to a modern web architecture.
+**Reconciled 2026-09-02.** Canonical status: `.ai/progress.md`.
+
+**Phase 3 is complete.** React at `/ui/` is the only HTML UI. Leftover work (auth, persistence, OpenAPI) is **not** HTML-migration work.
 
 ## 2. Current State vs. Target State
 
-**Reconciliation note (2026-06-16):** Phase 1 largely complete; Phase 2 complete for recipes + meal plans + shopping; Phase 3 not started. (See below.)
-
-*   **Current State:** A Flask application that serves both a JSON API (`/api/*`) and server-rendered HTML pages via Jinja2 templates. A separate React application exists at `/static/react_app/` (and `/ui/`) providing *full parity* for recipes, meal plans, and shopping lists on top of the complete API. Legacy Jinja2 still fully functional.
-*   **Target State:** A "headless" Flask application that functions exclusively as a JSON API server. A single, comprehensive React application that handles all user interface rendering and interacts with the Flask backend via the API. (Auth still missing for secure production use.)
+*   **Current State:** Flask serves `/api/*` JSON, PDF downloads, GET redirects from old HTML paths into `/ui/…`, and the built React app at `/ui/`. Jinja templates, form POST handlers, and the Tailwind v3 CSS pipeline are **gone**. React covers recipe/meal-plan/shopping CRUD, recipe search (`GET /api/recipes?q=&ingredient=`), persisted shopping lists, PDF of edited lists, ingredient list, suggestion datalists, and meal-plan recipe counts.
+*   **Target State (remaining, not UI migration):** Auth for anything beyond local use. Persistent storage (not in-memory lists). Optional OpenAPI. Optional lean prod image (gunicorn + pre-built `static/react_app` only).
 
 ## 3. Phased Migration Strategy
 
-A phased approach is recommended to minimize risk and ensure a smooth transition.
+### Phase 1: Solidify the API Foundation *(COMPLETE for current domains; auth/docs/persistence still open)*
 
-### Phase 1: Solidify the API Foundation *(LARGELY COMPLETE for recipes/mealplans/shopping)*
+*   **Action 1.1: Full API Coverage.** *Done for recipes, meal-plans (including counts), shopping-lists (including standalone + delete), suggestion/summary ingredient endpoints, PDF of persisted lists, recipe search query params.*
+*   **Action 1.2: API Authentication.** JWT or similar. *NOT STARTED. Not a Jinja leftover.*
+*   **Action 1.3: API Documentation.** OpenAPI/Swagger. *NOT STARTED. Not a Jinja leftover.*
+*   **Action 1.4: Search as API.** *Done.* `GET /api/recipes?q=` and `ingredient=` (empty both → list all). No `/api/search`.
+*   **Action 1.5: Persistence.** Replace in-memory `*_db` lists. *NOT STARTED. Not a Jinja leftover.*
 
-The API is the backbone of the target architecture. Before migrating more UI features, the API must be robust and complete.
+### Phase 2: Achieve Feature Parity in React *(COMPLETE)*
 
-*   **Action 1.1: Full API Coverage.** ... *(Completed: full CRUD + associations + shopping gen for recipes, meal-plans, shopping-lists. Verified in code + 65 tests.)*
-*   **Action 1.2: API Authentication.** Implement a secure authentication/authorization mechanism for the API (e.g., using tokens like JWT). This is critical once the UI is fully decoupled. *(NOT STARTED)*
-*   **Action 1.3: API Documentation.** Document all API endpoints clearly using a standard like OpenAPI (Swagger). This will be essential for frontend development. *(Not done.)*
+*   **Action 2.1: Prioritize and Migrate.** Recipes, meal plans, shopping view/edit, standalone lists, ingredient **list**, PDF download, **recipe search**: **done**.
+*   **Action 2.2: Consistent UI/UX.** Suggestion datalists + default units.
+*   **Action 2.3: Comprehensive Testing.** 83 pytest; 10 E2E covering recipes (including search) + embedded shopping. Gaps: ingredients page, standalone lists, delete, PDF click.
 
-### Phase 2: Achieve Feature Parity in React *(COMPLETE for core features)*
+On-the-fly shopping HTML was not rebuilt (React persisted lists are the replacement). Extra shopping E2E (delete/PDF) is useful but was **not** a Phase 3 gate.
 
-The goal of this phase is to rebuild all features currently handled by Jinja2 within the React application.
+**Not in original Jinja, not required for decommission:** discovery, master ingredients, auth.
 
-*   **Action 2.1: Prioritize and Migrate.** ... *(Recipes full CRUD migrated to React; Meal Plan full incl. form fixes (PR); Shopping list view/edit via ShoppingListView integrated. E2E 8 tests pass.)*
-*   **Action 2.2: Consistent UI/UX.** ... *(React components implemented; parity achieved.)*
-*   **Action 2.3: Comprehensive Testing.** ... *(Backend 65 tests green; E2E green covering React recipe + mealplan + shopping flows post-seed.)*
+### Phase 3: Decommission Legacy Components *(COMPLETE)*
 
-**Current parity achieved for:** recipes, meal plans, shopping lists. (Discovery and ingredients not applicable yet.)
+**Plan:** `docs/superpowers/plans/2026-09-01-jinja-decommission.md`.
 
-### Phase 3: Decommission Legacy Components *(NOT STARTED)*
+*   **Action 3.0:** Search API + React list (Tasks 1–2). *Done* (`5b2df09`, `a526cd8`).
+*   **Action 3.1:** GET redirects from old HTML paths → `/ui/…`; remove form POST handlers (Tasks 3–4). *Done* (`789212c`).
+*   **Action 3.2:** Remove `templates/` and Jinja helpers (`parse_ingredients_from_textarea`, `nl2br`). *Done*.
+*   **Action 3.3:** Remove Tailwind v3 CSS pipeline (root `package.json` `build:css`, Dockerfile `npx tailwindcss@3`). *Done* (`e273724`).
 
-Once all features have been successfully migrated to and verified in the React application, the old components can be removed.
+`GET /` → 302 `/ui/`. Bookmark-friendly legacy GET paths still 302 into the SPA. Both PDF routes kept. Failed meal-plan PDF is 404.
 
-*   **Action 3.1: Remove Jinja2 Routes.** Delete the Flask routes that were responsible for rendering the now-obsolete HTML pages. For example, the route for `/recipes/add` would be removed, as this is now handled by the React frontend.
-*   **Action 3.2: Remove Template Files.** Delete the associated Jinja2 template files (`.html`) from the `templates` directory.
-*   **Action 3.3: Final Cleanup.** Remove any parts of the Flask application that were solely in support of the Jinja2 rendering (e.g., specific form handling libraries if they are no longer needed).
-
-**Note:** Legacy is still the complete fallback; no removal yet. Coexistence is current state.
+Full Docker verification of the decommission (plan Task 7: bake dev+prod, pytest, Playwright suite) is a **quality gate**, not remaining migration work.
 
 ## 4. Key Considerations
 
-*   **API Design:** A well-designed and consistent API is the most critical success factor.
-*   **Testing:** Rigorous E2E testing is essential to prevent regressions during the migration.
-*   **Deployment:** The frontend and backend can be deployed independently in the target state, but the process needs to be planned. The React app can be served as static files from a CDN or from the Flask server itself.
+*   **API design:** counts vs `recipe_ids`, grouped vs flat shopping generate, standalone lists, search `q`/`ingredient` — already in production shape; document in OpenAPI when added.
+*   **Testing:** Playwright against `/ui/` is the regression net. Redirect tests live in `test_api.py`.
+*   **Deployment:** Prod image currently still includes Node so `start_and_seed.sh` can run Vite. A leaner target is gunicorn + pre-built `static/react_app` only.
 
-## 5. Recommended First Steps *(Historical / Superseded)*
+## 5. Recommended next steps (not HTML migration)
 
-The original recommended steps (meal plans API + React) have been completed.
+1. Task 7 verification of the decommission plan (if not yet run end-to-end).
+2. Persistent DB (decommissioning Jinja does not fix “data dies on restart”).
+3. Auth + OpenAPI.
+4. Dead `IngredientDetail.jsx` cleanup.
+5. E2E for shopping delete / standalone / PDF (not a decommission blocker).
+6. Discovery and master ingredients are **new features**, not migration work.
 
-**Current next migration steps would be:**
-1. Auth for API (Phase 1 remaining).
-2. PDF export + advanced search in React.
-3. Discovery + Ingredients features.
-4. (Eventually) Phase 3 decommission.
-
-See `.ai/next_step.md` for project priority.
+See `.ai/next_step.md` for session-level priority.

@@ -1,5 +1,5 @@
 """
-Tests for the Flask API endpoints and Jinja2 form routes.
+Tests for the Flask API endpoints and legacy GET redirects into /ui/.
 """
 
 import unittest
@@ -10,8 +10,8 @@ from meal_planner_app import crud
 from meal_planner_app.models.ingredient import Ingredient
 
 
-class TestApi(unittest.TestCase):
-    """Tests for the main API and form routes."""
+class TestApi(unittest.TestCase):  # pylint: disable=too-many-public-methods
+    """Tests for the main API and legacy GET redirects."""
 
     def setUp(self):
         """Set up a test client and initialize the database."""
@@ -74,92 +74,48 @@ class TestApi(unittest.TestCase):
         self.assertEqual(len(get_data), 1)
         self.assertEqual(get_data[0]["name"], "API Recipe")
 
-    def test_create_recipe_via_form(self):
-        """Test creating a recipe via the Jinja2 form POST."""
-        response = self.client.post(
-            "/recipes/new",
-            data={
-                "name": "Form Recipe",
-                "instructions": "Form instructions",
-                "ingredients-0-name": "Flour",
-                "ingredients-0-quantity": "2",
-                "ingredients-0-unit": "cups",
-            },
-            follow_redirects=True,
+    def test_root_redirects_to_ui(self):
+        response = self.client.get("/", follow_redirects=False)
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers["Location"].rstrip("/").endswith("/ui"))
+
+    def test_legacy_recipes_list_redirects_to_ui(self):
+        response = self.client.get("/recipes", follow_redirects=False)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/ui/recipes", response.headers["Location"])
+
+    def test_legacy_recipe_detail_redirects_to_ui(self):
+        recipe = crud.create_recipe(name="R", instructions="x")
+        response = self.client.get(
+            f"/recipes/{recipe.recipe_id}", follow_redirects=False
         )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(f"/ui/recipes/{recipe.recipe_id}", response.headers["Location"])
 
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b">Recipes</h1>", response.data)
-        self.assertIn(b"Form Recipe", response.data)
-        recipes = crud.list_recipes()
-        self.assertEqual(len(recipes), 1)
-        self.assertEqual(recipes[0].name, "Form Recipe")
+    def test_legacy_meal_plans_list_redirects_to_ui(self):
+        response = self.client.get("/meal-plans", follow_redirects=False)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/ui/meal-plans", response.headers["Location"])
 
-    def test_edit_recipe_via_form(self):
-        """Test editing a recipe via the Jinja2 form POST."""
-        recipe = crud.create_recipe(
-            name="Original Name", instructions="Original instructions"
+    def test_legacy_meal_plan_detail_redirects_to_ui(self):
+        mp = crud.create_meal_plan(name="Plan")
+        response = self.client.get(
+            f"/meal-plans/{mp.meal_plan_id}", follow_redirects=False
         )
-        response = self.client.post(
-            f"/recipes/{recipe.recipe_id}/edit",
-            data={
-                "name": "Updated Name",
-                "instructions": "Updated instructions",
-            },
-            follow_redirects=True,
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(f"/ui/meal-plans/{mp.meal_plan_id}", response.headers["Location"])
+
+    def test_legacy_shopping_list_html_redirects_to_meal_plan_ui(self):
+        mp = crud.create_meal_plan(name="Plan")
+        response = self.client.get(
+            f"/meal-plans/{mp.meal_plan_id}/shopping-list",
+            follow_redirects=False,
         )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b">Updated Name</h1>", response.data)
-        updated_recipe = crud.get_recipe(recipe.recipe_id)
-        self.assertEqual(updated_recipe.name, "Updated Name")
-
-    def test_delete_recipe_via_form(self):
-        """Test deleting a recipe via the Jinja2 form POST."""
-        recipe = crud.create_recipe(name="To Be Deleted", instructions="...")
-        response = self.client.post(
-            f"/recipes/{recipe.recipe_id}/delete", follow_redirects=True
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(f"/ui/meal-plans/{mp.meal_plan_id}", response.headers["Location"])
+        self.assertNotIn(
+            "shopping-list", response.headers["Location"].split("/ui/")[-1]
         )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b">Recipes</h1>", response.data)
-        self.assertNotIn(b"To Be Deleted", response.data)
-        self.assertEqual(len(crud.list_recipes()), 0)
-
-    def test_create_meal_plan_via_form(self):
-        """Test creating a meal plan via the Jinja2 form."""
-        crud.create_recipe(name="Recipe 1", instructions="...")
-        response = self.client.post(
-            "/meal-plans/new",
-            data={
-                "name": "My Weekly Plan",
-            },
-            follow_redirects=True,
-        )
-
-        self.assertEqual(response.status_code, 200)
-        # We are redirected to the list page, so we check for the title of that page
-        self.assertIn(b">Meal Plans</h1>", response.data)
-        # And that the new plan's name is in the body
-        self.assertIn(b"My Weekly Plan", response.data)
-        meal_plans = crud.list_meal_plans()
-        self.assertEqual(len(meal_plans), 1)
-        self.assertEqual(meal_plans[0].name, "My Weekly Plan")
-
-    def test_generate_shopping_list_route(self):
-        """Test the shopping list generation route."""
-        recipe = crud.create_recipe(
-            name="Test Soup",
-            instructions="Boil it.",
-            ingredients_data=[{"name": "Carrot", "quantity": 2, "unit": "pcs"}],
-        )
-        mp = crud.create_meal_plan(name="Soup Plan")
-        crud.add_recipe_to_meal_plan(mp.meal_plan_id, recipe.recipe_id)
-
-        response = self.client.get(f"/meal-plans/{mp.meal_plan_id}/shopping-list")
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'<h1>Shopping List for "Soup Plan"</h1>', response.data)
-        self.assertIn(b"Carrot", response.data)
 
     def test_seed_database_endpoint(self):
         """Test the test-only /api/test/seed-db endpoint (guarded by TESTING)."""
@@ -265,6 +221,53 @@ class TestApi(unittest.TestCase):
         non_existent_id = uuid.uuid4()
         response = self.client.delete(f"/api/recipes/{non_existent_id}")
         self.assertEqual(response.status_code, 404)
+
+    def test_get_recipes_api_search_by_q(self):
+        crud.create_recipe(name="Classic Pancakes", instructions="Mix")
+        crud.create_recipe(name="Simple Omelette", instructions="Fold")
+        response = self.client.get("/api/recipes?q=pancake")
+        self.assertEqual(response.status_code, 200)
+        names = [r["name"] for r in response.get_json()]
+        self.assertEqual(names, ["Classic Pancakes"])
+
+    def test_get_recipes_api_filter_ingredient(self):
+        crud.create_recipe(
+            name="Pancakes",
+            instructions="Mix",
+            ingredients_data=[{"name": "Flour", "quantity": 1, "unit": "cup"}],
+        )
+        crud.create_recipe(
+            name="Omelette",
+            instructions="Fold",
+            ingredients_data=[{"name": "Cheese", "quantity": 1, "unit": "oz"}],
+        )
+        response = self.client.get("/api/recipes?ingredient=Cheese")
+        self.assertEqual(response.status_code, 200)
+        names = [r["name"] for r in response.get_json()]
+        self.assertEqual(names, ["Omelette"])
+
+    def test_get_recipes_api_q_and_ingredient(self):
+        crud.create_recipe(
+            name="Cheese Omelette",
+            instructions="Fold",
+            ingredients_data=[{"name": "Cheese", "quantity": 1, "unit": "oz"}],
+        )
+        crud.create_recipe(
+            name="Cheese Sandwich",
+            instructions="Assemble",
+            ingredients_data=[{"name": "Cheese", "quantity": 1, "unit": "oz"}],
+        )
+        response = self.client.get("/api/recipes?q=omelette&ingredient=Cheese")
+        self.assertEqual(response.status_code, 200)
+        names = [r["name"] for r in response.get_json()]
+        self.assertEqual(names, ["Cheese Omelette"])
+
+    def test_get_recipes_api_no_params_returns_all(self):
+        crud.create_recipe(name="A", instructions="a")
+        crud.create_recipe(name="B", instructions="b")
+        response = self.client.get("/api/recipes")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.get_json()), 2)
 
 
 class TestMealPlanApi(unittest.TestCase):

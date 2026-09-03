@@ -282,3 +282,39 @@ test("should auto-populate default unit on name change but not overwrite if unit
   await sNames[sNames.length - 1].fill("Butter");
   await expect(sLastUnit).toHaveValue("pre-unit"); // not auto "tbsp"
 });
+
+test("should filter recipes by search query and ingredient", async ({
+  page,
+}) => {
+  await page.goto("/ui/recipes");
+  await expect(
+    page.getByRole("heading", { name: "Classic Pancakes" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Simple Omelette" }),
+  ).toBeVisible();
+
+  await page.fill("#recipe-search", "Pancake");
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Classic Pancakes" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Simple Omelette" }),
+  ).not.toBeVisible();
+
+  await page.getByRole("link", { name: "Clear" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Simple Omelette" }),
+  ).toBeVisible();
+
+  await page.fill("#recipe-search", "");
+  await page.fill("#ingredient-filter", "Cheese");
+  await page.getByRole("button", { name: "Search" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Simple Omelette" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Classic Pancakes" }),
+  ).not.toBeVisible();
+});

@@ -1,8 +1,12 @@
 # Meal Planner App MVP
 
+> **Note (2026-09-02):** This file is the original MVP readme and is **not** the project status tracker.
+> Use the **root** [`README.md`](../README.md) for how to run the app, and [`.ai/progress.md`](../.ai/progress.md) for what is implemented vs missing.
+> HTML UI is React at `/ui/` only (`GET /` 302 → `/ui/`). The `templates/` tree is gone. Setup below still mentions `requirements.txt`; the project now uses root `pyproject.toml`.
+
 ## Description
 
-This is a simple Flask-based web application for managing recipes and meal plans. It allows users to perform CRUD (Create, Read, Update, Delete) operations on recipes, organize them into meal plans, generate shopping lists for those plans, and export shopping lists to PDF. It also features a basic search for recipes by name, description, or ingredients.
+This is a Flask-based web application for managing recipes and meal plans. Flask serves the JSON API, PDF downloads, and the built React SPA at `/ui/`. Users can perform CRUD on recipes, organize them into meal plans, generate (and persist) shopping lists, and export shopping lists to PDF. Recipe search (name, description, ingredients) is available via `GET /api/recipes?q=&ingredient=` and the React recipe list.
 
 The application uses in-memory data storage, meaning data will be lost when the server restarts.
 
@@ -54,7 +58,7 @@ The application uses in-memory data storage, meaning data will be lost when the 
     # set FLASK_APP=meal_planner_app.main    # On Windows
     flask run
     ```
-    The application should be accessible at `http://127.0.0.1:5000/` in your web browser.
+    The application should be accessible at `http://127.0.0.1:5000/` (302 to `/ui/`) in your web browser. Prefer the root README / Docker workflow.
 
 ## Features
 
@@ -71,7 +75,7 @@ The application uses in-memory data storage, meaning data will be lost when the 
     *   Handles numeric quantity summation and lists non-numeric quantities.
     *   Export shopping list to PDF.
 *   **Recipe Search:**
-    *   Search recipes by name, description, or ingredient names.
+    *   Search recipes by name, description, or ingredient names (React list + `/api/recipes?q=&ingredient=`).
 
 ## Project Structure
 ```
@@ -86,8 +90,7 @@ The application uses in-memory data storage, meaning data will be lost when the 
 │   │   ├── meal_plan.py
 │   │   └── recipe.py
 │   ├── services.py     # Other services (e.g., PDF generation)
-│   ├── static/         # (Optional, for CSS/JS if added)
-│   ├── templates/      # HTML templates
+│   ├── static/         # Built React SPA (`react_app/`); no Jinja CSS pipeline
 │   └── tests/          # Unit tests
 │       ├── __init__.py
 │       ├── test_crud.py
