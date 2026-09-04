@@ -6,9 +6,10 @@ This is a web application for managing recipes and meal plans. It features a Fla
 - Full CRUD APIs + React for recipes, meal plans, and shopping lists (including standalone lists, delete, persisted PDF).
 - Recipe **search** on `GET /api/recipes?q=&ingredient=` and the React recipe list.
 - Meal-plan recipe **counts** (fractions) multiply shopping-list quantities.
-- Ingredients: embedded on recipes + read-only aggregated list at `/ui/ingredients`. No master CRUD. Suggestion APIs for names/units/locations; default unit auto-fill.
-- **83** backend pytest tests in tree; **10** Playwright E2E tests.
-- No Automatic Recipe Discovery, no auth, no persistent DB (in-memory).
+- Ingredients: master SQLite table; recipe lines FK to it. `/ui/ingredients` is still a read-only list. Suggestion APIs for names/units/locations; default unit auto-fill.
+- SQLite file at `data/meal_planner.db` (`MEAL_PLANNER_DB`), behind nested DAOs. Tests use in-memory SQLite.
+- **95+** backend pytest tests in tree; **10** Playwright E2E tests.
+- No Automatic Recipe Discovery, no auth.
 - Dev/verification via Docker (see AGENTS.md). Canonical status: `.ai/progress.md`.
 - Former Jinja HTML GET paths 302 into `/ui/…`. Form POSTs are not served.
 

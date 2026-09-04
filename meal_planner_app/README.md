@@ -8,7 +8,7 @@
 
 This is a Flask-based web application for managing recipes and meal plans. Flask serves the JSON API, PDF downloads, and the built React SPA at `/ui/`. Users can perform CRUD on recipes, organize them into meal plans, generate (and persist) shopping lists, and export shopping lists to PDF. Recipe search (name, description, ingredients) is available via `GET /api/recipes?q=&ingredient=` and the React recipe list.
 
-The application uses in-memory data storage, meaning data will be lost when the server restarts.
+Data is stored in a SQLite file (`MEAL_PLANNER_DB`, default `data/meal_planner.db`) behind DAOs in `dao/`.
 
 ## Prerequisites
 

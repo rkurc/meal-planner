@@ -57,5 +57,8 @@ COPY --from=builder /app/ /app/
 # Make the startup script executable
 RUN chmod +x /app/start_and_seed.sh
 
+ENV MEAL_PLANNER_DB=/app/data/meal_planner.db
+RUN mkdir -p /app/data
+
 # Set a default command
 CMD ["/app/start_and_seed.sh"]

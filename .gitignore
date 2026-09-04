@@ -29,3 +29,7 @@ test-results/
 frontend/test-results/
 .worktrees/
 worktrees/
+
+# SQLite persistence
+*.db
+data/*.db

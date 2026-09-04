@@ -1,5 +1,5 @@
 """
-A script to seed the in-memory database with some initial data.
+A script to seed the database with some initial data.
 This is useful for development and for running end-to-end tests.
 
 The RECIPES_TO_SEED list is the single source of truth for the data
@@ -106,6 +106,20 @@ def seed_meal_plans():
         )
     else:
         print("No recipe IDs available; skipping meal plan seed.")
+
+
+def seed_if_empty():
+    """Insert seed recipes only when the catalog has no recipes (persistent DB)."""
+    existing = list_recipes()
+    if existing:
+        print(f"Database already has {len(existing)} recipes. Skipping seed.")
+        seed_meal_plans()
+        return
+    print(f"Seeding database with {len(RECIPES_TO_SEED)} recipes...")
+    for recipe_data in RECIPES_TO_SEED:
+        create_recipe(**recipe_data)
+    print("Database seeding complete!")
+    seed_meal_plans()
 
 
 if __name__ == "__main__":
