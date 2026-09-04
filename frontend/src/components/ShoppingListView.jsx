@@ -1,6 +1,45 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 
+// Persisted lists are a flat items array; group like the PDF (empty → "Other").
+const OTHER_LOCATION_GROUP = "Other";
+
+function resolveItemLocation(item) {
+  const loc = (item && (item.location || item.location_id)) || "";
+  const trimmed = String(loc).trim();
+  return trimmed === "" ? OTHER_LOCATION_GROUP : trimmed;
+}
+
+function groupItemsByLocation(items) {
+  const groups = new Map();
+  (items || []).forEach((item, index) => {
+    const location = resolveItemLocation(item);
+    if (!groups.has(location)) {
+      groups.set(location, []);
+    }
+    groups.get(location).push({ item, index });
+  });
+  const keys = Array.from(groups.keys()).sort((a, b) => {
+    if (a === OTHER_LOCATION_GROUP && b !== OTHER_LOCATION_GROUP) return 1;
+    if (b === OTHER_LOCATION_GROUP && a !== OTHER_LOCATION_GROUP) return -1;
+    return a.localeCompare(b);
+  });
+  return keys.map((location) => ({
+    location,
+    entries: groups.get(location),
+  }));
+}
+
+function formatItemLabel(item) {
+  if (item.quantity && item.unit) {
+    return `${item.quantity} ${item.unit} ${item.name}`;
+  }
+  if (item.quantity) {
+    return `${item.quantity} ${item.name}`;
+  }
+  return item.name;
+}
+
 const ShoppingListView = ({
   mealPlanId,
   mealPlanName,
@@ -570,31 +609,35 @@ const ShoppingListView = ({
           </datalist>
         </div>
       ) : (
-        <ul className="space-y-2">
-          {editedItems.map((item, index) => (
-            <li
-              key={index}
-              className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded"
-            >
-              <input
-                type="checkbox"
-                checked={item.purchased || false}
-                onChange={() => handleTogglePurchased(index)}
-                className="w-5 h-5 cursor-pointer"
-              />
-              <span
-                className={`flex-1 ${item.purchased ? "line-through text-gray-400" : "text-gray-800"}`}
-              >
-                {item.quantity && item.unit
-                  ? `${item.quantity} ${item.unit} ${item.name}`
-                  : item.quantity
-                    ? `${item.quantity} ${item.name}`
-                    : item.name}
-                {item.location ? ` (${item.location})` : ""}
-              </span>
-            </li>
+        <div className="space-y-4">
+          {groupItemsByLocation(editedItems).map((group) => (
+            <div key={group.location}>
+              <h3 className="text-lg font-semibold text-gray-700 mb-2 border-b border-gray-200 pb-1">
+                {group.location}
+              </h3>
+              <ul className="space-y-2">
+                {group.entries.map(({ item, index }) => (
+                  <li
+                    key={index}
+                    className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={item.purchased || false}
+                      onChange={() => handleTogglePurchased(index)}
+                      className="w-5 h-5 cursor-pointer"
+                    />
+                    <span
+                      className={`flex-1 ${item.purchased ? "line-through text-gray-400" : "text-gray-800"}`}
+                    >
+                      {formatItemLabel(item)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );
