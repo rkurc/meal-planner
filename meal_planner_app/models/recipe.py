@@ -39,5 +39,13 @@ class Recipe:  # pylint: disable=too-few-public-methods
         self.instructions = instructions
         self.source_url = source_url
 
+    def __eq__(self, other):
+        if not isinstance(other, Recipe):
+            return NotImplemented
+        return self.recipe_id == other.recipe_id
+
+    def __hash__(self):
+        return hash(self.recipe_id)
+
     def __repr__(self):
         return f"<Recipe(recipe_id={self.recipe_id}, name='{self.name}')>"

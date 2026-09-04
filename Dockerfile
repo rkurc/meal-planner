@@ -80,6 +80,10 @@ WORKDIR /app/frontend
 RUN npm ci --no-audit --no-fund
 WORKDIR /app
 
+# Persistent SQLite file (mount a volume over /app/data in production)
+ENV MEAL_PLANNER_DB=/app/data/meal_planner.db
+RUN mkdir -p /app/data
+
 # Apply ownership to everything (including node_modules created above)
 RUN chown -R appuser:appuser /app
 
@@ -90,8 +94,6 @@ USER appuser
 EXPOSE 5000
 
 # Prod CMD: gunicorn serving the Flask app (no npm, no dev server, no debug).
-# NOTE: -w 1 (single worker) is REQUIRED. The app uses process-local in-memory
-# lists (recipes_db etc in crud.py). Multiple workers would have independent
-# state, causing recipes to appear in list but 404 on detail fetches (load-balanced
-# across workers) and other inconsistency bugs.
+# NOTE: -w 1 keeps a single writer against the SQLite file. Multiple workers
+# can share the file (WAL) later; not enabled in this change.
 CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:5000", "meal_planner_app.main:app"]

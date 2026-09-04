@@ -7,6 +7,7 @@ import uuid
 
 from meal_planner_app.models.ingredient import Ingredient
 from meal_planner_app import crud
+from meal_planner_app.seed_db import RECIPES_TO_SEED, seed_if_empty
 
 
 class TestRecipeCRUD(unittest.TestCase):
@@ -105,6 +106,12 @@ class TestRecipeCRUD(unittest.TestCase):
         self.assertEqual(len(recipes), 2)
         self.assertTrue(any(r.name == "Pasta" for r in recipes))
         self.assertTrue(any(r.name == "Salad" for r in recipes))
+
+    def test_seed_if_empty_is_idempotent(self):
+        """seed_if_empty inserts once; a second call does not duplicate recipes."""
+        seed_if_empty()
+        seed_if_empty()
+        self.assertEqual(len(crud.list_recipes()), len(RECIPES_TO_SEED))
 
     def test_get_nonexistent_recipe(self):
         """Test that get_recipe returns None for an invalid ID."""
@@ -205,6 +212,7 @@ class TestMealPlanCRUD(unittest.TestCase):
         mp = crud.create_meal_plan(name="Plan With Recipes")
         crud.add_recipe_to_meal_plan(mp.meal_plan_id, self.recipe1.recipe_id)
         crud.add_recipe_to_meal_plan(mp.meal_plan_id, self.recipe2.recipe_id)
+        mp = crud.get_meal_plan(mp.meal_plan_id)
         self.assertEqual(len(mp.recipe_ids), 2)
 
         # Remove existing recipe
@@ -307,8 +315,14 @@ class TestMealPlanCRUD(unittest.TestCase):
     def test_generate_shopping_list_with_counts(self):
         """Test that generate_shopping_list multiplies ingredient qty by recipe count."""
         # recipe1: 2 eggs; recipe2: 3 eggs. Use count 2 and 0.5
-        self.recipe1.ingredients = [Ingredient(name="Egg", quantity=2, unit="pc")]
-        self.recipe2.ingredients = [Ingredient(name="Egg", quantity=3, unit="pc")]
+        crud.update_recipe(
+            self.recipe1.recipe_id,
+            ingredients_data=[{"name": "Egg", "quantity": 2, "unit": "pc"}],
+        )
+        crud.update_recipe(
+            self.recipe2.recipe_id,
+            ingredients_data=[{"name": "Egg", "quantity": 3, "unit": "pc"}],
+        )
 
         mp = crud.create_meal_plan(  # pylint: disable=unexpected-keyword-arg
             name="Multiplier Plan",

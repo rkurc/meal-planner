@@ -1,17 +1,106 @@
 """
-CRUD (Create, Read, Update, Delete) operations for managing recipes and meal plans
-using in-memory data structures. Also includes shopping list generation and recipe search.
+Application operations for recipes, meal plans, and shopping lists.
+Persistence goes through MealPlannerDao (see dao/). Search and shopping
+aggregation stay here and never execute SQL.
 """
 
 import uuid
 from collections import defaultdict
 from typing import List, Dict, Optional, Union, Any
+
+from meal_planner_app.dao.factory import create_dao
+from meal_planner_app.dao.protocol import MealPlannerDao
 from .models.recipe import Recipe
-from .models.ingredient import Ingredient
+from .models.ingredient import Ingredient, MasterIngredient
 from .models.meal_plan import MealPlan, _normalize_recipe_entries
 from .models.shopping_list import ShoppingList, ShoppingListItem
 
-recipes_db: List[Recipe] = []
+_dao: Optional[MealPlannerDao] = None
+
+
+def set_dao(dao: Optional[MealPlannerDao]) -> None:
+    """Install (or clear) the process-wide DAO. Tests pass an in-memory instance."""
+    # pylint: disable=global-statement
+    global _dao
+    _dao = dao
+
+
+def get_dao() -> MealPlannerDao:
+    """Lazy default: MEAL_PLANNER_DB or data/meal_planner.db."""
+    # pylint: disable=global-statement
+    global _dao
+    if _dao is None:
+        _dao = create_dao()
+    return _dao
+
+
+def _ensure_master_ingredient(
+    name: str,
+    unit: str = "",
+    location: Optional[str] = None,
+    location_id: Optional[Union[str, int]] = None,
+) -> MasterIngredient:
+    """Get-or-create a catalog row by stripped name. Does not overwrite set defaults."""
+    dao = get_dao()
+    stripped = (name or "").strip()
+    location_id_str = None if location_id is None else str(location_id)
+    existing = dao.ingredients.find_by_name(stripped) if stripped else None
+    if existing:
+        changed = False
+        if not existing.default_unit and unit:
+            existing.default_unit = unit
+            changed = True
+        if not existing.location and location:
+            existing.location = location
+            changed = True
+        if not existing.location_id and location_id_str:
+            existing.location_id = location_id_str
+            changed = True
+        if changed:
+            dao.ingredients.update(existing)
+        return existing
+    master = MasterIngredient(
+        name=stripped or name,
+        default_unit=unit or "",
+        location=location,
+        location_id=location_id_str,
+    )
+    return dao.ingredients.insert(master)
+
+
+def _lines_from_data(
+    ingredients_data: Optional[List[Dict[str, Union[str, float]]]],
+) -> List[Ingredient]:
+    lines: List[Ingredient] = []
+    if not ingredients_data:
+        return lines
+    for ing_data in ingredients_data:
+        unit = ing_data.get("unit") or ""
+        master = _ensure_master_ingredient(
+            name=str(ing_data["name"]),
+            unit=str(unit),
+            location=ing_data.get("location"),  # type: ignore[arg-type]
+            location_id=ing_data.get("location_id"),
+        )
+        line_location = ing_data.get("location")
+        line_location_id = ing_data.get("location_id")
+        lines.append(
+            Ingredient(
+                name=master.name,
+                quantity=ing_data["quantity"],
+                unit=str(unit),
+                location_id=(
+                    str(line_location_id)
+                    if line_location_id is not None
+                    else master.location_id
+                ),
+                location=(
+                    str(line_location) if line_location is not None else master.location
+                ),
+                ingredient_id=master.ingredient_id,
+            )
+        )
+    return lines
 
 
 def create_recipe(
@@ -22,40 +111,23 @@ def create_recipe(
     source_url: Optional[str] = None,
 ) -> Recipe:
     """
-    Creates a new recipe and stores it in the in-memory database.
+    Creates a new recipe and persists it.
     ingredients_data should be a list of dicts like:
     [{'name': 'sugar', 'quantity': 1, 'unit': 'cup', 'location_id': '4'}]
     """
-    parsed_ingredients = []
-    if ingredients_data:
-        for ing_data in ingredients_data:
-            parsed_ingredients.append(
-                Ingredient(
-                    name=ing_data["name"],
-                    quantity=ing_data["quantity"],
-                    unit=ing_data["unit"],
-                    location_id=ing_data.get("location_id"),
-                    location=ing_data.get("location"),
-                )
-            )
-
     recipe = Recipe(
         name=name,
         description=description,
-        ingredients=parsed_ingredients,
+        ingredients=_lines_from_data(ingredients_data),
         instructions=instructions,
         source_url=source_url,
     )
-    recipes_db.append(recipe)
-    return recipe
+    return get_dao().recipes.insert(recipe)
 
 
 def get_recipe(recipe_id: uuid.UUID) -> Optional[Recipe]:
     """Retrieves a recipe by its ID."""
-    for recipe in recipes_db:
-        if recipe.recipe_id == recipe_id:
-            return recipe
-    return None
+    return get_dao().recipes.find_by_id(recipe_id)
 
 
 def update_recipe(  # pylint: disable=too-many-arguments, too-many-positional-arguments
@@ -81,84 +153,70 @@ def update_recipe(  # pylint: disable=too-many-arguments, too-many-positional-ar
         recipe.source_url = source_url
 
     if ingredients_data is not None:
-        parsed_ingredients = []
-        for ing_data in ingredients_data:
-            parsed_ingredients.append(
-                Ingredient(
-                    name=ing_data["name"],
-                    quantity=ing_data["quantity"],
-                    unit=ing_data["unit"],
-                    location_id=ing_data.get("location_id"),
-                    location=ing_data.get("location"),
-                )
-            )
-        recipe.ingredients = parsed_ingredients
+        recipe.ingredients = _lines_from_data(ingredients_data)
 
-    return recipe
+    return get_dao().recipes.update(recipe)
 
 
 def delete_recipe(recipe_id: uuid.UUID) -> bool:
     """Deletes a recipe by its ID."""
-    recipe = get_recipe(recipe_id)
-    if recipe:
-        recipes_db.remove(recipe)
-        return True
-    return False
+    return get_dao().recipes.delete(recipe_id)
 
 
 def list_recipes() -> List[Recipe]:
     """Returns all recipes."""
-    return recipes_db
+    return get_dao().recipes.find_all()
 
 
 def list_unique_ingredient_names() -> List[str]:
-    """Returns a sorted list of unique ingredient names present in all recipes."""
-    names: set = set()
-    for recipe in recipes_db:
-        for ing in recipe.ingredients:
-            if ing.name and ing.name.strip():
-                names.add(ing.name.strip())
-    return sorted(names)
+    """Returns a sorted list of unique catalog ingredient names."""
+    return [
+        ing.name.strip()
+        for ing in get_dao().ingredients.find_all()
+        if ing.name and ing.name.strip()
+    ]
 
 
 def list_unique_locations() -> List[str]:
-    """Returns a sorted list of unique location names (or ids) from ingredients."""
+    """Returns a sorted list of unique location names (or ids) from the catalog."""
     locs: set = set()
-    for recipe in recipes_db:
-        for ing in recipe.ingredients:
-            loc = getattr(ing, "location", None) or getattr(ing, "location_id", None)
-            if loc and str(loc).strip():
-                locs.add(str(loc).strip())
+    for ing in get_dao().ingredients.find_all():
+        loc = ing.location or ing.location_id
+        if loc and str(loc).strip():
+            locs.add(str(loc).strip())
     return sorted(locs)
 
 
 def list_unique_units() -> List[str]:
-    """Returns a sorted list of unique non-empty unit strings from all recipe ingredients."""
+    """Unique non-empty units from recipe lines and catalog defaults."""
     units: set = set()
-    for recipe in recipes_db:
-        for ing in recipe.ingredients:
-            if ing.unit and str(ing.unit).strip():
-                units.add(str(ing.unit).strip())
+    for ing in get_dao().ingredients.find_all():
+        if ing.default_unit and str(ing.default_unit).strip():
+            units.add(str(ing.default_unit).strip())
+    for recipe in list_recipes():
+        for line in recipe.ingredients:
+            if line.unit and str(line.unit).strip():
+                units.add(str(line.unit).strip())
     return sorted(units)
 
 
 def reset_recipes_db():
-    """Helper function to reset the database, primarily for testing."""
-    # pylint: disable=global-statement
-    global recipes_db
-    recipes_db = []
+    """Delete all recipes then catalog ingredients. For tests / E2E seed."""
+    dao = get_dao()
+    for recipe in list(dao.recipes.find_all()):
+        dao.recipes.delete(recipe.recipe_id)
+    for ingredient in list(dao.ingredients.find_all()):
+        dao.ingredients.delete(ingredient.ingredient_id)
 
 
 # --- MealPlan CRUD Operations ---
 
-meal_plans_db: List[MealPlan] = []
-
 
 def reset_meal_plans_db():
-    """Helper function to reset the meal plans database, primarily for testing."""
-    # pylint: disable=global-statement
-    global meal_plans_db
-    meal_plans_db = []
+    """Delete all meal plans. For tests."""
+    dao = get_dao()
+    for meal_plan in list(dao.meal_plans.find_all()):
+        dao.meal_plans.delete(meal_plan.meal_plan_id)
 
 
 def create_meal_plan(
@@ -176,21 +234,17 @@ def create_meal_plan(
         )
     recipes = _normalize_recipe_entries(recipes)
     meal_plan = MealPlan(name=name, description=description, recipes=recipes)
-    meal_plans_db.append(meal_plan)
-    return meal_plan
+    return get_dao().meal_plans.insert(meal_plan)
 
 
 def get_meal_plan(meal_plan_id: uuid.UUID) -> Optional[MealPlan]:
     """Retrieves a meal plan by its ID."""
-    for mp in meal_plans_db:
-        if mp.meal_plan_id == meal_plan_id:
-            return mp
-    return None
+    return get_dao().meal_plans.find_by_id(meal_plan_id)
 
 
 def list_meal_plans() -> List[MealPlan]:
     """Returns all meal plans."""
-    return meal_plans_db
+    return get_dao().meal_plans.find_all()
 
 
 def add_recipe_to_meal_plan(
@@ -214,7 +268,7 @@ def add_recipe_to_meal_plan(
         existing["count"] = float(existing.get("count", 1.0)) + cnt
     else:
         meal_plan.recipes.append({"recipe_id": recipe_id, "count": cnt})
-    return meal_plan
+    return get_dao().meal_plans.update(meal_plan)
 
 
 def remove_recipe_from_meal_plan(
@@ -226,16 +280,12 @@ def remove_recipe_from_meal_plan(
         return None
 
     meal_plan.recipes = [e for e in meal_plan.recipes if e["recipe_id"] != recipe_id]
-    return meal_plan
+    return get_dao().meal_plans.update(meal_plan)
 
 
 def delete_meal_plan(meal_plan_id: uuid.UUID) -> bool:
     """Deletes a meal plan by its ID."""
-    meal_plan = get_meal_plan(meal_plan_id)
-    if meal_plan:
-        meal_plans_db.remove(meal_plan)
-        return True
-    return False
+    return get_dao().meal_plans.delete(meal_plan_id)
 
 
 def update_meal_plan(
@@ -261,7 +311,7 @@ def update_meal_plan(
     if recipes is not None or recipe_ids is not None:
         meal_plan.recipes = _normalize_recipe_entries(recipes or recipe_ids or [])
 
-    return meal_plan
+    return get_dao().meal_plans.update(meal_plan)
 
 
 # --- Shopping List Generation ---
@@ -431,14 +481,12 @@ def shopping_list_to_pdf_data(
 
 # --- Shopping List CRUD Operations ---
 
-shopping_lists_db: List[ShoppingList] = []
-
 
 def reset_shopping_lists_db():
-    """Helper function to reset the shopping lists database, for testing."""
-    # pylint: disable=global-statement
-    global shopping_lists_db
-    shopping_lists_db = []
+    """Delete all shopping lists. For tests."""
+    dao = get_dao()
+    for shopping_list in list(dao.shopping_lists.find_all()):
+        dao.shopping_lists.delete(shopping_list.id)
 
 
 def create_shopping_list(
@@ -497,21 +545,17 @@ def create_shopping_list(
             meal_plan_id=None,
         )
 
-    shopping_lists_db.append(new_shopping_list)
-    return new_shopping_list
+    return get_dao().shopping_lists.insert(new_shopping_list)
 
 
 def get_shopping_list(shopping_list_id: uuid.UUID) -> Optional[ShoppingList]:
     """Retrieves a shopping list by its ID."""
-    for sl in shopping_lists_db:
-        if sl.id == shopping_list_id:
-            return sl
-    return None
+    return get_dao().shopping_lists.find_by_id(shopping_list_id)
 
 
 def list_shopping_lists() -> List[ShoppingList]:
     """Returns all saved shopping lists."""
-    return shopping_lists_db
+    return get_dao().shopping_lists.find_all()
 
 
 def update_shopping_list(
@@ -535,16 +579,12 @@ def update_shopping_list(
         updated_items = [ShoppingListItem(**item_data) for item_data in items]
         shopping_list.items = updated_items
 
-    return shopping_list
+    return get_dao().shopping_lists.update(shopping_list)
 
 
 def delete_shopping_list(shopping_list_id: uuid.UUID) -> bool:
     """Deletes a shopping list by its ID."""
-    shopping_list = get_shopping_list(shopping_list_id)
-    if shopping_list:
-        shopping_lists_db.remove(shopping_list)
-        return True
-    return False
+    return get_dao().shopping_lists.delete(shopping_list_id)
 
 
 # --- Recipe Search ---
@@ -565,7 +605,7 @@ def search_recipes(  # pylint: disable=too-many-branches
         normalized_query = query.lower().strip()
         matching_recipes_ids = set()
 
-        for recipe in recipes_db:
+        for recipe in list_recipes():
             # Check name
             if normalized_query in recipe.name.lower():
                 matching_recipes_ids.add(recipe.recipe_id)
@@ -609,7 +649,7 @@ def search_recipes(  # pylint: disable=too-many-branches
     return filtered_results
 
 
-# --- Ingredient views support (read-only, from recipes; no master storage) ---
+# --- Ingredient views (catalog + usage from recipe links) ---
 
 
 def get_recipes_for_ingredient(name: str) -> List[Recipe]:
@@ -620,7 +660,7 @@ def get_recipes_for_ingredient(name: str) -> List[Recipe]:
         return []
     normalized = name.strip().lower()
     matching = []
-    for recipe in recipes_db:
+    for recipe in list_recipes():
         for ing in recipe.ingredients:
             if ing.name and ing.name.strip().lower() == normalized:
                 matching.append(recipe)
@@ -629,24 +669,20 @@ def get_recipes_for_ingredient(name: str) -> List[Recipe]:
 
 
 def list_ingredients_summary() -> List[Dict[str, Union[str, int, Optional[str]]]]:
-    """Return sorted list of ingredient summaries derived from recipes.
-    Each: {name, usage_count, unit, location}. Used by IngredientList.
-    No separate persistence; always reflects current recipes.
-    """
-    summary_map: Dict[str, Dict] = {}
-    for recipe in recipes_db:
+    """Return sorted catalog summaries: {name, usage_count, unit, location}."""
+    usage: Dict[uuid.UUID, int] = defaultdict(int)
+    for recipe in list_recipes():
         for ing in recipe.ingredients:
-            if not ing.name or not ing.name.strip():
-                continue
-            key = ing.name.strip()
-            if key not in summary_map:
-                summary_map[key] = {
-                    "name": key,
-                    "usage_count": 0,
-                    "unit": ing.unit or "",
-                    "location": getattr(ing, "location", None)
-                    or getattr(ing, "location_id", None)
-                    or "",
-                }
-            summary_map[key]["usage_count"] += 1
-    return sorted(summary_map.values(), key=lambda x: x["name"].lower())
+            if ing.ingredient_id:
+                usage[ing.ingredient_id] += 1
+    summaries: List[Dict[str, Union[str, int, Optional[str]]]] = []
+    for master in get_dao().ingredients.find_all():
+        summaries.append(
+            {
+                "name": master.name,
+                "usage_count": usage.get(master.ingredient_id, 0),
+                "unit": master.default_unit or "",
+                "location": master.location or master.location_id or "",
+            }
+        )
+    return sorted(summaries, key=lambda x: str(x["name"]).lower())

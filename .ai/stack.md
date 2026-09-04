@@ -14,7 +14,7 @@ See `.ai/progress.md` for feature status.
     *   Used by persisted-list PDF (`/shopping-lists/<id>/pdf`) and meal-plan generated PDF (`/meal-plans/<id>/shopping-list/pdf`)
     *   Optional DejaVu (`fonts-dejavu-core` in images); otherwise latin-1 sanitization
 *   **WSGI (prod/CI):** gunicorn
-*   **Storage:** in-memory Python lists in `crud.py` (not SQLite/SQLAlchemy)
+*   **Storage:** SQLite file (`MEAL_PLANNER_DB`, default `data/meal_planner.db`) behind nested DAOs in `meal_planner_app/dao/`. `crud.py` is the application facade (no SQL). Tests use `:memory:`.
 *   **Packaging:** `pyproject.toml` (`Flask`, `fpdf2`; extras: pylint, pytest, black, pre-commit, gunicorn). Package-data: `static/**/*` only (no templates).
 
 ## Frontend Technologies

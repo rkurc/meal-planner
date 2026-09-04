@@ -72,15 +72,15 @@ Ingredients are still **denormalized inside recipes**. There is **no product mas
 
 | Capability | Status | Notes |
 |---|---|---|
-| In-memory store | **Done** (limitation) | Data lost on restart; seed / legacy migrate on start |
+| In-memory store | **Replaced** | SQLite file via DAO; tests still use `:memory:` |
 | Legacy CSV / `.odb` migration | **Done** | Relational CSV preferred (`przepisy` + `skladniki` + `produkty`) |
 | Docker bake (`dev` / `prod` / `ci`) | **Done** | Node 20 + Python 3.9; CI also native jobs. Task 5: `docker buildx bake prod` succeeded |
 | pre-commit (black, pylint) + prettier + eslint | **Done** | Docker-first in AGENTS.md |
-| Backend tests | **Done** | **83** pytest (inventory in tree; not a fresh Task 7 run) |
+| Backend tests | **Done** | **96** pytest (DAO + existing CRUD/API; Docker 2026-09-04) |
 | E2E Playwright | **Partial** | **10** tests (includes recipe search); no coverage for ingredients page, standalone lists, delete, PDF |
 | API auth (JWT / login) | **Missing** | All routes open |
 | OpenAPI / Swagger | **Missing** | |
-| Persistent DB (SQLite/Postgres) | **Missing** | |
+| Persistent DB (SQLite/Postgres) | **Done** (SQLite) | `data/meal_planner.db`; nested DAOs; Postgres would implement the same protocols |
 | Decommission Jinja (migration Phase 3) | **Done** | Templates, form POSTs, Tailwind v3 CSS gone; GET redirects to `/ui/` |
 | i18n (Polish in UI + lossless PDF) | **Partial** | PDF: DejaVu if present, else NFKD/latin-1 sanitize |
 | Lean production image (no Node/Vite runtime) | **Partial** | `prod` still ships Node so `start_and_seed.sh` can run Vite |
@@ -106,11 +106,10 @@ Jinja decommission is **done**. Remaining work is **not** migration of HTML UI.
 
 1. **Task 7 of the decommission plan** — full Docker verification (`bake dev` + `prod`, pytest, black, pylint, prettier, Playwright including search). Not claimed done in this docs pass.
 2. Remove or re-route dead `IngredientDetail.jsx`.
-3. Persistent storage (replace in-memory lists).
-4. API auth + OpenAPI.
-5. Decide on **master ingredients** (real CRUD + persistence) vs keep aggregation-only list.
-6. Add missing tests: `/api/ingredients/summary` + `/info`; E2E for ingredients list, standalone list, delete, PDF.
-7. Automatic recipe discovery (still the largest unimplemented original feature).
-8. Recipe metadata (prep / actual time / shelf life) if those FRs are still desired.
-9. Proper i18n (stop relying on PDF sanitization).
-10. Lean prod image (drop Node/Vite from the runtime image).
+3. API auth + OpenAPI.
+4. Master-ingredient **UI** CRUD (table exists; list is read-only).
+5. Add missing tests: `/api/ingredients/summary` + `/info`; E2E for ingredients list, standalone list, delete, PDF.
+6. Automatic recipe discovery (still the largest unimplemented original feature).
+7. Recipe metadata (prep / actual time / shelf life) if those FRs are still desired.
+8. Proper i18n (stop relying on PDF sanitization).
+9. Lean prod image (drop Node/Vite from the runtime image).

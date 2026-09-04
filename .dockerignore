@@ -61,5 +61,9 @@ playwright/.cache/
 # OS / misc
 .DS_Store
 Thumbs.db
+
+# SQLite data files (runtime volume)
+*.db
+data/
 *.md
 LICENSE

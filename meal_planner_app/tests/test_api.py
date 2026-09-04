@@ -7,7 +7,6 @@ import json
 import uuid
 from meal_planner_app.main import app
 from meal_planner_app import crud
-from meal_planner_app.models.ingredient import Ingredient
 
 
 class TestApi(unittest.TestCase):  # pylint: disable=too-many-public-methods
@@ -394,10 +393,16 @@ class TestMealPlanApi(unittest.TestCase):
     def test_get_shopping_list_api(self):
         """Test GET /api/meal-plans/<id>/shopping-list."""
         # Setup: recipe1 has 1 egg, recipe2 has 3 eggs.
-        self.recipe1.ingredients.append(Ingredient(name="Egg", quantity=1, unit="pc"))
-        self.recipe2.ingredients.append(Ingredient(name="Egg", quantity=3, unit="pc"))
-        self.recipe2.ingredients.append(
-            Ingredient(name="Flour", quantity=200, unit="g")
+        crud.update_recipe(
+            self.recipe1.recipe_id,
+            ingredients_data=[{"name": "Egg", "quantity": 1, "unit": "pc"}],
+        )
+        crud.update_recipe(
+            self.recipe2.recipe_id,
+            ingredients_data=[
+                {"name": "Egg", "quantity": 3, "unit": "pc"},
+                {"name": "Flour", "quantity": 200, "unit": "g"},
+            ],
         )
 
         mp = crud.create_meal_plan(
@@ -472,8 +477,14 @@ class TestMealPlanApi(unittest.TestCase):
 
     def test_shopping_list_multiplies_by_recipe_count_api(self):
         """Verify that when creating mealplan with count, /shopping-list endpoint multiplies."""
-        self.recipe1.ingredients.append(Ingredient(name="Rice", quantity=100, unit="g"))
-        self.recipe2.ingredients.append(Ingredient(name="Rice", quantity=50, unit="g"))
+        crud.update_recipe(
+            self.recipe1.recipe_id,
+            ingredients_data=[{"name": "Rice", "quantity": 100, "unit": "g"}],
+        )
+        crud.update_recipe(
+            self.recipe2.recipe_id,
+            ingredients_data=[{"name": "Rice", "quantity": 50, "unit": "g"}],
+        )
 
         mp_resp = self.client.post(
             "/api/meal-plans",

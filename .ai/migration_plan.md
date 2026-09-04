@@ -11,7 +11,7 @@ Strategic plan to finish moving from a hybrid Flask (Jinja + JSON) app to a head
 ## 2. Current State vs. Target State
 
 *   **Current State:** Flask serves `/api/*` JSON, PDF downloads, GET redirects from old HTML paths into `/ui/…`, and the built React app at `/ui/`. Jinja templates, form POST handlers, and the Tailwind v3 CSS pipeline are **gone**. React covers recipe/meal-plan/shopping CRUD, recipe search (`GET /api/recipes?q=&ingredient=`), persisted shopping lists, PDF of edited lists, ingredient list, suggestion datalists, and meal-plan recipe counts.
-*   **Target State (remaining, not UI migration):** Auth for anything beyond local use. Persistent storage (not in-memory lists). Optional OpenAPI. Optional lean prod image (gunicorn + pre-built `static/react_app` only).
+*   **Target State (remaining, not UI migration):** Auth for anything beyond local use. Optional OpenAPI. Optional lean prod image (gunicorn + pre-built `static/react_app` only). Persistence is **done** (SQLite + DAO).
 
 ## 3. Phased Migration Strategy
 
@@ -21,7 +21,7 @@ Strategic plan to finish moving from a hybrid Flask (Jinja + JSON) app to a head
 *   **Action 1.2: API Authentication.** JWT or similar. *NOT STARTED. Not a Jinja leftover.*
 *   **Action 1.3: API Documentation.** OpenAPI/Swagger. *NOT STARTED. Not a Jinja leftover.*
 *   **Action 1.4: Search as API.** *Done.* `GET /api/recipes?q=` and `ingredient=` (empty both → list all). No `/api/search`.
-*   **Action 1.5: Persistence.** Replace in-memory `*_db` lists. *NOT STARTED. Not a Jinja leftover.*
+*   **Action 1.5: Persistence.** SQLite file + nested DAOs (`ingredients` master table first). *Done.*
 
 ### Phase 2: Achieve Feature Parity in React *(COMPLETE)*
 
