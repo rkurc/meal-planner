@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import React, { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
+import { hasPlaceholderInstructions } from "../hasPlaceholderInstructions";
 
 const RecipeForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const isEditing = Boolean(id);
+  const instructionsRef = useRef(null);
+  const didFocusInstructions = useRef(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -52,6 +56,23 @@ const RecipeForm = () => {
         });
     }
   }, [id, isEditing]);
+
+  useEffect(() => {
+    if (loading || didFocusInstructions.current || !instructionsRef.current) {
+      return;
+    }
+    const wantsFocus =
+      location.hash === "#instructions" ||
+      (isEditing && hasPlaceholderInstructions(formData.instructions));
+    if (wantsFocus) {
+      instructionsRef.current.focus();
+      instructionsRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      didFocusInstructions.current = true;
+    }
+  }, [loading, location.hash, isEditing, formData.instructions]);
 
   useEffect(() => {
     // Fetch known ingredients for suggestions (cached in this component instance)
@@ -396,9 +417,31 @@ const RecipeForm = () => {
             >
               Instructions <span className="text-red-500">*</span>
             </label>
+            {isEditing && hasPlaceholderInstructions(formData.instructions) && (
+              <p className="text-sm text-amber-800 mb-2">
+                These are placeholder instructions from a legacy import. Replace
+                them with the real steps
+                {formData.source_url ? (
+                  <>
+                    {" "}
+                    from{" "}
+                    <a
+                      href={formData.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline"
+                    >
+                      the source recipe
+                    </a>
+                  </>
+                ) : null}
+                .
+              </p>
+            )}
             <textarea
               id="instructions"
               name="instructions"
+              ref={instructionsRef}
               value={formData.instructions}
               onChange={handleInputChange}
               rows="8"

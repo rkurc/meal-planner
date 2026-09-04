@@ -1,6 +1,6 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `feat/shopping-list-groups-and-unit-convert`
+**Branch:** `feat/fill-empty-recipe-instructions`
 **Last updated:** 2026-09-05
 
 ## Standing instruction
@@ -8,18 +8,25 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Rebased onto `origin/main` after #42 (`e36dabf feat: add master-ingredient API and UI CRUD`). Conflict only in this file; `crud.py` auto-merged. Kept both:
+Rebased onto `origin/main` (`edac188` — #43 shopping-list grouping/units, which already includes #42 master-ingredient CRUD). Conflict only in this file. Kept both:
 
-- Master-ingredient CRUD from main (`create_master_ingredient`, API routes, Ingredient UI, `id` on summary)
-- Shopping-list unit conversion (`units.py`, `generate_shopping_list` conversion, ShoppingListView grouping)
+- Ingredient CRUD UI/API from main (`create_master_ingredient`, API routes, Ingredient UI, `id` on summary)
+- Shopping list grouping + `units.py` from main (`generate_shopping_list` conversion, ShoppingListView grouping)
+- This branch's placeholder-instruction UX (see below)
 
-### Shopping-list polish (this branch)
+### Placeholder-instruction UX (this branch)
 
-**Unit conversion (generation only):** `meal_planner_app/units.py` consolidates mass (g/gram(s) ↔ kg/kilogram(s)) and volume (ml/millilitre(s)/milliliter(s) ↔ l/litre(s)/liter(s)). Case-insensitive, trimmed. Identity is name + unit family + location. Mixed g+kg / ml+l: if total ≥ 1000 base units display as kg/l, else g/ml. Same-scale lines keep that scale (0.5 kg stays kg). No g↔ml or count↔mass. Persisted historical lists are not rewritten; `create_shopping_list` from a meal plan stores already-converted units.
+UX to help users fill empty / placeholder recipe instructions after legacy CSV import.
 
-**HTML grouping:** `ShoppingListView.jsx` groups the flat persisted `items` array under location headings (empty/missing → "Other"), matching PDF grouping. Purchased checkboxes, edit, and PDF download unchanged. Edit mode stays a flat list with a location field.
+**Detection:** `frontend/src/hasPlaceholderInstructions.js` treats empty, whitespace-only, and known `migrate_legacy` placeholders as missing steps (the two przepisy CSV strings plus older .odb / generic CSV variants). Does not change `migrate_legacy.py` placeholder text.
 
-**Tests (Docker `meal-planner:dev`, after rebase):**
+**Recipe detail:** placeholder instructions are no longer shown as if they were real steps. Amber banner (`missing-instructions-banner`) + "Edit instructions" (to `/recipes/:id/edit#instructions`). If `source_url` is set, prominent "Open source recipe" (new tab).
+
+**Recipe list:** subtle "Needs instructions" badge on cards that still need steps.
+
+**Recipe form:** autofocus + scroll to instructions when hash is `#instructions` or the loaded text is a placeholder; helper copy with source link. No fetch/scraper (CORS / HTML soup).
+
+**Tests (Docker `meal-planner:dev`, after rebase onto `edac188`):**
 ```
 docker run --rm -v "$(pwd):/app" -w /app -e PYTHONPATH=/app meal-planner:dev python -m pytest meal_planner_app/tests/ -q --tb=short
 # 138 passed
@@ -28,24 +35,21 @@ docker run --rm -v "$(pwd):/app" -w /app -e PYTHONPATH=/app meal-planner:dev pyt
 docker run --rm -v "$(pwd):/app" -w /app -e PYTHONPATH=/app meal-planner:dev python -m pylint meal_planner_app
 # 10.00/10
 ```
+Frontend prettier + eslint clean on changed files; `npm run test:unit` 5/5.
+Playwright: `should highlight placeholder instructions and offer source + edit` creates a recipe with the CSV placeholder via the existing form + `/api/test/seed-db` beforeEach. Seeded recipes must not show the banner/badge. Playwright not executed here (no app servers).
 
-### Already on main (#42)
+### Already on main (#42, #43)
 
-Master-ingredient UI CRUD. Catalog rows (`ingredients` table + `IngredientDao`) are a first-class API/UI resource. Recipe get-or-create by name is unchanged.
-
-- `POST /api/ingredients` — trim unique name; optional `default_unit`, `location`, `location_id`. 400 missing name; 409 duplicate.
-- `GET /api/ingredients/<uuid>` — detail with `id`, unit, location, usage, recipes.
-- `PUT /api/ingredients/<uuid>` — 404 missing; 409 duplicate name.
-- `DELETE /api/ingredients/<uuid>` — 404 missing; **409** (JSON `{error, usage_count}`) if `ON DELETE RESTRICT` / dao.delete False.
-- `GET /api/ingredients/summary` and `/info` now include `id`. Autocomplete `GET /api/ingredients` stays a string list.
-- UI: `/ui/ingredients` catalog list; `/ui/ingredients/:id` detail/edit/delete; `/ui/ingredients/new`.
+Master-ingredient UI CRUD and shopping-list location grouping + g↔kg / ml↔l conversion. Unchanged by this rebase.
 
 ## Next
 
+- Open PR against main (stacked after #42 and #43)
 - Auth, OpenAPI, discovery
 - Optional: E2E for ingredient create/edit/delete (including 409-in-use)
 - Optional: rebuild `meal_planner_app/static/react_app/` hashed assets (prod image still `npm run build`s in Docker)
+- Run Playwright against a seeded stack (`BASE_URL` + `API_BASE_URL`) to confirm the new e2e
 
 ## Out of scope here
 
-Auth, OpenAPI, i18n, recipe-instruction import, SQLAlchemy, Alembic, multi-worker gunicorn, Postgres adapter.
+Automatic Recipe Discovery (web search / NLP / HTML scrape). Auth, OpenAPI, i18n, SQLAlchemy, Alembic, multi-worker gunicorn, Postgres adapter.

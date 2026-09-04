@@ -43,4 +43,12 @@ export default [
       "no-unused-vars": "off",
     },
   },
+  {
+    files: ["**/*.test.js"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
 ];

@@ -45,6 +45,7 @@ test("should navigate to the recipes page and see the seeded recipes", async ({
   await expect(
     page.getByRole("heading", { name: "Simple Omelette" }),
   ).toBeVisible();
+  await expect(page.getByText("Needs instructions")).not.toBeVisible();
 });
 
 test("should create a new recipe", async ({ page }) => {
@@ -98,6 +99,9 @@ test("should view recipe details", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "Delete Recipe" }),
   ).toBeVisible();
+  await expect(
+    page.getByTestId("missing-instructions-banner"),
+  ).not.toBeVisible();
 });
 
 test("should edit an existing recipe", async ({ page }) => {
@@ -293,6 +297,52 @@ test("should auto-populate default unit on name change but not overwrite if unit
   await sLastUnit.fill("pre-unit");
   await sNames[sNames.length - 1].fill("Butter");
   await expect(sLastUnit).toHaveValue("pre-unit"); // not auto "tbsp"
+});
+
+test("should highlight placeholder instructions and offer source + edit", async ({
+  page,
+}) => {
+  const placeholder =
+    "See source_url for full original instructions. (auto-migrated from przepisy CSV)";
+
+  await page.goto("/ui/recipes/new");
+  await page.fill("#name", "Placeholder Import Recipe");
+  await page.fill("#source_url", "https://example.com/legacy-recipe");
+  await page.fill("#instructions", placeholder);
+  await page.getByRole("button", { name: "Create Recipe" }).click();
+  await page.waitForURL("**/recipes/*", { waitUntil: "networkidle" });
+
+  await expect(page.getByTestId("missing-instructions-banner")).toBeVisible();
+  await expect(
+    page.getByText("This recipe is missing cooking instructions."),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Open source recipe" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Edit instructions" }),
+  ).toBeVisible();
+  await expect(page.getByText(placeholder)).not.toBeVisible();
+
+  const sourceLink = page.getByRole("link", { name: "Open source recipe" });
+  await expect(sourceLink).toHaveAttribute(
+    "href",
+    "https://example.com/legacy-recipe",
+  );
+  await expect(sourceLink).toHaveAttribute("target", "_blank");
+
+  await page.getByRole("link", { name: "Edit instructions" }).click();
+  await page.waitForURL("**/recipes/*/edit**");
+  await expect(page.locator("#instructions")).toBeFocused();
+  await expect(
+    page.getByText(/placeholder instructions from a legacy import/i),
+  ).toBeVisible();
+
+  await page.goto("/ui/recipes");
+  await expect(
+    page.getByRole("heading", { name: "Placeholder Import Recipe" }),
+  ).toBeVisible();
+  await expect(page.getByText("Needs instructions")).toBeVisible();
 });
 
 test("should filter recipes by search query and ingredient", async ({
