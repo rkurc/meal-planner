@@ -191,6 +191,29 @@ class TestMealPlanAndShoppingListDao(unittest.TestCase):
         self.assertEqual(found.recipes[0]["recipe_id"], self.recipe.recipe_id)
         self.assertEqual(found.recipes[0]["count"], 2.0)
 
+    def test_meal_plan_recipes_preserve_insertion_order(self):
+        """Reload must keep insert order, not PRIMARY KEY (recipe_id) order."""
+        other = self.dao.recipes.insert(
+            Recipe(name="Waffles", instructions="Cook", ingredients=[])
+        )
+        rid_a, rid_b = self.recipe.recipe_id, other.recipe_id
+        if str(rid_a) < str(rid_b):
+            first, second = rid_b, rid_a
+        else:
+            first, second = rid_a, rid_b
+        plan = MealPlan(
+            name="Order",
+            recipes=[
+                {"recipe_id": first, "count": 1.5},
+                {"recipe_id": second, "count": 0.25},
+            ],
+        )
+        saved = self.dao.meal_plans.insert(plan)
+        found = self.dao.meal_plans.find_by_id(saved.meal_plan_id)
+        self.assertEqual([e["count"] for e in found.recipes], [1.5, 0.25])
+        self.assertEqual(found.recipes[0]["recipe_id"], first)
+        self.assertEqual(found.recipes[1]["recipe_id"], second)
+
     def test_shopping_list_snapshot_and_quantity_list(self):
         sl = ShoppingList(
             name="Groceries",

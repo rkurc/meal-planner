@@ -391,6 +391,7 @@ class _SqliteMealPlanDao:
             """
             SELECT recipe_id, count FROM meal_plan_recipes
             WHERE meal_plan_id = ?
+            ORDER BY rowid
             """,
             (_uuid_str(meal_plan_id),),
         ).fetchall()

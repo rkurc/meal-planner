@@ -460,10 +460,13 @@ class TestMealPlanApi(unittest.TestCase):
 
         mp_id = data["id"]
 
-        # GET returns same
+        # GET returns same (order-independent: SQLite PK is recipe_id)
         get_resp = self.client.get(f"/api/meal-plans/{mp_id}")
         gdata = json.loads(get_resp.data)
-        self.assertEqual(gdata["recipes"][0]["count"], 1.5)
+        self.assertEqual(len(gdata["recipes"]), 2)
+        get_counts = {r["id"]: r["count"] for r in gdata["recipes"]}
+        self.assertEqual(get_counts[str(self.recipe1.recipe_id)], 1.5)
+        self.assertEqual(get_counts[str(self.recipe2.recipe_id)], 0.25)
 
         # Update to change counts
         put_resp = self.client.put(

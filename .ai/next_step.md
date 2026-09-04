@@ -16,14 +16,21 @@ Persistent storage: SQLite file behind nested DAOs. Spec: `docs/superpowers/spec
 
 **File:** `MEAL_PLANNER_DB` or `data/meal_planner.db`. Tests: `:memory:` via `tests/conftest.py`. `start_and_seed.sh` uses `seed_if_empty()`.
 
+**CI babysit (PR #40):** native `backend` pytest failed on
+`TestMealPlanApi.test_create_update_meal_plan_with_recipe_counts_api`
+(`AssertionError: 0.25 != 1.5`). Cause: `SELECT ... FROM meal_plan_recipes WHERE meal_plan_id = ?`
+used the composite PK index, so order followed `recipe_id` UUID strings, not insert order.
+Fix: `ORDER BY rowid` in `_SqliteMealPlanDao._from_row`; GET assertion is now a count map;
+DAO regression test forces reverse UUID order.
+
 **Verification (Docker `meal-planner:dev`, PYTHONPATH=/app for pylint):**
-- pytest: **96 passed**
-- black `--check`: clean
-- pylint: **10.00/10**
+- pytest: **97 passed** (`python -m pytest meal_planner_app/tests/ -q --tb=short`)
+- black `--check`: clean (`python -m black --check` on changed files)
+- pylint: **10.00/10** (`python -m pylint meal_planner_app`)
 
 ## Next (not this branch)
 
-- Push / PR / babysit if requested
+- Re-check PR #40 CI after the order-fix push
 - Master-ingredient UI CRUD (table exists)
 - Auth, OpenAPI, discovery
 
