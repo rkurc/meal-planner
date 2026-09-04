@@ -9,6 +9,8 @@ import RecipeList from "./components/RecipeList";
 import RecipeDetail from "./components/RecipeDetail";
 import RecipeForm from "./components/RecipeForm";
 import IngredientList from "./components/IngredientList";
+import IngredientDetail from "./components/IngredientDetail";
+import IngredientForm from "./components/IngredientForm";
 import MealPlanList from "./components/MealPlanList";
 import MealPlanDetail from "./components/MealPlanDetail";
 import MealPlanForm from "./components/MealPlanForm";
@@ -43,6 +45,18 @@ const router = createBrowserRouter(
         {
           path: "ingredients",
           element: <IngredientList />,
+        },
+        {
+          path: "ingredients/new",
+          element: <IngredientForm />,
+        },
+        {
+          path: "ingredients/:id",
+          element: <IngredientDetail />,
+        },
+        {
+          path: "ingredients/:id/edit",
+          element: <IngredientForm />,
         },
         {
           path: "meal-plans",

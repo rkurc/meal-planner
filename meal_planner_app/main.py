@@ -199,11 +199,51 @@ def api_get_recipes():
     return jsonify([_recipe_to_dict(recipe) for recipe in recipes])
 
 
+def _master_ingredient_to_dict(ingredient) -> dict:
+    """Serialize a catalog ingredient plus usage/recipes for JSON responses."""
+    recipes_using = crud.get_recipes_for_ingredient(ingredient.name)
+    return {
+        "id": str(ingredient.ingredient_id),
+        "name": ingredient.name,
+        "default_unit": ingredient.default_unit or "",
+        "unit": ingredient.default_unit or "",
+        "location": ingredient.location or ingredient.location_id or "",
+        "location_id": ingredient.location_id,
+        "usage_count": len(recipes_using),
+        "recipes": [
+            {
+                "id": str(recipe.recipe_id),
+                "name": recipe.name,
+                "description": recipe.description,
+            }
+            for recipe in recipes_using
+        ],
+    }
+
+
 @app.route("/api/ingredients", methods=["GET"])
 def api_get_ingredients():
     """API endpoint to get unique ingredient names (for suggestion/autocomplete in UI)."""
     names = crud.list_unique_ingredient_names()  # pylint: disable=no-member
     return jsonify(names)
+
+
+@app.route("/api/ingredients", methods=["POST"])
+def api_create_ingredient():
+    """Create a master ingredient. Name is required and must be unique after trim."""
+    data = request.get_json()
+    if not data or not str(data.get("name") or "").strip():
+        abort(400, description="`name` is required.")
+    try:
+        created = crud.create_master_ingredient(
+            name=data["name"],
+            default_unit=data.get("default_unit") or "",
+            location=data.get("location"),
+            location_id=data.get("location_id"),
+        )
+    except crud.DuplicateIngredientNameError as exc:
+        return jsonify({"error": str(exc)}), 409
+    return jsonify(_master_ingredient_to_dict(created)), 201
 
 
 @app.route("/api/locations", methods=["GET"])
@@ -222,8 +262,8 @@ def api_get_units():
 
 @app.route("/api/ingredients/summary", methods=["GET"])
 def api_get_ingredients_summary():
-    """Return ingredient summaries (name, usage, unit, loc) for IngredientList.
-    Backed by recipes; /api/ingredients kept for autocomplete compat.
+    """Return ingredient summaries (id, name, usage, unit, loc) for IngredientList.
+    Catalog-backed; /api/ingredients kept as a string list for autocomplete.
     """
     summaries = crud.list_ingredients_summary()  # pylint: disable=no-member
     return jsonify(summaries)
@@ -231,25 +271,80 @@ def api_get_ingredients_summary():
 
 @app.route("/api/ingredients/info", methods=["GET"])
 def api_get_ingredient_info():
-    """API for IngredientDetail: {name, usage_count, recipes} for ?name= .
+    """API for IngredientDetail: {id, name, usage_count, recipes} for ?name= .
     Exact name match. Read-only.
     """
     name = request.args.get("name", "").strip()
     if not name:
         abort(400, description="name query parameter is required")
     recipes_using = crud.get_recipes_for_ingredient(name)  # pylint: disable=no-member
-    # slim to avoid full duplication of ingredients data
+    master = crud.get_master_ingredient_by_name(name)
     slim_recipes = [
         {"id": str(r.recipe_id), "name": r.name, "description": r.description}
         for r in recipes_using
     ]
     return jsonify(
         {
-            "name": name,
+            "id": str(master.ingredient_id) if master else None,
+            "name": master.name if master else name,
+            "default_unit": (master.default_unit or "") if master else "",
+            "unit": (master.default_unit or "") if master else "",
+            "location": (
+                (master.location or master.location_id or "") if master else ""
+            ),
             "usage_count": len(recipes_using),
             "recipes": slim_recipes,
         }
     )
+
+
+@app.route("/api/ingredients/<uuid:ingredient_id>", methods=["GET"])
+def api_get_ingredient(ingredient_id: uuid.UUID):
+    """Return a single catalog ingredient by id, including usage and recipes."""
+    ingredient = crud.get_master_ingredient(ingredient_id)
+    if not ingredient:
+        abort(404)
+    return jsonify(_master_ingredient_to_dict(ingredient))
+
+
+@app.route("/api/ingredients/<uuid:ingredient_id>", methods=["PUT"])
+def api_update_ingredient(ingredient_id: uuid.UUID):
+    """Update a catalog ingredient by id. Unique name is still enforced."""
+    data = request.get_json()
+    if not data:
+        abort(400)
+    if "name" in data and not str(data.get("name") or "").strip():
+        abort(400, description="`name` is required.")
+    try:
+        updated = crud.update_master_ingredient(
+            ingredient_id,
+            name=data.get("name"),
+            default_unit=data.get("default_unit") if "default_unit" in data else None,
+            location=data.get("location") if "location" in data else None,
+            location_id=data.get("location_id") if "location_id" in data else None,
+        )
+    except crud.DuplicateIngredientNameError as exc:
+        return jsonify({"error": str(exc)}), 409
+    except ValueError:
+        abort(400, description="`name` is required.")
+    if not updated:
+        abort(404)
+    return jsonify(_master_ingredient_to_dict(updated))
+
+
+@app.route("/api/ingredients/<uuid:ingredient_id>", methods=["DELETE"])
+def api_delete_ingredient(ingredient_id: uuid.UUID):
+    """Delete a catalog ingredient. 409 if recipes still reference it."""
+    try:
+        deleted = crud.delete_master_ingredient(ingredient_id)
+    except crud.IngredientInUseError as exc:
+        return (
+            jsonify({"error": str(exc), "usage_count": exc.usage_count}),
+            409,
+        )
+    if not deleted:
+        abort(404)
+    return "", 204
 
 
 @app.route("/api/recipes", methods=["POST"])
