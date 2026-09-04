@@ -163,6 +163,18 @@ test("should generate shopping list from meal plan", async ({ page }) => {
   await page.getByRole("link", { name: "Weekly Meal Plan" }).click();
   await page.waitForURL("**/meal-plans/*");
 
+  await expect(
+    page.getByRole("link", { name: "Back to Meal Plans" }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Back to Meal Plans" }).click();
+  await page.waitForURL("**/meal-plans");
+  await expect(
+    page.getByRole("link", { name: "Weekly Meal Plan" }),
+  ).toBeVisible();
+
+  await page.getByRole("link", { name: "Weekly Meal Plan" }).click();
+  await page.waitForURL("**/meal-plans/*");
+
   // Verify shopping list section is visible
   await expect(
     page.getByRole("heading", { name: /Shopping List/ }),

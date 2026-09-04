@@ -568,7 +568,13 @@ def extract_from_csvs(
 
                 # Clean instructions if the field was primarily/only the source URL
                 instructions = instr
-                if source_url and instr.strip().startswith("http"):
+                if not instr.strip():
+                    # API requires non-empty instructions (POST /api/recipes → 400 otherwise)
+                    instructions = (
+                        "No instructions in the legacy export. "
+                        "(auto-migrated from przepisy CSV)"
+                    )
+                elif source_url and instr.strip().startswith("http"):
                     instructions = "See source_url for full original instructions. (auto-migrated from przepisy CSV)"  # pylint: disable=line-too-long
 
                 description = "Migrated from legacy przepisy CSV export"

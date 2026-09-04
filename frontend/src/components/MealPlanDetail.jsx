@@ -67,20 +67,35 @@ const MealPlanDetail = () => {
     }
   };
 
+  const backLink = (
+    <Link
+      to="/meal-plans"
+      className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+    >
+      Back to Meal Plans
+    </Link>
+  );
+
   if (loading) {
     return <p className="text-center text-gray-500">Loading meal plan...</p>;
   }
 
   if (error) {
     return (
-      <p className="text-center text-red-500">
-        Error loading meal plan: {error}
-      </p>
+      <div className="container mx-auto p-4 text-center">
+        <p className="text-red-500 mb-4">Error loading meal plan: {error}</p>
+        {backLink}
+      </div>
     );
   }
 
   if (!mealPlan) {
-    return <p className="text-center text-gray-500">Meal plan not found.</p>;
+    return (
+      <div className="container mx-auto p-4 text-center">
+        <p className="text-gray-500 mb-4">Meal plan not found.</p>
+        {backLink}
+      </div>
+    );
   }
 
   return (
@@ -123,6 +138,7 @@ const MealPlanDetail = () => {
           >
             Delete
           </button>
+          {backLink}
         </div>
       </div>
 
