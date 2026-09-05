@@ -2,21 +2,43 @@
 ARG NODE_VERSION=20
 ARG PYTHON_VERSION=3.9
 
+# Official Node image — copy binaries instead of nodesource + apt gnupg.
+# Debian bullseye-security has 404'd gnupg packages in CI
+# (e.g. gnupg_2.2.27-2+deb11u3), which broke bake ci / e2e.
+FROM node:${NODE_VERSION}-bullseye AS node-bin
+
 # Stage 1: Base image with Python and Node.js
 FROM python:${PYTHON_VERSION}-bullseye AS base
 
-# Install Node.js using the (major part of) ARG so `docker buildx bake dev` / `ci` (and NODE_VERSION overrides)
-# affect the nodesource setup. Nodesource setup scripts use major version only (e.g. 20.x even if NODE_VERSION=20.19).
-# This replaces previous hardcode of setup_20.x .
 ENV DEBIAN_FRONTEND=noninteractive
-ARG NODE_VERSION=20
-RUN NODE_MAJOR=$(echo "${NODE_VERSION}" | cut -d. -f1) && \
-    apt-get update && apt-get install -y curl gnupg ca-certificates && \
-    curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - && \
-    apt-get update && \
-    apt-get install -y nodejs fonts-dejavu-core && \
-    # Upgrade pip
-    pip install --upgrade pip
+# Isolate Node from Python's /usr/local so we do not clobber pip/python.
+COPY --from=node-bin /usr/local /opt/node
+ENV PATH="/opt/node/bin:${PATH}"
+# Chromium runtime libs (not -dev, not libcups2). `playwright install
+# --with-deps` and cups both pull avahi from debian-security, which 404s
+# (libavahi-common-data_0.8-5+deb11u3). Headless Chromium does not need CUPS.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libnss3 \
+        libnspr4 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libatspi2.0-0 \
+        libdrm2 \
+        libgbm1 \
+        libasound2 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxfixes3 \
+        libxrandr2 \
+        libxkbcommon0 \
+        libxshmfence1 \
+        libpango-1.0-0 \
+        libcairo2 \
+        fonts-liberation \
+    && rm -rf /var/lib/apt/lists/* \
+    && node --version && npm --version \
+    && pip install --upgrade pip
 
 # Stage 2: Builder with source code and dependencies
 FROM base AS builder
@@ -56,6 +78,15 @@ COPY --from=builder /app/ /app/
 
 # Make the startup script executable
 RUN chmod +x /app/start_and_seed.sh
+
+# Download Chromium here so CI does not run `playwright install --with-deps`
+# (that path apt-gets Debian security packages and 404s, same class of flake
+# as the old nodesource/gnupg install). python:bullseye already has the
+# shared libraries Chromium needs to launch headless.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+WORKDIR /app/frontend
+RUN npx playwright install chromium
+WORKDIR /app
 
 ENV MEAL_PLANNER_DB=/app/data/meal_planner.db
 RUN mkdir -p /app/data

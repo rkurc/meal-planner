@@ -1,24 +1,33 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `feat/i18n-chrome-pr2-6`
-**Last updated:** 2026-09-05
+**Branch:** `chore/i18n-ops-cleanup`
+**Last updated:** 2026-09-06
 
 ## Standing instruction
 Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-i18n spec **PR-2 through PR-6** on one branch (after PR-1 fonts on main):
+Cleanup of leftover i18n chrome + ops/quality:
 
-- PR-2: i18next init, EN|PL switcher, nav `t()`, Playwright `locale: en-US`, `npm run i18n:check` in CI + AGENTS.md
-- PR-3/4: recipe, ingredient, meal-plan, shopping chrome translated
-- PR-5: PDF `?lang=` + RFC 5987 `filename*` + SPA href `resolvedLanguage`
-- PR-6: Playwright PL smoke; `.ai/progress.md` i18n chrome Done
+- IngredientForm / IngredientDetail / RecipeForm placeholder hint now use `t()` / `<Trans>` (en+pl keys).
+- Stale `.ai/progress.md`, `requirements.md`, `test_plan.md`, `stack.md` refreshed (master ingredients, g↔kg, i18n, lean prod, tests).
+- Prod image: no Node, no apt, no `COPY . .`; SPA copied from the frontend-builder stage.
+- `dev`/`ci`: Node copied from official `node:*-bullseye` to `/opt/node` (no nodesource + gnupg apt 404). Chromium + nss/nspr baked in; no `playwright install --with-deps`.
+- E2E: ingredients CRUD + in-use delete; standalone shopping list + PDF + delete.
+- Frontend `node --test src` (leftover chrome scan, shopping grouping) wired in CI.
+
+Verification:
+- `docker buildx bake prod --load` → `exporting to image ... naming to docker.io/library/meal-planner:prod`
+- prod smoke: Python 3.9.23, gunicorn 23.0.0, no `node`, `/ui/` assets present
+- `docker buildx bake ci --load` → Node v20.20.2 from `/opt/node`
+- pytest in ci image: **154 passed**
+- Playwright in ci image: **15 passed** (12.9s)
 
 ## Next
 
-Unrelated remaining: auth; OpenAPI; discovery. Optional: IngredientForm remaining copy, RecipeForm placeholder-hint interpolation.
+Unrelated remaining: auth; OpenAPI; recipe discovery; prep-time metadata; meal-plan calendar; meal-plan PDF.
 
 ## Out of scope
 
-Machine-translating imported recipes; Flask-Babel; SQLite locale column; RTL.
+Machine-translating imported recipes; Flask-Babel; SQLite locale column; RTL; Jest/RTL.

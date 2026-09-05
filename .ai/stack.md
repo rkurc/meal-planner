@@ -45,10 +45,10 @@ See `.ai/progress.md` for feature status.
 ## Development & Deployment Environment
 
 *   **Containerization:** Docker Buildx bake (`docker-bake.hcl`)
-    *   `dev` → `meal-planner:dev` / `meal-planner-dev` (`.devcontainer/Dockerfile`)
-    *   `prod` → root `Dockerfile`
-    *   `ci` → E2E image
-*   **Node:** 20 (required by Vite 7 + Tailwind 4)
+    *   `dev` → `meal-planner:dev` / `meal-planner-dev` (`.devcontainer/Dockerfile`; Node copied from official `node:*-bullseye` into `/opt/node`)
+    *   `prod` → root `Dockerfile` (Python + gunicorn + prebuilt SPA; **no Node**, no apt)
+    *   `ci` → E2E image (same Dockerfile as `dev`)
+*   **Node:** 20 (required by Vite 7 + Tailwind 4; build-time only in prod)
 *   **Python:** 3.9
 *   **Quality gates:** GitHub Actions `ci.yml` (native backend/frontend + bake smoke) and `integration-tests.yml` (Playwright in container)
 *   **Start:** `start_and_seed.sh` (Flask/gunicorn + optional Vite + seed/migrate)

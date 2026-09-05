@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 const IngredientDetail = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const [ingredient, setIngredient] = useState(null);
@@ -10,14 +12,14 @@ const IngredientDetail = () => {
 
   useEffect(() => {
     if (!id) {
-      setError("Invalid ingredient");
+      setError(t("ingredients.invalid"));
       setLoading(false);
       return;
     }
     fetch(`/api/ingredients/${id}`)
       .then((response) => {
         if (!response.ok) {
-          throw new Error("Ingredient not found");
+          throw new Error(t("ingredients.notFound"));
         }
         return response.json();
       })
@@ -29,13 +31,11 @@ const IngredientDetail = () => {
         setError(err.message);
         setLoading(false);
       });
-  }, [id]);
+  }, [id, t]);
 
   const handleDelete = () => {
     if (
-      !window.confirm(
-        `Are you sure you want to delete "${ingredient.name}"? This action cannot be undone.`,
-      )
+      !window.confirm(t("ingredients.deleteConfirm", { name: ingredient.name }))
     ) {
       return;
     }
@@ -57,17 +57,13 @@ const IngredientDetail = () => {
           } catch {
             // Fall back to the already-loaded usage count.
           }
-          setError(
-            `Cannot delete: still used by ${usage} recipe${
-              usage !== 1 ? "s" : ""
-            }. Remove it from those recipes first.`,
-          );
+          setError(t("ingredients.cannotDelete", { count: usage }));
           return;
         }
         if (response.status === 404) {
-          throw new Error("Ingredient not found");
+          throw new Error(t("ingredients.notFound"));
         }
-        throw new Error("Failed to delete ingredient");
+        throw new Error(t("ingredients.failedDelete"));
       })
       .catch((err) => {
         setError(err.message);
@@ -79,14 +75,16 @@ const IngredientDetail = () => {
       to="/ingredients"
       className="text-blue-500 hover:text-blue-700 underline"
     >
-      Back to Ingredients
+      {t("ingredients.back")}
     </Link>
   );
 
   if (loading) {
     return (
       <div className="container mx-auto p-4">
-        <p className="text-center text-gray-500">Loading ingredient...</p>
+        <p className="text-center text-gray-500">
+          {t("ingredients.loadingOne")}
+        </p>
       </div>
     );
   }
@@ -94,7 +92,9 @@ const IngredientDetail = () => {
   if (error && !ingredient) {
     return (
       <div className="container mx-auto p-4">
-        <p className="text-center text-red-500">Error: {error}</p>
+        <p className="text-center text-red-500">
+          {t("common.error", { message: error })}
+        </p>
         <div className="text-center mt-4">{backLink}</div>
       </div>
     );
@@ -103,7 +103,7 @@ const IngredientDetail = () => {
   if (!ingredient) {
     return (
       <div className="container mx-auto p-4">
-        <p className="text-center text-gray-500">Ingredient not found.</p>
+        <p className="text-center text-gray-500">{t("ingredients.notFound")}</p>
         <div className="text-center mt-4">{backLink}</div>
       </div>
     );
@@ -127,25 +127,32 @@ const IngredientDetail = () => {
 
         <div className="mb-4 space-y-1">
           <div>
-            <span className="text-gray-700 font-semibold">Default unit: </span>
+            <span className="text-gray-700 font-semibold">
+              {t("ingredients.defaultUnitLabel")}{" "}
+            </span>
             <span className="text-gray-600">{unit || "—"}</span>
           </div>
           <div>
-            <span className="text-gray-700 font-semibold">Location: </span>
+            <span className="text-gray-700 font-semibold">
+              {t("ingredients.locationLabel")}{" "}
+            </span>
             <span className="text-gray-600">{location || "—"}</span>
           </div>
           <div>
-            <span className="text-gray-700 font-semibold">Used in: </span>
+            <span className="text-gray-700 font-semibold">
+              {t("ingredients.usedInLabel")}{" "}
+            </span>
             <span className="text-gray-600">
-              {ingredient.usage_count} recipe
-              {ingredient.usage_count !== 1 ? "s" : ""}
+              {t("ingredients.usedCount", {
+                count: ingredient.usage_count || 0,
+              })}
             </span>
           </div>
         </div>
 
         <div className="mb-6">
           <h2 className="text-2xl font-semibold text-gray-800 mb-3">
-            Recipes using this ingredient
+            {t("ingredients.recipesUsing")}
           </h2>
           {ingredient.recipes && ingredient.recipes.length > 0 ? (
             <ul className="list-disc list-inside space-y-1">
@@ -167,7 +174,7 @@ const IngredientDetail = () => {
             </ul>
           ) : (
             <p className="text-gray-500 italic">
-              No recipes found using this ingredient.
+              {t("ingredients.noRecipesUsing")}
             </p>
           )}
         </div>
@@ -177,20 +184,20 @@ const IngredientDetail = () => {
             to={`/ingredients/${id}/edit`}
             className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
           >
-            Edit Ingredient
+            {t("ingredients.edit")}
           </Link>
           <button
             type="button"
             onClick={handleDelete}
             className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded"
           >
-            Delete Ingredient
+            {t("ingredients.delete")}
           </button>
           <Link
             to="/ingredients"
             className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded"
           >
-            Back to Ingredients
+            {t("ingredients.back")}
           </Link>
         </div>
       </div>

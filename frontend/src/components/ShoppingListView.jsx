@@ -1,45 +1,11 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import { useTranslation } from "react-i18next";
-
-// Persisted lists are a flat items array; group like the PDF (empty → "Other").
-const OTHER_LOCATION_GROUP = "Other";
-
-function resolveItemLocation(item) {
-  const loc = (item && (item.location || item.location_id)) || "";
-  const trimmed = String(loc).trim();
-  return trimmed === "" ? OTHER_LOCATION_GROUP : trimmed;
-}
-
-function groupItemsByLocation(items) {
-  const groups = new Map();
-  (items || []).forEach((item, index) => {
-    const location = resolveItemLocation(item);
-    if (!groups.has(location)) {
-      groups.set(location, []);
-    }
-    groups.get(location).push({ item, index });
-  });
-  const keys = Array.from(groups.keys()).sort((a, b) => {
-    if (a === OTHER_LOCATION_GROUP && b !== OTHER_LOCATION_GROUP) return 1;
-    if (b === OTHER_LOCATION_GROUP && a !== OTHER_LOCATION_GROUP) return -1;
-    return a.localeCompare(b);
-  });
-  return keys.map((location) => ({
-    location,
-    entries: groups.get(location),
-  }));
-}
-
-function formatItemLabel(item) {
-  if (item.quantity && item.unit) {
-    return `${item.quantity} ${item.unit} ${item.name}`;
-  }
-  if (item.quantity) {
-    return `${item.quantity} ${item.name}`;
-  }
-  return item.name;
-}
+import {
+  OTHER_LOCATION_GROUP,
+  formatItemLabel,
+  groupItemsByLocation,
+} from "../shoppingListGroups";
 
 const ShoppingListView = ({
   mealPlanId,
@@ -513,13 +479,17 @@ const ShoppingListView = ({
                   setEditMode(false);
                 }}
                 className="mr-2 mb-1 px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs"
-                title={l.meal_plan_id ? `From meal plan` : `Standalone`}
+                title={
+                  l.meal_plan_id
+                    ? t("shopping.fromMealPlan")
+                    : t("shopping.standalone")
+                }
               >
                 {l.name}
               </button>
             ))}
           <button
-            onClick={() => handleCreateNewList("New List")}
+            onClick={() => handleCreateNewList()}
             className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs"
           >
             {t("shopping.new")}
@@ -570,7 +540,7 @@ const ShoppingListView = ({
                   }
                   list="known-locations"
                   className="w-28 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  title="Location / aisle for grouping"
+                  title={t("shopping.locationTitle")}
                 />
                 <button
                   onClick={() => handleRemoveItem(index)}

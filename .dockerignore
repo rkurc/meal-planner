@@ -68,3 +68,6 @@ data/
 *.md
 LICENSE
 !meal_planner_app/static/fonts/
+
+# Generated Vite output (copied from the frontend-builder stage, never the host)
+meal_planner_app/static/react_app/

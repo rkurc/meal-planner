@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 const IngredientForm = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const isEditing = Boolean(id);
@@ -22,7 +24,7 @@ const IngredientForm = () => {
     fetch(`/api/ingredients/${id}`)
       .then((response) => {
         if (!response.ok) {
-          throw new Error("Ingredient not found");
+          throw new Error(t("ingredients.notFound"));
         }
         return response.json();
       })
@@ -38,7 +40,7 @@ const IngredientForm = () => {
         setError(err.message);
         setLoading(false);
       });
-  }, [id, isEditing]);
+  }, [id, isEditing, t]);
 
   useEffect(() => {
     fetch("/api/locations")
@@ -67,7 +69,7 @@ const IngredientForm = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      setError("Ingredient name is required.");
+      setError(t("ingredients.nameRequired"));
       return;
     }
 
@@ -89,12 +91,10 @@ const IngredientForm = () => {
       .then(async (response) => {
         const data = await response.json().catch(() => ({}));
         if (response.status === 409) {
-          throw new Error(
-            data.error || "An ingredient with this name already exists.",
-          );
+          throw new Error(data.error || t("ingredients.duplicateName"));
         }
         if (!response.ok) {
-          throw new Error(data.error || "Failed to save ingredient");
+          throw new Error(data.error || t("ingredients.failedSave"));
         }
         return data;
       })
@@ -109,7 +109,7 @@ const IngredientForm = () => {
   if (loading) {
     return (
       <div className="container mx-auto p-4">
-        <p className="text-center text-gray-500">Loading...</p>
+        <p className="text-center text-gray-500">{t("common.loading")}</p>
       </div>
     );
   }
@@ -117,13 +117,15 @@ const IngredientForm = () => {
   if (error && isEditing && !formData.name) {
     return (
       <div className="container mx-auto p-4">
-        <p className="text-center text-red-500">Error: {error}</p>
+        <p className="text-center text-red-500">
+          {t("common.error", { message: error })}
+        </p>
         <div className="text-center mt-4">
           <Link
             to="/ingredients"
             className="text-blue-500 hover:text-blue-700 underline"
           >
-            Back to Ingredients
+            {t("ingredients.back")}
           </Link>
         </div>
       </div>
@@ -134,7 +136,9 @@ const IngredientForm = () => {
     <div className="container mx-auto p-4 max-w-4xl">
       <div className="bg-white shadow-md rounded-lg p-6">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">
-          {isEditing ? "Edit Ingredient" : "Add Ingredient"}
+          {isEditing
+            ? t("ingredients.editTitle")
+            : t("ingredients.createTitle")}
         </h1>
 
         {error && (
@@ -149,7 +153,8 @@ const IngredientForm = () => {
               htmlFor="name"
               className="block text-gray-700 font-semibold mb-2"
             >
-              Name <span className="text-red-500">*</span>
+              {t("ingredients.name")}{" "}
+              <span className="text-red-500">{t("common.required")}</span>
             </label>
             <input
               type="text"
@@ -167,7 +172,7 @@ const IngredientForm = () => {
               htmlFor="default_unit"
               className="block text-gray-700 font-semibold mb-2"
             >
-              Default unit
+              {t("ingredients.defaultUnit")}
             </label>
             <input
               type="text"
@@ -176,7 +181,7 @@ const IngredientForm = () => {
               value={formData.default_unit}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g. cups, g, tbsp"
+              placeholder={t("ingredients.unitPlaceholder")}
             />
           </div>
 
@@ -185,7 +190,7 @@ const IngredientForm = () => {
               htmlFor="location"
               className="block text-gray-700 font-semibold mb-2"
             >
-              Location
+              {t("ingredients.location")}
             </label>
             <input
               type="text"
@@ -195,7 +200,7 @@ const IngredientForm = () => {
               onChange={handleInputChange}
               list="known-locations"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g. Dairy, Pantry"
+              placeholder={t("ingredients.locationPlaceholder")}
             />
             <datalist id="known-locations">
               {knownLocations.map((loc) => (
@@ -209,13 +214,15 @@ const IngredientForm = () => {
               type="submit"
               className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded"
             >
-              {isEditing ? "Update Ingredient" : "Create Ingredient"}
+              {isEditing
+                ? t("ingredients.updateSubmit")
+                : t("ingredients.createSubmit")}
             </button>
             <Link
               to={isEditing ? `/ingredients/${id}` : "/ingredients"}
               className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded"
             >
-              Cancel
+              {t("common.cancel")}
             </Link>
           </div>
         </form>
