@@ -231,5 +231,208 @@ class TestShoppingList(
         self.assertIsNone(shopping_list)
 
 
+class TestShoppingListCompatibleUnits(unittest.TestCase):
+    """FR-1.5.2: consolidate compatible units (g↔kg, ml↔l) at generation time.
+
+    Display rule after summing in base units (g or ml):
+    - If every contributing unit is the same scale (all grams, or all kg),
+      keep that scale (canonical short form: g/kg/ml/l).
+    - If scales are mixed (g+kg or ml+l), prefer the larger unit when the
+      total is >= 1000 base units (1000g → kg, 1000ml → l); otherwise keep
+      the smaller unit.
+    - Do not convert across dimensions (g↛ml) or to count units.
+    - Name + location remain part of identity.
+    """
+
+    def setUp(self):
+        crud.reset_recipes_db()
+        crud.reset_meal_plans_db()
+        if hasattr(crud, "reset_shopping_lists_db"):
+            crud.reset_shopping_lists_db()
+
+    def _plan_from_ingredient_lists(self, *ingredient_lists):
+        recipe_ids = []
+        for i, ings in enumerate(ingredient_lists):
+            recipe = crud.create_recipe(
+                name=f"Recipe {i}",
+                instructions="Mix.",
+                ingredients_data=ings,
+            )
+            recipe_ids.append(recipe.recipe_id)
+        return crud.create_meal_plan(name="Unit plan", recipe_ids=recipe_ids)
+
+    def _flatten(self, shopping_list):
+        if isinstance(shopping_list, dict):
+            items = []
+            for loc_items in shopping_list.values():
+                items.extend(loc_items)
+            return items
+        return list(shopping_list or [])
+
+    def _by_name(self, shopping_list, name, location=None):
+        matches = []
+        for item in self._flatten(shopping_list):
+            if item["name"] != name:
+                continue
+            if location is not None and (item.get("location") or "") != location:
+                continue
+            matches.append(item)
+        return matches
+
+    def test_500g_plus_half_kg_merges_to_one_kilogram(self):
+        """Regression: 500g + 0.5kg of the same name/location → one line, 1 kg."""
+        mp = self._plan_from_ingredient_lists(
+            [{"name": "Flour", "quantity": 500, "unit": "g"}],
+            [{"name": "Flour", "quantity": 0.5, "unit": "kg"}],
+        )
+        shopping_list = crud.generate_shopping_list(mp.meal_plan_id)
+        flour = self._by_name(shopping_list, "Flour")
+        self.assertEqual(len(flour), 1)
+        self.assertEqual(flour[0]["unit"], "kg")
+        self.assertEqual(flour[0]["quantity"], 1)
+
+    def test_100g_plus_0_2kg_stays_in_grams(self):
+        """Mixed g+kg totaling 300g (< 1000g) displays as grams."""
+        mp = self._plan_from_ingredient_lists(
+            [{"name": "Sugar", "quantity": 100, "unit": "g"}],
+            [{"name": "Sugar", "quantity": 0.2, "unit": "kg"}],
+        )
+        shopping_list = crud.generate_shopping_list(mp.meal_plan_id)
+        sugar = self._by_name(shopping_list, "Sugar")
+        self.assertEqual(len(sugar), 1)
+        self.assertEqual(sugar[0]["unit"], "g")
+        self.assertEqual(sugar[0]["quantity"], 300)
+
+    def test_ml_plus_l_merges_and_prefers_litre_at_threshold(self):
+        """500ml + 0.5l → 1 l (same threshold rule as mass)."""
+        mp = self._plan_from_ingredient_lists(
+            [{"name": "Milk", "quantity": 500, "unit": "ml"}],
+            [{"name": "Milk", "quantity": 0.5, "unit": "l"}],
+        )
+        shopping_list = crud.generate_shopping_list(mp.meal_plan_id)
+        milk = self._by_name(shopping_list, "Milk")
+        self.assertEqual(len(milk), 1)
+        self.assertEqual(milk[0]["unit"], "l")
+        self.assertEqual(milk[0]["quantity"], 1)
+
+    def test_millilitre_liter_spellings_and_case_are_compatible(self):
+        """millilitre/liter (and whitespace/case) consolidate with ml/l."""
+        mp = self._plan_from_ingredient_lists(
+            [{"name": "Stock", "quantity": 200, "unit": " millilitre "}],
+            [{"name": "Stock", "quantity": 0.3, "unit": "Liter"}],
+            [{"name": "Stock", "quantity": 100, "unit": "ML"}],
+        )
+        shopping_list = crud.generate_shopping_list(mp.meal_plan_id)
+        stock = self._by_name(shopping_list, "Stock")
+        self.assertEqual(len(stock), 1)
+        # 200ml + 300ml + 100ml = 600ml < 1000 → ml
+        self.assertEqual(stock[0]["unit"], "ml")
+        self.assertEqual(stock[0]["quantity"], 600)
+
+    def test_does_not_convert_grams_to_millilitres(self):
+        mp = self._plan_from_ingredient_lists(
+            [{"name": "Oil", "quantity": 100, "unit": "g"}],
+            [{"name": "Oil", "quantity": 100, "unit": "ml"}],
+        )
+        shopping_list = crud.generate_shopping_list(mp.meal_plan_id)
+        oil = self._by_name(shopping_list, "Oil")
+        self.assertEqual(len(oil), 2)
+        units = sorted(item["unit"] for item in oil)
+        self.assertEqual(units, ["g", "ml"])
+
+    def test_does_not_convert_count_units_to_mass(self):
+        mp = self._plan_from_ingredient_lists(
+            [{"name": "Apple", "quantity": 2, "unit": "pc"}],
+            [{"name": "Apple", "quantity": 100, "unit": "g"}],
+        )
+        shopping_list = crud.generate_shopping_list(mp.meal_plan_id)
+        apples = self._by_name(shopping_list, "Apple")
+        self.assertEqual(len(apples), 2)
+
+    def test_same_name_same_location_merges_across_units(self):
+        mp = self._plan_from_ingredient_lists(
+            [{"name": "Mąka", "quantity": 500, "unit": "g", "location": "pieczywo"}],
+            [{"name": "Mąka", "quantity": 0.5, "unit": "kg", "location": "pieczywo"}],
+        )
+        shopping_list = crud.generate_shopping_list(mp.meal_plan_id)
+        flour = self._by_name(shopping_list, "Mąka", location="pieczywo")
+        self.assertEqual(len(flour), 1)
+        self.assertEqual(flour[0]["unit"], "kg")
+        self.assertEqual(flour[0]["quantity"], 1)
+
+    def test_single_scale_is_not_rewritten(self):
+        """A lone 0.5 kg line stays kg (conversion is for consolidating mixed scales)."""
+        mp = self._plan_from_ingredient_lists(
+            [{"name": "Rice", "quantity": 0.5, "unit": "kg"}],
+        )
+        shopping_list = crud.generate_shopping_list(mp.meal_plan_id)
+        rice = self._by_name(shopping_list, "Rice")
+        self.assertEqual(len(rice), 1)
+        self.assertEqual(rice[0]["unit"], "kg")
+        self.assertEqual(rice[0]["quantity"], 0.5)
+
+    def test_persisted_list_stores_converted_units_at_generation(self):
+        """Conversion applies when creating a list from a meal plan, not later."""
+        mp = self._plan_from_ingredient_lists(
+            [{"name": "Flour", "quantity": 500, "unit": "g"}],
+            [{"name": "Flour", "quantity": 0.5, "unit": "kg"}],
+        )
+        saved = crud.create_shopping_list(meal_plan_id=mp.meal_plan_id)
+        self.assertIsNotNone(saved)
+        self.assertEqual(len(saved.items), 1)
+        self.assertEqual(saved.items[0].unit, "kg")
+        self.assertEqual(saved.items[0].quantity, 1)
+
+
+class TestShoppingListLocationGrouping(unittest.TestCase):
+    """Generated list JSON is grouped by location for the UI / PDF."""
+
+    def setUp(self):
+        crud.reset_recipes_db()
+        crud.reset_meal_plans_db()
+
+    def test_generate_shopping_list_groups_by_location_empty_last(self):
+        recipe = crud.create_recipe(
+            name="Grouped",
+            instructions="Cook.",
+            ingredients_data=[
+                {"name": "Mąka", "quantity": 500, "unit": "g", "location": "pieczywo"},
+                {"name": "Mleko", "quantity": 1, "unit": "l", "location": "nabiał"},
+                {"name": "Sól", "quantity": 1, "unit": "pinch"},
+            ],
+        )
+        mp = crud.create_meal_plan(name="Loc plan", recipe_ids=[recipe.recipe_id])
+        shopping_list = crud.generate_shopping_list(mp.meal_plan_id)
+        self.assertIsInstance(shopping_list, dict)
+        self.assertIn("pieczywo", shopping_list)
+        self.assertIn("nabiał", shopping_list)
+        self.assertIn("", shopping_list)
+        self.assertEqual([item["name"] for item in shopping_list["pieczywo"]], ["Mąka"])
+        self.assertEqual([item["name"] for item in shopping_list["nabiał"]], ["Mleko"])
+        self.assertEqual([item["name"] for item in shopping_list[""]], ["Sól"])
+        # Named locations alphabetical; empty/missing last (same as PDF)
+        self.assertEqual(list(shopping_list.keys())[-1], "")
+        named = [k for k in shopping_list if k]
+        self.assertEqual(named, sorted(named))
+
+    def test_persisted_items_keep_location_for_html_grouping(self):
+        """Flat persisted items still carry location so the HTML UI can group."""
+        recipe = crud.create_recipe(
+            name="Grouped persist",
+            instructions="Cook.",
+            ingredients_data=[
+                {"name": "Mąka", "quantity": 500, "unit": "g", "location": "pieczywo"},
+                {"name": "Sól", "quantity": 1, "unit": "pinch"},
+            ],
+        )
+        mp = crud.create_meal_plan(name="Loc persist", recipe_ids=[recipe.recipe_id])
+        saved = crud.create_shopping_list(meal_plan_id=mp.meal_plan_id)
+        locations = {item.location or "" for item in saved.items}
+        self.assertEqual(locations, {"pieczywo", ""})
+        names_by_loc = {(item.location or ""): item.name for item in saved.items}
+        self.assertEqual(names_by_loc["pieczywo"], "Mąka")
+        self.assertEqual(names_by_loc[""], "Sól")
+
+
 if __name__ == "__main__":
     unittest.main()

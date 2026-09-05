@@ -10,6 +10,7 @@ from typing import List, Dict, Optional, Union, Any
 
 from meal_planner_app.dao.factory import create_dao
 from meal_planner_app.dao.protocol import MealPlannerDao
+from meal_planner_app.units import add_to_aggregate, finalize_aggregated
 from .models.recipe import Recipe
 from .models.ingredient import Ingredient, MasterIngredient
 from .models.meal_plan import MealPlan, _normalize_recipe_entries
@@ -317,7 +318,6 @@ def update_meal_plan(
 # --- Shopping List Generation ---
 
 
-# pylint: disable=too-many-locals,too-many-branches
 def generate_shopping_list(
     meal_plan_id: uuid.UUID,
 ) -> Optional[Dict[str, List[Dict[str, Union[str, float, List[str]]]]]]:
@@ -326,12 +326,15 @@ def generate_shopping_list(
     Returns a dict grouped by location (from lokalizacje): {location_name: [items...], ...}
     or None if the meal plan is not found.
     Items without a location use key "".
+
+    Compatible units (g↔kg, ml↔l and spellings) are consolidated at generation
+    time; see meal_planner_app.units.
     """
     meal_plan = get_meal_plan(meal_plan_id)
     if not meal_plan:
         return None
 
-    aggregated_ingredients: Dict[str, Dict[str, Union[str, float, List[str]]]] = {}
+    aggregated: Dict[str, dict] = {}
 
     recipe_entries = _normalize_recipe_entries(
         getattr(meal_plan, "recipes", None) or getattr(meal_plan, "recipe_ids", None)
@@ -349,84 +352,38 @@ def generate_shopping_list(
             continue  # Skip if a recipe ID in the plan doesn't exist
 
         for ingredient in recipe.ingredients:
-            loc = getattr(ingredient, "location", None) or ""
-            ingredient_key = f"{ingredient.name}_{ingredient.unit}_{loc}"
-            current_quantity_str = str(
-                ingredient.quantity
-            )  # Ensure it's a string for consistency first
-            current_quantity_numeric: Optional[float] = None
-
-            try:
-                current_quantity_numeric = float(current_quantity_str)
-            except (ValueError, TypeError):
-                # Quantity is not a simple float (e.g., "to taste", "1-2", or empty)
-                pass
-
-            # Multiply by recipe count (multiplier) if numeric. Supports fractions like 0.5
-            if current_quantity_numeric is not None:
-                current_quantity_numeric = current_quantity_numeric * count
-                current_quantity_str = str(current_quantity_numeric)
-
-            if ingredient_key in aggregated_ingredients:
-                existing_entry = aggregated_ingredients[ingredient_key]
-                existing_quantity = existing_entry["quantity"]
-
-                if current_quantity_numeric is not None and isinstance(
-                    existing_quantity, (int, float)
-                ):
-                    # Both are numeric, sum them
-                    existing_entry["quantity"] = (
-                        existing_quantity + current_quantity_numeric
-                    )
-                elif isinstance(existing_quantity, list):
-                    # Existing is already a list, append new quantity string
-                    existing_quantity.append(current_quantity_str)
-                else:
-                    # Existing was a single value (numeric or string), convert to list and add both
-                    existing_entry["quantity"] = [
-                        str(existing_quantity),
-                        current_quantity_str,
-                    ]
-            else:
-                # New ingredient for the shopping list
-                aggregated_ingredients[ingredient_key] = {
+            add_to_aggregate(
+                aggregated,
+                {
                     "name": ingredient.name,
-                    "quantity": (
-                        current_quantity_numeric
-                        if current_quantity_numeric is not None
-                        else current_quantity_str
-                    ),
+                    "quantity": ingredient.quantity,
                     "unit": ingredient.unit,
                     "location": getattr(ingredient, "location", None),
                     "location_id": getattr(ingredient, "location_id", None),
-                }
-                # If quantity was empty string and we tried to make it float, it would be None.
-                # Ensure it's stored as original string if not numeric.
-                if (
-                    current_quantity_numeric is None
-                    and aggregated_ingredients[ingredient_key]["quantity"] is None
-                ):
-                    aggregated_ingredients[ingredient_key][
-                        "quantity"
-                    ] = current_quantity_str
+                },
+                count,
+            )
 
-    # Group by location for easy grouping by lokalizacje (aisle/category)
+    return _group_generated_items(finalize_aggregated(aggregated))
+
+
+def _group_generated_items(
+    items: List[Dict[str, Union[str, float, List[str]]]],
+) -> Dict[str, List[Dict[str, Union[str, float, List[str]]]]]:
+    """Group generated items by location; empty/missing last, names alpha inside."""
     grouped: Dict[str, List[Dict[str, Union[str, float, List[str]]]]] = defaultdict(
         list
     )
-    for item in aggregated_ingredients.values():
+    for item in items:
         loc = item.get("location") or ""
         grouped[loc].append(item)
 
-    # Sort locations alphabetically, "Other"/empty last; sort items inside each group by name
-    def _loc_key(l):
-        return (l == "", l)  # empty/unknown at end
+    def _loc_key(location: str):
+        return (location == "", location)
 
-    result = {}
+    result: Dict[str, List[Dict[str, Union[str, float, List[str]]]]] = {}
     for loc in sorted(grouped.keys(), key=_loc_key):
-        items = sorted(grouped[loc], key=lambda x: str(x.get("name", "")))
-        result[loc] = items
-
+        result[loc] = sorted(grouped[loc], key=lambda x: str(x.get("name", "")))
     return result
 
 
