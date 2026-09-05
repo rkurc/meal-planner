@@ -9,6 +9,8 @@ import os
 import unicodedata
 from fpdf import FPDF
 
+from meal_planner_app.i18n.pdf_strings import pdf_chrome
+
 
 _SYSTEM_DEJAVU_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 _SYSTEM_DEJAVU_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
@@ -85,7 +87,7 @@ def _write_pdf_table_row(
     pdf.ln(line_height)
 
 
-def _render_shopping_list_items(
+def _render_shopping_list_items(  # pylint: disable=too-many-arguments,too-many-positional-arguments
     pdf: FPDF,
     data: Union[
         List[Dict[str, Union[str, float, List[str]]]],
@@ -94,10 +96,12 @@ def _render_shopping_list_items(
     pdf_text_fn: Callable,
     set_font: Callable,
     layout: tuple,
+    empty_copy: str,
+    na_copy: str,
 ) -> None:
     """Render the body (empty msg, grouped headers+rows, or flat rows) of the PDF."""
     if not data:
-        pdf.cell(0, 10, pdf_text_fn("This shopping list is empty."), 0, 1)
+        pdf.cell(0, 10, pdf_text_fn(empty_copy), 0, 1)
         return
 
     if isinstance(data, dict):
@@ -107,13 +111,13 @@ def _render_shopping_list_items(
                 pdf.cell(0, 8, pdf_text_fn(f"--- {loc} ---"), 0, 1)
                 set_font("", 11)
             for item in items:
-                name = pdf_text_fn(item.get("name", "N/A"))
+                name = pdf_text_fn(item.get("name", na_copy))
                 quantity_str = pdf_text_fn(_format_quantity(item.get("quantity", "")))
                 unit = pdf_text_fn(item.get("unit", ""))
                 _write_pdf_table_row(pdf, name, quantity_str, unit, layout)
     else:
         for item in data:
-            name = pdf_text_fn(item.get("name", "N/A"))
+            name = pdf_text_fn(item.get("name", na_copy))
             quantity_str = pdf_text_fn(_format_quantity(item.get("quantity", "")))
             unit = pdf_text_fn(item.get("unit", ""))
             _write_pdf_table_row(pdf, name, quantity_str, unit, layout)
@@ -125,12 +129,15 @@ def generate_shopping_list_pdf(
         List[Dict[str, Union[str, float, List[str]]]],
         Dict[str, List[Dict[str, Union[str, float, List[str]]]]],
     ],
+    lang: str = "en",
 ) -> bytes:
     """
     Generates a PDF document for the given shopping list data.
     Supports flat list or grouped dict {location: [items...]} for grouping by lokalizacje.
     Requires DejaVu TTF (bundled or system). Raises FontUnavailableError if missing.
+    lang selects PDF chrome (en/pl); stored names are not translated.
     """
+    chrome = pdf_chrome(lang)
     pdf = FPDF()
     pdf.add_page()
     regular, bold = resolve_dejavu_fonts()
@@ -139,17 +146,16 @@ def generate_shopping_list_pdf(
     def _set_font(style: str, size: int):
         pdf.set_font(family, style, size)
 
-    # KD-9: English chrome heading + stored name as subtitle (no "Shopping List for:").
     _set_font("B", 16)
-    pdf.cell(0, 10, pdf_text("Shopping List"), 0, 1, "C")
+    pdf.cell(0, 10, pdf_text(chrome["heading"]), 0, 1, "C")
     _set_font("", 12)
     pdf.cell(0, 8, pdf_text(meal_plan_name), 0, 1, "C")
     pdf.ln(8)
 
     _set_font("B", 12)
-    pdf.cell(pdf.w * 0.5, 10, pdf_text("Ingredient"), border=1)
-    pdf.cell(pdf.w * 0.25, 10, pdf_text("Quantity"), border=1)
-    pdf.cell(pdf.w * 0.15, 10, pdf_text("Unit"), border=1)
+    pdf.cell(pdf.w * 0.5, 10, pdf_text(chrome["col_ingredient"]), border=1)
+    pdf.cell(pdf.w * 0.25, 10, pdf_text(chrome["col_quantity"]), border=1)
+    pdf.cell(pdf.w * 0.15, 10, pdf_text(chrome["col_unit"]), border=1)
     pdf.ln(10)
 
     _set_font("", 11)
@@ -161,6 +167,8 @@ def generate_shopping_list_pdf(
         pdf_text,
         _set_font,
         layout,
+        chrome["empty"],
+        chrome["na"],
     )
 
     out = pdf.output()

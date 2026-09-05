@@ -41,6 +41,8 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm ci
+      - name: Check i18n key parity
+        run: npm run i18n:check
       - name: Lint with eslint
         run: npm run lint
       - name: Format with prettier

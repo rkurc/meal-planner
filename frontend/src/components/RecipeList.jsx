@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import RecipeItem from "./RecipeItem";
 
 const RecipeList = () => {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get("q") || "";
   const ingredient = searchParams.get("ingredient") || "";
@@ -57,12 +59,13 @@ const RecipeList = () => {
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-gray-800">Recipes</h2>
+        <h2 className="text-3xl font-bold text-gray-800">{t("recipes.title")}</h2>
         <Link
           to="/recipes/new"
+          data-testid="recipes-create"
           className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
         >
-          Create New Recipe
+          {t("recipes.create")}
         </Link>
       </div>
       <form
@@ -74,7 +77,7 @@ const RecipeList = () => {
           type="text"
           value={qInput}
           onChange={(e) => setQInput(e.target.value)}
-          placeholder="Search term..."
+          placeholder={t("recipes.searchPlaceholder")}
           className="px-3 py-2 border border-gray-300 rounded-md shadow-sm w-64"
         />
         <input
@@ -82,14 +85,15 @@ const RecipeList = () => {
           type="text"
           value={ingredientInput}
           onChange={(e) => setIngredientInput(e.target.value)}
-          placeholder="Filter by ingredient..."
+          placeholder={t("recipes.filterIngredient")}
           className="px-3 py-2 border border-gray-300 rounded-md shadow-sm w-52"
         />
         <button
           type="submit"
+          data-testid="recipes-search"
           className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         >
-          Search
+          {t("recipes.search")}
         </button>
         {(q || ingredient) && (
           <Link
@@ -97,20 +101,20 @@ const RecipeList = () => {
             onClick={handleClear}
             className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
           >
-            Clear
+            {t("recipes.clear")}
           </Link>
         )}
       </form>
       {loading && (
-        <p className="text-center text-gray-500">Loading recipes...</p>
+        <p className="text-center text-gray-500">{t("recipes.loading")}</p>
       )}
       {error && (
         <p className="text-center text-red-500">
-          Error loading recipes: {error}
+          {t("recipes.errorLoad", { message: error })}
         </p>
       )}
       {!loading && !error && recipes.length === 0 && (
-        <p className="text-center text-gray-500">No recipes found.</p>
+        <p className="text-center text-gray-500">{t("recipes.empty")}</p>
       )}
       {!loading && !error && recipes.length > 0 && (
         <ul className="space-y-4">

@@ -82,7 +82,7 @@ Ingredients are still **denormalized inside recipes**. There is **no product mas
 | OpenAPI / Swagger | **Missing** | |
 | Persistent DB (SQLite/Postgres) | **Done** (SQLite) | `data/meal_planner.db`; nested DAOs; Postgres would implement the same protocols |
 | Decommission Jinja (migration Phase 3) | **Done** | Templates, form POSTs, Tailwind v3 CSS gone; GET redirects to `/ui/` |
-| i18n (Polish in UI + lossless PDF) | **Partial** | PDF: DejaVu if present, else NFKD/latin-1 sanitize |
+| i18n (Polish in UI + lossless PDF) | **Done** (chrome) | react-i18next en/pl; content not MT; PDF DejaVu + NFC + `?lang=` |
 | Lean production image (no Node/Vite runtime) | **Partial** | `prod` still ships Node so `start_and_seed.sh` can run Vite |
 | Frontend unit tests (Jest/RTL) | **Missing** | Playwright only |
 

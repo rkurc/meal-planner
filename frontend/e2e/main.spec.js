@@ -345,6 +345,16 @@ test("should highlight placeholder instructions and offer source + edit", async 
   await expect(page.getByText("Needs instructions")).toBeVisible();
 });
 
+test("Polish locale smoke: nav and html lang persist", async ({ page }) => {
+  await page.goto("/ui/");
+  await page.getByTestId("locale-pl").click();
+  await expect(page.locator("html")).toHaveAttribute("lang", "pl");
+  await expect(page.getByTestId("nav-recipes")).toHaveText("Przepisy");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("lang", "pl");
+  await expect(page.getByTestId("nav-recipes")).toHaveText("Przepisy");
+});
+
 test("should filter recipes by search query and ingredient", async ({
   page,
 }) => {
