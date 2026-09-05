@@ -55,9 +55,7 @@ const IngredientList = () => {
         </Link>
       </div>
       {ingredients.length === 0 ? (
-        <p className="text-center text-gray-500">
-          {t("ingredients.empty")}
-        </p>
+        <p className="text-center text-gray-500">{t("ingredients.empty")}</p>
       ) : (
         <ul className="space-y-2">
           {ingredients.map((ingredient) => {

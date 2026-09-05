@@ -417,7 +417,8 @@ const RecipeForm = () => {
               htmlFor="instructions"
               className="block text-gray-700 font-semibold mb-2"
             >
-              {t("recipes.instructions")} <span className="text-red-500">*</span>
+              {t("recipes.instructions")}{" "}
+              <span className="text-red-500">*</span>
             </label>
             {isEditing && hasPlaceholderInstructions(formData.instructions) && (
               <p className="text-sm text-amber-800 mb-2">
@@ -458,7 +459,9 @@ const RecipeForm = () => {
               type="submit"
               className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded"
             >
-              {isEditing ? t("recipes.updateSubmit") : t("recipes.createSubmit")}
+              {isEditing
+                ? t("recipes.updateSubmit")
+                : t("recipes.createSubmit")}
             </button>
             <Link
               to={isEditing ? `/recipes/${id}` : "/recipes"}

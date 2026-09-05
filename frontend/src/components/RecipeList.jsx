@@ -59,7 +59,9 @@ const RecipeList = () => {
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-gray-800">{t("recipes.title")}</h2>
+        <h2 className="text-3xl font-bold text-gray-800">
+          {t("recipes.title")}
+        </h2>
         <Link
           to="/recipes/new"
           data-testid="recipes-create"

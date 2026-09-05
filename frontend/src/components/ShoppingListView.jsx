@@ -247,9 +247,7 @@ const ShoppingListView = ({
   };
 
   const handleDeleteList = (listId) => {
-    if (
-      !window.confirm(t("shopping.deleteConfirm"))
-    ) {
+    if (!window.confirm(t("shopping.deleteConfirm"))) {
       return;
     }
     fetch(`/api/shopping-lists/${listId}`, {
@@ -362,9 +360,7 @@ const ShoppingListView = ({
         </h2>
         {isStandalone ? (
           <>
-            <p className="text-gray-600 mb-4">
-              {t("shopping.noSelection")}
-            </p>
+            <p className="text-gray-600 mb-4">{t("shopping.noSelection")}</p>
             {otherLists.length > 0 ? (
               <ul className="mb-4 divide-y divide-gray-200 border border-gray-200 rounded">
                 {otherLists.map((l) => (

@@ -30,9 +30,7 @@ const RecipeDetail = () => {
   }, [id]);
 
   const handleDelete = () => {
-    if (
-      window.confirm(t("recipes.deleteConfirm", { name: recipe.name }))
-    ) {
+    if (window.confirm(t("recipes.deleteConfirm", { name: recipe.name }))) {
       fetch(`/api/recipes/${id}`, {
         method: "DELETE",
       })
@@ -100,7 +98,9 @@ const RecipeDetail = () => {
 
         {recipe.source_url && (
           <div className="mb-4">
-            <span className="text-gray-700 font-semibold">{t("recipes.source")} </span>
+            <span className="text-gray-700 font-semibold">
+              {t("recipes.source")}{" "}
+            </span>
             <a
               href={recipe.source_url}
               target="_blank"
