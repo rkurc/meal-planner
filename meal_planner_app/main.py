@@ -22,7 +22,7 @@ from meal_planner_app import crud
 from meal_planner_app.seed_db import seed_database
 from meal_planner_app.models.meal_plan import MealPlan, _normalize_recipe_entries
 from meal_planner_app.models.recipe import Recipe
-from meal_planner_app.services import generate_shopping_list_pdf
+from meal_planner_app.services import FontUnavailableError, generate_shopping_list_pdf
 from dataclasses import asdict
 from meal_planner_app.models.shopping_list import ShoppingList
 
@@ -109,7 +109,10 @@ def legacy_shopping_list_html(meal_plan_id: uuid.UUID):
 
 def _pdf_attachment_response(title: str, grouped_data: dict) -> Response:
     """Build and return a PDF download response for grouped shopping list data."""
-    pdf_bytes = generate_shopping_list_pdf(title, grouped_data)
+    try:
+        pdf_bytes = generate_shopping_list_pdf(title, grouped_data)
+    except FontUnavailableError:
+        abort(500)
     # Ensure bytes for WSGI compatibility (gunicorn rejects bytearray/memoryview)
     if isinstance(pdf_bytes, (bytearray, memoryview)):
         pdf_bytes = bytes(pdf_bytes)
