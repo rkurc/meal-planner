@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
+import { useTranslation } from "react-i18next";
 
 // Persisted lists are a flat items array; group like the PDF (empty → "Other").
 const OTHER_LOCATION_GROUP = "Other";
@@ -45,6 +46,7 @@ const ShoppingListView = ({
   mealPlanName,
   shoppingListId: propShoppingListId,
 }) => {
+  const { t, i18n } = useTranslation();
   // Supports two modes (documented for maintainability):
   // 1. Embedded in MealPlanDetail (mealPlanId provided): generate from plan + edit items.
   // 2. Standalone (/shopping-lists): create empty list + picker + direct load for any saved list.
@@ -213,10 +215,10 @@ const ShoppingListView = ({
       });
   };
 
-  const handleCreateNewList = (defaultName = "New Shopping List") => {
+  const handleCreateNewList = (defaultName) => {
+    const fallback = defaultName || t("shopping.newListDefault");
     const listName =
-      window.prompt("Enter name for new shopping list:", defaultName) ||
-      defaultName;
+      window.prompt(t("shopping.newListPrompt"), fallback) || fallback;
     setLoading(true);
     fetch("/api/shopping-lists", {
       method: "POST",
@@ -245,9 +247,7 @@ const ShoppingListView = ({
   };
 
   const handleDeleteList = (listId) => {
-    if (
-      !window.confirm("Are you sure you want to delete this shopping list?")
-    ) {
+    if (!window.confirm(t("shopping.deleteConfirm"))) {
       return;
     }
     fetch(`/api/shopping-lists/${listId}`, {
@@ -336,7 +336,7 @@ const ShoppingListView = ({
       .then((data) => {
         setShoppingList(data);
         setEditMode(false);
-        alert("Shopping list saved successfully!");
+        alert(t("shopping.saved"));
       })
       .catch((error) => {
         alert(`Error saving shopping list: ${error.message}`);
@@ -344,7 +344,7 @@ const ShoppingListView = ({
   };
 
   if (loading) {
-    return <p className="text-gray-500">Loading shopping list...</p>;
+    return <p className="text-gray-500">{t("shopping.loading")}</p>;
   }
 
   if (error) {
@@ -356,14 +356,11 @@ const ShoppingListView = ({
     return (
       <div className="bg-white shadow-md rounded-lg p-6 mt-6">
         <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-          {isStandalone ? "Shopping Lists" : "Shopping List"}
+          {isStandalone ? t("shopping.title") : t("shopping.heading")}
         </h2>
         {isStandalone ? (
           <>
-            <p className="text-gray-600 mb-4">
-              No specific list selected. Choose from existing lists (including
-              those created from meal plans) or create a new one.
-            </p>
+            <p className="text-gray-600 mb-4">{t("shopping.noSelection")}</p>
             {otherLists.length > 0 ? (
               <ul className="mb-4 divide-y divide-gray-200 border border-gray-200 rounded">
                 {otherLists.map((l) => (
@@ -375,11 +372,11 @@ const ShoppingListView = ({
                       {l.name}
                       {l.meal_plan_id ? (
                         <span className="ml-2 text-xs text-gray-500">
-                          (from meal plan)
+                          {t("shopping.fromMealPlan")}
                         </span>
                       ) : (
                         <span className="ml-2 text-xs text-gray-500">
-                          (standalone)
+                          {t("shopping.standalone")}
                         </span>
                       )}
                     </span>
@@ -393,54 +390,51 @@ const ShoppingListView = ({
                         }}
                         className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded text-sm"
                       >
-                        View/Edit
+                        {t("shopping.viewEdit")}
                       </button>
                       <button
                         onClick={() => handleDeleteList(l.id)}
                         className="bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded text-sm"
                       >
-                        Delete
+                        {t("common.delete")}
                       </button>
                     </div>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-gray-500 mb-4">No shopping lists yet.</p>
+              <p className="text-gray-500 mb-4">{t("shopping.emptyChooser")}</p>
             )}
             <button
               onClick={() => handleCreateNewList()}
               className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
             >
-              Create New Shopping List
+              {t("shopping.create")}
             </button>
             <p className="text-xs text-gray-500 mt-2">
-              Creates a standalone empty list (you can add items manually
-              after).
+              {t("shopping.createHint")}
             </p>
           </>
         ) : (
           <>
-            <p className="text-gray-600 mb-4">
-              No shopping list associated with this meal plan yet.
-            </p>
+            <p className="text-gray-600 mb-4">{t("shopping.noListForPlan")}</p>
             {mealPlanId && (
               <button
                 onClick={handleGenerateList}
+                data-testid="shopping-generate"
                 className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded mr-2"
               >
-                Generate from Meal Plan
+                {t("shopping.generate")}
               </button>
             )}
             <button
               onClick={() => handleCreateNewList()}
               className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
             >
-              Create New Shopping List
+              {t("shopping.create")}
             </button>
             <p className="text-xs text-gray-500 mt-2">
-              Creates a standalone empty list (you can add items manually
-              after).
+              {t("shopping.createHint")}
             </p>
           </>
         )}
@@ -452,7 +446,7 @@ const ShoppingListView = ({
     <div className="bg-white shadow-md rounded-lg p-6 mt-6">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-semibold text-gray-800">
-          Shopping List: {shoppingList.name}
+          {t("shopping.listTitle", { name: shoppingList.name })}
         </h2>
         <div className="flex gap-2">
           {!editMode ? (
@@ -461,21 +455,22 @@ const ShoppingListView = ({
                 onClick={() => setEditMode(true)}
                 className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
               >
-                Edit
+                {t("common.edit")}
               </button>
               <a
-                href={`/shopping-lists/${shoppingList.id}/pdf`}
+                href={`/shopping-lists/${shoppingList.id}/pdf?lang=${i18n.resolvedLanguage || "en"}`}
+                data-testid="shopping-pdf"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded inline-block"
               >
-                Download PDF
+                {t("shopping.downloadPdf")}
               </a>
               <button
                 onClick={() => handleDeleteList(shoppingList.id)}
                 className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded"
               >
-                Delete
+                {t("common.delete")}
               </button>
             </>
           ) : (
@@ -484,7 +479,7 @@ const ShoppingListView = ({
                 onClick={handleSave}
                 className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded"
               >
-                Save
+                {t("common.save")}
               </button>
               <button
                 onClick={() => {
@@ -493,7 +488,7 @@ const ShoppingListView = ({
                 }}
                 className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
             </>
           )}
@@ -505,7 +500,7 @@ const ShoppingListView = ({
       */}
       {otherLists.length > 1 && (
         <div className="mb-4 text-sm">
-          <span className="text-gray-600 mr-2">Switch to saved list:</span>
+          <span className="text-gray-600 mr-2">{t("shopping.switchTo")}</span>
           {otherLists
             .filter((l) => l.id !== shoppingList.id)
             .map((l) => (
@@ -527,7 +522,7 @@ const ShoppingListView = ({
             onClick={() => handleCreateNewList("New List")}
             className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs"
           >
-            + New
+            {t("shopping.new")}
           </button>
         </div>
       )}
@@ -539,7 +534,7 @@ const ShoppingListView = ({
               <div key={index} className="flex gap-2 items-center">
                 <input
                   type="text"
-                  placeholder="Item name"
+                  placeholder={t("shopping.itemName")}
                   value={item.name}
                   onChange={(e) =>
                     handleItemChange(index, "name", e.target.value)
@@ -549,7 +544,7 @@ const ShoppingListView = ({
                 />
                 <input
                   type="text"
-                  placeholder="Qty"
+                  placeholder={t("shopping.qty")}
                   value={item.quantity}
                   onChange={(e) =>
                     handleItemChange(index, "quantity", e.target.value)
@@ -558,7 +553,7 @@ const ShoppingListView = ({
                 />
                 <input
                   type="text"
-                  placeholder="Unit"
+                  placeholder={t("shopping.unit")}
                   value={item.unit}
                   onChange={(e) =>
                     handleItemChange(index, "unit", e.target.value)
@@ -568,7 +563,7 @@ const ShoppingListView = ({
                 />
                 <input
                   type="text"
-                  placeholder="Location"
+                  placeholder={t("shopping.location")}
                   value={item.location || ""}
                   onChange={(e) =>
                     handleItemChange(index, "location", e.target.value)
@@ -581,7 +576,7 @@ const ShoppingListView = ({
                   onClick={() => handleRemoveItem(index)}
                   className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded"
                 >
-                  Remove
+                  {t("common.remove")}
                 </button>
               </div>
             ))}
@@ -590,7 +585,7 @@ const ShoppingListView = ({
             onClick={handleAddItem}
             className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
           >
-            Add Item
+            {t("shopping.addItem")}
           </button>
           <datalist id="known-ingredients">
             {knownIngredients.map((name, i) => (
@@ -613,7 +608,9 @@ const ShoppingListView = ({
           {groupItemsByLocation(editedItems).map((group) => (
             <div key={group.location}>
               <h3 className="text-lg font-semibold text-gray-700 mb-2 border-b border-gray-200 pb-1">
-                {group.location}
+                {group.location === OTHER_LOCATION_GROUP
+                  ? t("shopping.otherLocation")
+                  : group.location}
               </h3>
               <ul className="space-y-2">
                 {group.entries.map(({ item, index }) => (

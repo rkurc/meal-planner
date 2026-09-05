@@ -44,7 +44,7 @@ export default [
     },
   },
   {
-    files: ["**/*.test.js"],
+    files: ["**/*.test.js", "scripts/**/*.mjs"],
     languageOptions: {
       globals: {
         ...globals.node,

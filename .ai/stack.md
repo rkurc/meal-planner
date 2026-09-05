@@ -12,7 +12,7 @@ See `.ai/progress.md` for feature status.
     *   No Jinja templates / `render_template`
 *   **PDF Generation:** fpdf2
     *   Used by persisted-list PDF (`/shopping-lists/<id>/pdf`) and meal-plan generated PDF (`/meal-plans/<id>/shopping-list/pdf`)
-    *   Optional DejaVu (`fonts-dejavu-core` in images); otherwise latin-1 sanitization
+    *   Bundled DejaVu Sans 2.37 (Bitstream Vera license as `DejaVu.LICENSE`); NFC text; `?lang=en|pl` chrome
 *   **WSGI (prod/CI):** gunicorn
 *   **Storage:** SQLite file (`MEAL_PLANNER_DB`, default `data/meal_planner.db`) behind nested DAOs in `meal_planner_app/dao/`. `crud.py` is the application facade (no SQL). Tests use `:memory:`.
 *   **Packaging:** `pyproject.toml` (`Flask`, `fpdf2`; extras: pylint, pytest, black, pre-commit, gunicorn). Package-data: `static/**/*` only (no templates).
@@ -24,6 +24,7 @@ See `.ai/progress.md` for feature status.
 *   **Routing:** react-router-dom ^7 (basename `/ui`)
 *   **HTTP:** axios ^1.11 (meal-plan components) and `fetch` (recipes, shopping, ingredients)
 *   **HTML UI:** React SPA only. Jinja2 templating is decommissioned.
+*   **i18n:** i18next + react-i18next + browser language detector; locales `en`/`pl` in `frontend/src/i18n/locales/`
 
 ## Styling
 

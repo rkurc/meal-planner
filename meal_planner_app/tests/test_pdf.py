@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 
 from meal_planner_app import crud, services
+from meal_planner_app.i18n.pdf_strings import pdf_chrome
 from meal_planner_app.main import app
 
 
@@ -156,3 +157,25 @@ class TestPdfHttpFontMiss(unittest.TestCase):
         ):
             resp = self.client.get(f"/shopping-lists/{sl.id}/pdf")
         self.assertEqual(resp.status_code, 500)
+
+    def test_pdf_lang_pl_still_returns_pdf(self):
+        recipe = crud.create_recipe(
+            name="R",
+            instructions="i",
+            ingredients_data=[{"name": "X", "quantity": 1, "unit": "g"}],
+        )
+        plan = crud.create_meal_plan(
+            name="P", description="", recipe_ids=[recipe.recipe_id]
+        )
+        sl = crud.create_shopping_list(meal_plan_id=plan.meal_plan_id)
+        resp = self.client.get(f"/shopping-lists/{sl.id}/pdf?lang=pl")
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.data.startswith(b"%PDF"))
+        self.assertIn("filename*=UTF-8''", resp.headers["Content-Disposition"])
+
+
+class TestPdfChrome(unittest.TestCase):
+    def test_pl_heading(self):
+        self.assertEqual(pdf_chrome("pl")["heading"], "Lista zakupów")
+        self.assertEqual(pdf_chrome("fr")["heading"], "Shopping List")
+        self.assertEqual(pdf_chrome("PL")["heading"], "Lista zakupów")

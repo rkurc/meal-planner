@@ -142,6 +142,7 @@ For consistency (especially in sandboxed or CI-like environments), invoke **ever
 # All checks via Docker dev image (required)
 docker run --rm -v $(pwd):/app -w /app meal-planner-dev python -m pytest meal_planner_app/tests/ -q --tb=no
 docker run --rm -v $(pwd)/frontend:/app/frontend -w /app/frontend meal-planner-dev npm run format-check
+docker run --rm -v $(pwd)/frontend:/app/frontend -w /app/frontend meal-planner-dev npm run i18n:check
 docker run --rm -v $(pwd)/frontend:/app/frontend -w /app/frontend meal-planner-dev npm run lint
 docker run --rm -v $(pwd):/app -w /app meal-planner-dev pre-commit run --all-files
 docker run --rm -v $(pwd)/frontend:/app/frontend -w /app/frontend meal-planner-dev npm test

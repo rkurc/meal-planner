@@ -2,9 +2,11 @@
 import React from "react";
 import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { hasPlaceholderInstructions } from "../hasPlaceholderInstructions";
 
 const RecipeItem = ({ recipe }) => {
+  const { t } = useTranslation();
   const needsInstructions = hasPlaceholderInstructions(recipe.instructions);
 
   return (
@@ -19,7 +21,7 @@ const RecipeItem = ({ recipe }) => {
               data-testid="needs-instructions-badge"
               className="inline-block text-xs font-medium text-amber-800 bg-amber-100 px-2 py-0.5 rounded"
             >
-              Needs instructions
+              {t("recipes.needsInstructions")}
             </span>
           )}
         </div>

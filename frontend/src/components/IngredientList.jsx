@@ -1,8 +1,10 @@
 // frontend/src/components/IngredientList.jsx
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 const IngredientList = () => {
+  const { t } = useTranslation();
   const [ingredients, setIngredients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,13 +28,15 @@ const IngredientList = () => {
   }, []);
 
   if (loading) {
-    return <p className="text-center text-gray-500">Loading ingredients...</p>;
+    return (
+      <p className="text-center text-gray-500">{t("ingredients.loading")}</p>
+    );
   }
 
   if (error) {
     return (
       <p className="text-center text-red-500">
-        Error loading ingredients: {error}
+        {t("ingredients.errorLoad", { message: error })}
       </p>
     );
   }
@@ -40,19 +44,18 @@ const IngredientList = () => {
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-gray-800">Ingredients</h2>
+        <h2 className="text-3xl font-bold text-gray-800">
+          {t("ingredients.title")}
+        </h2>
         <Link
           to="/ingredients/new"
           className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded"
         >
-          Add ingredient
+          {t("ingredients.add")}
         </Link>
       </div>
       {ingredients.length === 0 ? (
-        <p className="text-center text-gray-500">
-          No ingredients found. Add one to the catalog, or they will also appear
-          when used in recipes.
-        </p>
+        <p className="text-center text-gray-500">{t("ingredients.empty")}</p>
       ) : (
         <ul className="space-y-2">
           {ingredients.map((ingredient) => {
@@ -71,8 +74,8 @@ const IngredientList = () => {
                   {ingredient.name}
                 </Link>
                 <span className="text-sm text-gray-600">
-                  Used in {count} recipe{count !== 1 ? "s" : ""}
-                  {unit ? ` • unit: ${unit}` : ""}
+                  {t("ingredients.usedCount", { count })}
+                  {unit ? ` • ${unit}` : ""}
                   {loc ? ` • ${loc}` : ""}
                 </span>
               </li>

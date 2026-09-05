@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import axios from "axios";
 
 const MealPlanList = () => {
+  const { t } = useTranslation();
   const [mealPlans, setMealPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -21,13 +23,15 @@ const MealPlanList = () => {
   }, []);
 
   if (loading) {
-    return <p className="text-center text-gray-500">Loading meal plans...</p>;
+    return (
+      <p className="text-center text-gray-500">{t("mealPlans.loading")}</p>
+    );
   }
 
   if (error) {
     return (
       <p className="text-center text-red-500">
-        Error loading meal plans: {error}
+        {t("mealPlans.errorLoad", { message: error })}
       </p>
     );
   }
@@ -35,16 +39,18 @@ const MealPlanList = () => {
   return (
     <div className="container mx-auto p-4">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold text-gray-800">Meal Plans</h2>
+        <h2 className="text-3xl font-bold text-gray-800">
+          {t("mealPlans.title")}
+        </h2>
         <Link
           to="/meal-plans/new"
           className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
         >
-          New Meal Plan
+          {t("mealPlans.new")}
         </Link>
       </div>
       {mealPlans.length === 0 ? (
-        <p className="text-center text-gray-500">No meal plans found.</p>
+        <p className="text-center text-gray-500">{t("mealPlans.empty")}</p>
       ) : (
         <ul className="space-y-4">
           {mealPlans.map((plan) => (

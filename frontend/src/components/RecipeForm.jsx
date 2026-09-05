@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { hasPlaceholderInstructions } from "../hasPlaceholderInstructions";
 
 const RecipeForm = () => {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -199,7 +201,7 @@ const RecipeForm = () => {
 
     // Validation
     if (!formData.name.trim() || !formData.instructions.trim()) {
-      alert("Recipe name and instructions are required.");
+      alert(t("recipes.nameAndInstructionsRequired"));
       return;
     }
 
@@ -243,7 +245,7 @@ const RecipeForm = () => {
   if (loading) {
     return (
       <div className="container mx-auto p-4">
-        <p className="text-center text-gray-500">Loading...</p>
+        <p className="text-center text-gray-500">{t("common.loading")}</p>
       </div>
     );
   }
@@ -257,7 +259,7 @@ const RecipeForm = () => {
             to="/recipes"
             className="text-blue-500 hover:text-blue-700 underline"
           >
-            Back to Recipes
+            {t("recipes.back")}
           </Link>
         </div>
       </div>
@@ -268,7 +270,7 @@ const RecipeForm = () => {
     <div className="container mx-auto p-4 max-w-4xl">
       <div className="bg-white shadow-md rounded-lg p-6">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">
-          {isEditing ? "Edit Recipe" : "Create New Recipe"}
+          {isEditing ? t("recipes.editTitle") : t("recipes.createTitle")}
         </h1>
 
         <form onSubmit={handleSubmit}>
@@ -278,7 +280,7 @@ const RecipeForm = () => {
               htmlFor="name"
               className="block text-gray-700 font-semibold mb-2"
             >
-              Recipe Name <span className="text-red-500">*</span>
+              {t("recipes.name")} <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -297,7 +299,7 @@ const RecipeForm = () => {
               htmlFor="description"
               className="block text-gray-700 font-semibold mb-2"
             >
-              Description
+              {t("recipes.description")}
             </label>
             <textarea
               id="description"
@@ -315,7 +317,7 @@ const RecipeForm = () => {
               htmlFor="source_url"
               className="block text-gray-700 font-semibold mb-2"
             >
-              Source URL
+              {t("recipes.sourceUrl")}
             </label>
             <input
               type="url"
@@ -331,13 +333,13 @@ const RecipeForm = () => {
           {/* Ingredients */}
           <div className="mb-4">
             <label className="block text-gray-700 font-semibold mb-2">
-              Ingredients
+              {t("recipes.ingredients")}
             </label>
             {formData.ingredients.map((ingredient, index) => (
               <div key={index} className="flex gap-2 mb-2">
                 <input
                   type="text"
-                  placeholder="Ingredient name"
+                  placeholder={t("recipes.ingredientName")}
                   value={ingredient.name}
                   onChange={(e) =>
                     handleIngredientChange(index, "name", e.target.value)
@@ -347,7 +349,7 @@ const RecipeForm = () => {
                 />
                 <input
                   type="text"
-                  placeholder="Quantity"
+                  placeholder={t("recipes.quantity")}
                   value={ingredient.quantity}
                   onChange={(e) =>
                     handleIngredientChange(index, "quantity", e.target.value)
@@ -356,7 +358,7 @@ const RecipeForm = () => {
                 />
                 <input
                   type="text"
-                  placeholder="Unit"
+                  placeholder={t("recipes.unit")}
                   value={ingredient.unit}
                   onChange={(e) =>
                     handleIngredientChange(index, "unit", e.target.value)
@@ -366,7 +368,7 @@ const RecipeForm = () => {
                 />
                 <input
                   type="text"
-                  placeholder="Location"
+                  placeholder={t("recipes.location")}
                   value={ingredient.location || ""}
                   onChange={(e) =>
                     handleIngredientChange(index, "location", e.target.value)
@@ -381,7 +383,7 @@ const RecipeForm = () => {
                   className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-md"
                   disabled={formData.ingredients.length === 1}
                 >
-                  Remove
+                  {t("common.remove")}
                 </button>
               </div>
             ))}
@@ -390,7 +392,7 @@ const RecipeForm = () => {
               onClick={addIngredient}
               className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded mt-2"
             >
-              Add Ingredient
+              {t("recipes.addIngredient")}
             </button>
             <datalist id="known-ingredients">
               {knownIngredients.map((name, i) => (
@@ -415,7 +417,8 @@ const RecipeForm = () => {
               htmlFor="instructions"
               className="block text-gray-700 font-semibold mb-2"
             >
-              Instructions <span className="text-red-500">*</span>
+              {t("recipes.instructions")}{" "}
+              <span className="text-red-500">*</span>
             </label>
             {isEditing && hasPlaceholderInstructions(formData.instructions) && (
               <p className="text-sm text-amber-800 mb-2">
@@ -456,13 +459,15 @@ const RecipeForm = () => {
               type="submit"
               className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-6 rounded"
             >
-              {isEditing ? "Update Recipe" : "Create Recipe"}
+              {isEditing
+                ? t("recipes.updateSubmit")
+                : t("recipes.createSubmit")}
             </button>
             <Link
               to={isEditing ? `/recipes/${id}` : "/recipes"}
               className="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-6 rounded inline-block"
             >
-              Cancel
+              {t("common.cancel")}
             </Link>
           </div>
         </form>

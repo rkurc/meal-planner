@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import axios from "axios";
 
 const MealPlanForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -129,7 +131,9 @@ const MealPlanForm = () => {
   };
 
   if (loading) {
-    return <p className="text-center text-gray-500">Loading form...</p>;
+    return (
+      <p className="text-center text-gray-500">{t("mealPlans.loadingForm")}</p>
+    );
   }
 
   if (error) {
@@ -141,7 +145,7 @@ const MealPlanForm = () => {
   return (
     <div className="container mx-auto p-4">
       <h2 className="text-3xl font-bold text-gray-800 mb-6">
-        {id ? "Edit Meal Plan" : "Create Meal Plan"}
+        {id ? t("mealPlans.editTitle") : t("mealPlans.createTitle")}
       </h2>
       <form
         onSubmit={handleSubmit}
@@ -149,7 +153,7 @@ const MealPlanForm = () => {
       >
         <div className="mb-4">
           <label htmlFor="name" className="block text-gray-700 font-bold mb-2">
-            Name
+            {t("mealPlans.name")}
           </label>
           <input
             type="text"
@@ -166,7 +170,7 @@ const MealPlanForm = () => {
             htmlFor="description"
             className="block text-gray-700 font-bold mb-2"
           >
-            Description
+            {t("mealPlans.description")}
           </label>
           <textarea
             id="description"
@@ -177,11 +181,13 @@ const MealPlanForm = () => {
           />
         </div>
         <div className="mb-6">
-          <label className="block text-gray-700 font-bold mb-2">Recipes</label>
+          <label className="block text-gray-700 font-bold mb-2">
+            {t("mealPlans.recipes")}
+          </label>
           <div className="space-y-3 mb-3">
             {formData.recipes.length === 0 && (
               <p className="text-sm text-gray-500">
-                No recipes added yet. Click below to add.
+                {t("mealPlans.noRecipesYet")}
               </p>
             )}
             {formData.recipes.map((item, index) => (
@@ -196,7 +202,7 @@ const MealPlanForm = () => {
                   }
                   className="flex-1 shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                 >
-                  <option value="">-- Select a recipe --</option>
+                  <option value="">{t("mealPlans.selectRecipe")}</option>
                   {allRecipes.map((recipe) => (
                     <option key={recipe.id} value={recipe.id}>
                       {recipe.name}
@@ -205,7 +211,7 @@ const MealPlanForm = () => {
                 </select>
                 <div className="flex items-center gap-2">
                   <label className="text-sm text-gray-600 whitespace-nowrap">
-                    Times:
+                    {t("mealPlans.times")}
                   </label>
                   <input
                     type="number"
@@ -223,7 +229,7 @@ const MealPlanForm = () => {
                   onClick={() => removeRecipeRow(index)}
                   className="bg-red-500 hover:bg-red-700 text-white text-sm font-bold py-1 px-3 rounded"
                 >
-                  Remove
+                  {t("common.remove")}
                 </button>
               </div>
             ))}
@@ -233,7 +239,7 @@ const MealPlanForm = () => {
             onClick={addRecipeRow}
             className="bg-green-500 hover:bg-green-700 text-white font-bold py-1 px-3 rounded text-sm"
           >
-            + Add Recipe
+            {t("mealPlans.addRecipe")}
           </button>
           <p className="text-xs text-gray-500 mt-1">
             Use decimals for fractions e.g. 0.5, 1.25. Each row selects a recipe
@@ -245,14 +251,14 @@ const MealPlanForm = () => {
             type="submit"
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
           >
-            {id ? "Update" : "Create"}
+            {id ? t("common.update") : t("common.create")}
           </button>
           <button
             type="button"
             onClick={() => navigate(id ? `/meal-plans/${id}` : "/meal-plans")}
             className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
       </form>

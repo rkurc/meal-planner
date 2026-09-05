@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import axios from "axios";
 import ShoppingListView from "./ShoppingListView";
 
 const MealPlanDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [mealPlan, setMealPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -55,7 +57,7 @@ const MealPlanDetail = () => {
   }, [mealPlan]);
 
   const handleDelete = () => {
-    if (window.confirm("Are you sure you want to delete this meal plan?")) {
+    if (window.confirm(t("mealPlans.deleteConfirm"))) {
       axios
         .delete(`/api/meal-plans/${id}`)
         .then(() => {
@@ -72,18 +74,22 @@ const MealPlanDetail = () => {
       to="/meal-plans"
       className="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
     >
-      Back to Meal Plans
+      {t("mealPlans.back")}
     </Link>
   );
 
   if (loading) {
-    return <p className="text-center text-gray-500">Loading meal plan...</p>;
+    return (
+      <p className="text-center text-gray-500">{t("mealPlans.loadingPlan")}</p>
+    );
   }
 
   if (error) {
     return (
       <div className="container mx-auto p-4 text-center">
-        <p className="text-red-500 mb-4">Error loading meal plan: {error}</p>
+        <p className="text-red-500 mb-4">
+          {t("mealPlans.errorLoadPlan", { message: error })}
+        </p>
         {backLink}
       </div>
     );
@@ -92,7 +98,7 @@ const MealPlanDetail = () => {
   if (!mealPlan) {
     return (
       <div className="container mx-auto p-4 text-center">
-        <p className="text-gray-500 mb-4">Meal plan not found.</p>
+        <p className="text-gray-500 mb-4">{t("mealPlans.notFound")}</p>
         {backLink}
       </div>
     );
@@ -106,7 +112,9 @@ const MealPlanDetail = () => {
         </h2>
         <p className="text-gray-600 mb-6">{mealPlan.description}</p>
 
-        <h3 className="text-2xl font-semibold text-gray-700 mb-4">Recipes</h3>
+        <h3 className="text-2xl font-semibold text-gray-700 mb-4">
+          {t("mealPlans.recipes")}
+        </h3>
         {recipesInPlan.length > 0 ? (
           <ul className="space-y-2">
             {recipesInPlan.map(({ recipe, count }) => (
@@ -122,7 +130,7 @@ const MealPlanDetail = () => {
             ))}
           </ul>
         ) : (
-          <p className="text-gray-500">No recipes in this meal plan.</p>
+          <p className="text-gray-500">{t("mealPlans.emptyRecipes")}</p>
         )}
 
         <div className="mt-6 flex space-x-4">
@@ -130,13 +138,13 @@ const MealPlanDetail = () => {
             to={`/meal-plans/${id}/edit`}
             className="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-2 px-4 rounded"
           >
-            Edit
+            {t("common.edit")}
           </Link>
           <button
             onClick={handleDelete}
             className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
           >
-            Delete
+            {t("common.delete")}
           </button>
           {backLink}
         </div>

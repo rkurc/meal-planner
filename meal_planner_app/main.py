@@ -8,6 +8,8 @@ import os
 import re
 import uuid  # Required for recipe_id conversion
 
+from urllib.parse import quote
+
 from flask import (
     Flask,
     request,
@@ -107,19 +109,31 @@ def legacy_shopping_list_html(meal_plan_id: uuid.UUID):
     return _redirect_ui(f"/meal-plans/{meal_plan_id}")
 
 
+def _resolve_pdf_lang() -> str:
+    """Whitelist lang query, else Accept-Language, else en."""
+    raw = (request.args.get("lang") or "").strip().lower()
+    if raw in ("en", "pl"):
+        return raw
+    return request.accept_languages.best_match(["en", "pl"]) or "en"
+
+
 def _pdf_attachment_response(title: str, grouped_data: dict) -> Response:
     """Build and return a PDF download response for grouped shopping list data."""
+    lang = _resolve_pdf_lang()
     try:
-        pdf_bytes = generate_shopping_list_pdf(title, grouped_data)
+        pdf_bytes = generate_shopping_list_pdf(title, grouped_data, lang=lang)
     except FontUnavailableError:
         abort(500)
     # Ensure bytes for WSGI compatibility (gunicorn rejects bytearray/memoryview)
     if isinstance(pdf_bytes, (bytearray, memoryview)):
         pdf_bytes = bytes(pdf_bytes)
     response = Response(pdf_bytes, mimetype="application/pdf")
-    safe_name = title.replace(" ", "_").lower()[:50]
-    filename = f"shopping_list_{safe_name}.pdf"
-    response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+    ascii_name = "shopping_list.pdf"
+    raw = f"shopping_list_{title}".replace("\r", "").replace("\n", "")
+    star = quote(f"{raw}.pdf", safe="")
+    response.headers["Content-Disposition"] = (
+        f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{star}"
+    )
     return response
 
 
