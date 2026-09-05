@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { hasPlaceholderInstructions } from "../hasPlaceholderInstructions";
 
 const RecipeDetail = () => {
   const { id } = useParams();
@@ -141,9 +142,43 @@ const RecipeDetail = () => {
           <h2 className="text-2xl font-semibold text-gray-800 mb-3">
             Instructions
           </h2>
-          <div className="text-gray-700 whitespace-pre-wrap">
-            {recipe.instructions}
-          </div>
+          {hasPlaceholderInstructions(recipe.instructions) ? (
+            <div
+              data-testid="missing-instructions-banner"
+              role="status"
+              className="rounded-md border border-amber-300 bg-amber-50 p-4"
+            >
+              <p className="font-semibold text-amber-900">
+                This recipe is missing cooking instructions.
+              </p>
+              <p className="text-amber-800 mt-1">
+                It was imported without steps. Open the source (if available)
+                and add the real instructions.
+              </p>
+              <div className="flex flex-wrap gap-3 mt-4">
+                {recipe.source_url && (
+                  <a
+                    href={recipe.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-2 px-4 rounded"
+                  >
+                    Open source recipe
+                  </a>
+                )}
+                <Link
+                  to={`/recipes/${id}/edit#instructions`}
+                  className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
+                >
+                  Edit instructions
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="text-gray-700 whitespace-pre-wrap">
+              {recipe.instructions}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-3 mt-6">
