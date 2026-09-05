@@ -2,36 +2,65 @@
 Application services, such as PDF generation.
 """
 
-from typing import List, Dict, Union, Optional
+from importlib import resources
+from pathlib import Path
+from typing import Callable, List, Dict, Union, Optional
 import os
 import unicodedata
 from fpdf import FPDF
 
 
-def sanitize_for_pdf(text: Optional[str]) -> str:
-    """Data-side sanitization for text used in PDF output.
+_SYSTEM_DEJAVU_REGULAR = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+_SYSTEM_DEJAVU_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 
-    This is the preferred defensive layer when we cannot (or should not)
-    assume a full Unicode font is available in the environment.
 
-    - Always performs NFKD normalization.
-    - Strips characters that cannot be represented in latin-1 (the fallback
-      for core fonts like Helvetica).
+class FontUnavailableError(RuntimeError):
+    """Raised when neither bundled nor system DejaVu TTF files are present."""
 
-    For full i18n support (future goal), the meal-planner environment
-    (Docker image or local dev setup) is expected to provide appropriate
-    Unicode-capable fonts (e.g. via fonts-dejavu-core or equivalent) and
-    font discovery so that sanitization can be reduced to a no-op for most
-    European scripts.
 
-    We deliberately do *not* bundle fonts. Font availability is an
-    environment concern.
-    """
+def pdf_text(text: Optional[str]) -> str:
+    """NFC-normalize user text for PDF drawing. Never latin-1-strips."""
     if not text:
         return ""
-    normalized = unicodedata.normalize("NFKD", str(text))
-    # Defensive strip for latin-1 / core font compatibility
-    return normalized.encode("latin-1", errors="ignore").decode("latin-1")
+    return unicodedata.normalize("NFC", str(text))
+
+
+def _bundled_font_path(filename: str) -> Optional[str]:
+    try:
+        candidate = resources.files("meal_planner_app") / "static" / "fonts" / filename
+        if candidate.is_file():
+            return str(candidate)
+    except (FileNotFoundError, ModuleNotFoundError, AttributeError, TypeError):
+        pass
+    fallback = Path(__file__).resolve().parent / "static" / "fonts" / filename
+    if fallback.is_file():
+        return str(fallback)
+    return None
+
+
+def resolve_dejavu_fonts() -> tuple:
+    """Return (regular, bold) TTF paths. Bundled first, then system; else raise."""
+    regular = _bundled_font_path("DejaVuSans.ttf")
+    bold = _bundled_font_path("DejaVuSans-Bold.ttf")
+    if not (regular and os.path.isfile(regular)):
+        if os.path.isfile(_SYSTEM_DEJAVU_REGULAR):
+            regular = _SYSTEM_DEJAVU_REGULAR
+        else:
+            regular = None
+    if not (bold and os.path.isfile(bold)):
+        if os.path.isfile(_SYSTEM_DEJAVU_BOLD):
+            bold = _SYSTEM_DEJAVU_BOLD
+        else:
+            bold = None
+    if not regular or not bold:
+        raise FontUnavailableError("DejaVu Sans TTF (regular + bold) not found")
+    return regular, bold
+
+
+def _register_dejavu(pdf: FPDF, regular: str, bold: str) -> str:
+    pdf.add_font("DejaVu", "", regular)
+    pdf.add_font("DejaVu", "B", bold)
+    return "DejaVu"
 
 
 def _format_quantity(quantity_val: Union[str, float, List[str], None]) -> str:
@@ -62,31 +91,31 @@ def _render_shopping_list_items(
         List[Dict[str, Union[str, float, List[str]]]],
         Dict[str, List[Dict[str, Union[str, float, List[str]]]]],
     ],
-    pdf_text: callable,
-    set_font: callable,
+    pdf_text_fn: Callable,
+    set_font: Callable,
     layout: tuple,
 ) -> None:
     """Render the body (empty msg, grouped headers+rows, or flat rows) of the PDF."""
     if not data:
-        pdf.cell(0, 10, "This shopping list is empty.", 0, 1)
+        pdf.cell(0, 10, pdf_text_fn("This shopping list is empty."), 0, 1)
         return
 
     if isinstance(data, dict):
         for loc, items in data.items():
             if loc:
                 set_font("B", 12)
-                pdf.cell(0, 8, pdf_text(f"--- {loc} ---"), 0, 1)
+                pdf.cell(0, 8, pdf_text_fn(f"--- {loc} ---"), 0, 1)
                 set_font("", 11)
             for item in items:
-                name = pdf_text(item.get("name", "N/A"))
-                quantity_str = _format_quantity(item.get("quantity", ""))
-                unit = item.get("unit", "")
+                name = pdf_text_fn(item.get("name", "N/A"))
+                quantity_str = pdf_text_fn(_format_quantity(item.get("quantity", "")))
+                unit = pdf_text_fn(item.get("unit", ""))
                 _write_pdf_table_row(pdf, name, quantity_str, unit, layout)
     else:
         for item in data:
-            name = pdf_text(item.get("name", "N/A"))
-            quantity_str = _format_quantity(item.get("quantity", ""))
-            unit = item.get("unit", "")
+            name = pdf_text_fn(item.get("name", "N/A"))
+            quantity_str = pdf_text_fn(_format_quantity(item.get("quantity", "")))
+            unit = pdf_text_fn(item.get("unit", ""))
             _write_pdf_table_row(pdf, name, quantity_str, unit, layout)
 
 
@@ -100,63 +129,40 @@ def generate_shopping_list_pdf(
     """
     Generates a PDF document for the given shopping list data.
     Supports flat list or grouped dict {location: [items...]} for grouping by lokalizacje.
+    Requires DejaVu TTF (bundled or system). Raises FontUnavailableError if missing.
     """
     pdf = FPDF()
     pdf.add_page()
-
-    # Rely on environment (Docker or local dev setup) to provide Unicode fonts
-    # (e.g. fonts-dejavu-core or equivalent system font with proper discovery).
-    # We do *not* bundle fonts.
-    # Use existence check (no try/except) to avoid broad-exception and reduce branches.
-    pdf_font_family = "DejaVu"
-    dejavu = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-    dejavu_b = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-    if os.path.isfile(dejavu) and os.path.isfile(dejavu_b):
-        pdf.add_font(pdf_font_family, "", dejavu)
-        pdf.add_font(pdf_font_family, "B", dejavu_b)
-        has_unicode_font = True
-    else:
-        pdf_font_family = "Helvetica"
-        has_unicode_font = False
+    regular, bold = resolve_dejavu_fonts()
+    family = _register_dejavu(pdf, regular, bold)
 
     def _set_font(style: str, size: int):
-        pdf.set_font(pdf_font_family, style, size)
+        pdf.set_font(family, style, size)
 
-    # _pdf_text applies sanitization ONLY for core-font fallback (when no unicode font).
-    # When DejaVu etc present, pass (normalized) full text so diacritics like 'ę' render.
-    def _pdf_text(text: Optional[str]) -> str:
-        if not text:
-            return ""
-        if has_unicode_font:
-            return unicodedata.normalize("NFKD", str(text))
-        return sanitize_for_pdf(text)
-
-    # Title
+    # KD-9: English chrome heading + stored name as subtitle (no "Shopping List for:").
     _set_font("B", 16)
-    pdf.cell(0, 10, _pdf_text(f"Shopping List for: {meal_plan_name}"), 0, 1, "C")
-    pdf.ln(10)
+    pdf.cell(0, 10, pdf_text("Shopping List"), 0, 1, "C")
+    _set_font("", 12)
+    pdf.cell(0, 8, pdf_text(meal_plan_name), 0, 1, "C")
+    pdf.ln(8)
 
-    # Table Header (inline sizes to minimize local var count for pylint)
     _set_font("B", 12)
-    pdf.cell(pdf.w * 0.5, 10, "Ingredient", border=1)
-    pdf.cell(pdf.w * 0.25, 10, "Quantity", border=1)
-    pdf.cell(pdf.w * 0.15, 10, "Unit", border=1)
+    pdf.cell(pdf.w * 0.5, 10, pdf_text("Ingredient"), border=1)
+    pdf.cell(pdf.w * 0.25, 10, pdf_text("Quantity"), border=1)
+    pdf.cell(pdf.w * 0.15, 10, pdf_text("Unit"), border=1)
     pdf.ln(10)
 
-    # Table Body
     _set_font("", 11)
     layout = (pdf.w * 0.5, pdf.w * 0.25, pdf.w * 0.15, 8)
 
     _render_shopping_list_items(
         pdf,
         shopping_list_data,
-        _pdf_text,
+        pdf_text,
         _set_font,
         layout,
     )
 
-    # FPDF.output returns bytes by default since v2.7.7 for 'S' and 'F'
-    # Explicitly ensure bytes (not bytearray) for WSGI/Flask/gunicorn compatibility.
     out = pdf.output()
     if isinstance(out, (bytearray, memoryview)):
         out = bytes(out)

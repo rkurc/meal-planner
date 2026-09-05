@@ -183,11 +183,15 @@ class ShoppingListApiTestCase(unittest.TestCase):
         )
         self.assertEqual(put_resp.status_code, 200)
 
+        sl_obj = crud.get_shopping_list(uuid.UUID(sl_id))
+        grouped = crud.shopping_list_to_pdf_data(sl_obj)  # pylint: disable=no-member
+        purchased_name = sl["items"][0]["name"]
+        names = [item["name"] for items in grouped.values() for item in items]
+        self.assertNotIn(purchased_name, names)
+
         pdf_resp = self.client.get(f"/shopping-lists/{sl_id}/pdf")
         self.assertEqual(pdf_resp.status_code, 200)
-        body = pdf_resp.data.decode("latin-1", errors="replace")
-        # The purchased item's name should not be in the PDF body
-        self.assertNotIn(sl["items"][0]["name"], body)
+        self.assertTrue(pdf_resp.data.startswith(b"%PDF"))
 
     def test_download_persisted_pdf_location_id_only_grouping(self):
         """Item with only location_id groups under id (key '4' present)."""

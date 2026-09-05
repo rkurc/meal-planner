@@ -67,3 +67,4 @@ Thumbs.db
 data/
 *.md
 LICENSE
+!meal_planner_app/static/fonts/
