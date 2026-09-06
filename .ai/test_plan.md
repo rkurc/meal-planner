@@ -8,13 +8,12 @@ This plan maps requirements to tests. It is not the test implementation (that li
 
 ## 2. Scope
 
-**Inventory (functions in tree, not a fresh Docker run in this docs session):**
-- Backend: **83** pytest tests.
-- E2E: **10** Playwright tests in `frontend/e2e/main.spec.js` (includes recipe search).
+**Inventory (2026-09-06):**
+- Backend: pytest under `meal_planner_app/tests/` (CRUD, API, units, PDF, DAO).
+- E2E: **15** Playwright tests (`main.spec.js`, `ingredients.spec.js`, `shopping-lists.spec.js`).
+- Frontend unit: `node --test src` (placeholder instructions, leftover chrome scan, shopping grouping).
 - Automatic Discovery: still unimplemented (TC-ARD-* future).
-- Ingredient **master CRUD**: still unimplemented (TC-ING-001/003 future). Ingredient **list** exists but has no dedicated test.
-- PDF from React: backend pytest covers persisted PDF; **no E2E** for the Download PDF button.
-- Jinja form HTML tests are **gone** (removed with the templates). Legacy **GET redirect** tests exist in `test_api.py`.
+- Jinja form HTML tests are **gone**. Legacy **GET redirect** tests exist in `test_api.py`.
 
 ### 2.1 In Scope
 
@@ -30,9 +29,7 @@ This plan maps requirements to tests. It is not the test implementation (that li
 *   Implementing tests (this document is the plan).
 *   Third-party framework internals.
 *   Discovery (TC-ARD-*) until the feature exists.
-*   Master ingredient write tests until a master exists.
 *   NFR load / AI accuracy.
-*   E2E for PDF, ingredients page, standalone shopping delete (gaps).
 *   Jinja HTML / form POST tests (UI decommissioned).
 
 ## 3. Test Strategy
@@ -40,7 +37,7 @@ This plan maps requirements to tests. It is not the test implementation (that li
 *   **Unit / integration:** `pytest` against in-memory CRUD and Flask `test_client`.
 *   **API:** same pytest modules (`test_api.py`, `test_shopping_list_api.py`).
 *   **E2E:** Playwright against `/ui/` (CI: gunicorn in the bake `ci` image, `TESTING=true` for `/api/test/seed-db`).
-*   **Frontend unit tests:** not present (no Jest/RTL).
+*   **Frontend unit tests:** `node --test` (no Jest/RTL).
 *   **Manual:** exploratory UX.
 
 All automated runs should go through Docker (AGENTS.md).
@@ -77,17 +74,15 @@ Covered by pytest + Playwright (create/edit/delete/view/list). Prep-time / shelf
 | **TC-REC-007** | FR-1.3.4 | Flexible ingredient units. | E2E | Implemented (passes) |
 | **TC-REC-008** | UX | Default unit auto-fill on name; do not overwrite pre-filled unit. | E2E | Implemented (`should auto-populate default unit...`) |
 
-### 4.3 Ingredient Management *(PARTIAL)*
-
-Master CRUD tests remain future. List/summary have **no** dedicated pytest or E2E.
+### 4.3 Ingredient Management *(IMPLEMENTED)*
 
 | Test ID | Requirement(s) | Test Description | Test Type | Status |
 |---|---|---|---|---|
-| **TC-ING-001** | FR-1.3.1 | Create a master ingredient. | E2E | Future (feature missing) |
-| **TC-ING-002** | FR-1.3.2 | Ingredient list page shows aggregated names. | E2E | **Gap** — UI exists at `/ui/ingredients`, no test |
-| **TC-ING-003** | FR-1.3.3 | Edit or delete a master ingredient. | E2E | Future (feature missing) |
+| **TC-ING-001** | FR-1.3.1 | Create a master ingredient. | E2E | Implemented (`ingredients.spec.js`) |
+| **TC-ING-002** | FR-1.3.2 | Ingredient list page shows catalog names. | E2E | Implemented |
+| **TC-ING-003** | FR-1.3.3 | Edit or delete a master ingredient; 409 while in use. | E2E + API | Implemented |
 | **TC-ING-004** | — | `GET /api/ingredients` unique names. | API | Implemented (passes) |
-| **TC-ING-005** | — | `GET /api/ingredients/summary` and `/info`. | API | **Gap** — endpoints exist, no tests |
+| **TC-ING-005** | — | `GET /api/ingredients/summary` and `/info`. | API | Implemented (`test_ingredient_api.py`) |
 | **TC-ING-006** | — | `GET /api/locations`, `GET /api/units`. | API | Implemented (passes) |
 
 ### 4.4 Meal Plan Management *(IMPLEMENTED)*
@@ -103,17 +98,17 @@ Master CRUD tests remain future. List/summary have **no** dedicated pytest or E2
 | Test ID | Requirement(s) | Test Description | Test Type | Status |
 |---|---|---|---|---|
 | **TC-SL-001** | FR-1.5.1, FR-1.5.3 | Generate from a meal plan in React. | E2E | Implemented (passes; button "Generate from Meal Plan") |
-| **TC-SL-002** | FR-1.5.2 | Consolidation of compatible units. | Integration | Implemented (unit tests). **Note:** no g↔kg conversion; same-unit only |
+| **TC-SL-002** | FR-1.5.2 | Consolidation of compatible units (g↔kg, ml↔l). | Integration | Implemented (`test_units.py`, `test_shopping_list.py`) |
 | **TC-SL-003** | FR-1.5.4 | Manually edit a persisted list. | E2E | Implemented (passes) |
-| **TC-SL-004** | — | Standalone `POST /api/shopping-lists` `{name}` → empty list. | API | Implemented (passes) |
-| **TC-SL-005** | — | Delete list from `/ui/shopping-lists`. | E2E | **Gap** (API delete tested) |
-| **TC-SL-006** | FR-1.7.2 | PDF of persisted list; purchased excluded; `location_id` grouping. | API | Implemented (3 pytest). E2E **gap** |
+| **TC-SL-004** | — | Standalone `POST /api/shopping-lists` `{name}` → empty list. | API + E2E | Implemented |
+| **TC-SL-005** | — | Delete list from `/ui/shopping-lists`. | E2E | Implemented (`shopping-lists.spec.js`) |
+| **TC-SL-006** | FR-1.7.2 | PDF of persisted list; purchased excluded; location grouping. | API + E2E | Implemented (pytest + Playwright fetch of Download PDF) |
 
 ### 4.6 Future/Desired Features
 
 | Test ID | Requirement(s) | Test Description | Test Type | Status |
 |---|---|---|---|---|
-| **TC-FF-001** | FR-1.7.2 | PDF export from UI. | E2E | Partial (backend + React link; no Playwright) |
+| **TC-FF-001** | FR-1.7.2 | PDF export from UI. | E2E | Implemented (`shopping-lists.spec.js`) |
 | **TC-FF-002** | FR-1.7.1 | Local recipe search in React. | E2E | **Implemented** (`should filter recipes by search query and ingredient`; API tests for `q` / `ingredient`) |
 
 ### 4.7 Legacy HTML redirects *(IMPLEMENTED)*

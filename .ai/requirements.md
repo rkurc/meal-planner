@@ -32,13 +32,13 @@ Functional and non-functional requirements for the Meal Planning Tool. **Status 
 *   **FR-1.2.6:** The system shall allow a user to delete a recipe from the system. *(Met.)*
 *   **FR-1.2.7:** The system shall provide an API endpoint (`/api/recipes`) that returns a list of all recipes in JSON format. *(Met; also POST/PUT/DELETE; list accepts `q` and `ingredient` filters.)*
 
-### 1.3 Ingredient Management *(PARTIAL)*
+### 1.3 Ingredient Management *(IMPLEMENTED)*
 
-**Status:** FR-1.3.4 is met on **embedded** recipe ingredients. FR-1.3.2 is **partially** met by a read-only aggregation list (`GET /api/ingredients/summary` + `/ui/ingredients`). FR-1.3.1 and FR-1.3.3 are **not** met (no master create/edit/delete; "Add new ingredient" opens the recipe form). `/api/ingredients` exists but returns unique **name strings** for autocomplete, not a master resource.
+**Status:** Master catalog + embedded recipe ingredients. `/ui/ingredients` lists, shows, creates, edits, and deletes (409 while still used by recipes). Autocomplete still also returns unique names.
 
-*   **FR-1.3.1:** The system shall allow a user to create a new ingredient with a unique name. *(Not met as a master entity.)*
-*   **FR-1.3.2:** The system shall allow a user to view a list of all available ingredients. *(Partial — names currently used in recipes only.)*
-*   **FR-1.3.3:** The system shall allow a user to edit or delete an existing ingredient. *(Not met. `IngredientDetail.jsx` is unrouted dead code.)*
+*   **FR-1.3.1:** The system shall allow a user to create a new ingredient with a unique name. *(Met.)*
+*   **FR-1.3.2:** The system shall allow a user to view a list of all available ingredients. *(Met — catalog, not only names used in recipes.)*
+*   **FR-1.3.3:** The system shall allow a user to edit or delete an existing ingredient. *(Met. Delete blocked with usage count while referenced.)*
 *   **FR-1.3.4:** The system shall support a flexible data model for ingredient measurements, capturing a numeric amount and a unit string which can represent quantity, weight (e.g., "g", "kg"), volume (e.g., "ml", "cup"), or packaging (e.g., "can", "package"). *(Met.)*
 
 ### 1.4 Meal Plan Management *(IMPLEMENTED — no calendar)*
@@ -55,7 +55,7 @@ Functional and non-functional requirements for the Meal Planning Tool. **Status 
 **Status:** Generation, consolidation, persistence, manual edit, standalone lists, delete, and PDF of the **persisted** list are implemented. Jinja on-the-fly HTML shopping table is decommissioned; meal-plan PDF route remains.
 
 *   **FR-1.5.1:** The system shall automatically generate a shopping list based on a selected meal plan. *(Met. Quantities multiply by meal-plan recipe count.)*
-*   **FR-1.5.2:** The system shall consolidate ingredients from multiple recipes. Consolidation should only occur for identical ingredients with compatible units (e.g., 'g' with 'kg', 'cup' with 'cup'). The system should not attempt to consolidate incompatible units (e.g., 'cups' with 'grams' without a conversion table, or 'apples' with 'grams'). *(Met for **same unit string** + name + location. There is still **no g↔kg conversion table** — 100g and 0.2kg stay separate unless units match.)*
+*   **FR-1.5.2:** The system shall consolidate ingredients from multiple recipes. Consolidation should only occur for identical ingredients with compatible units (e.g., 'g' with 'kg', 'cup' with 'cup'). The system should not attempt to consolidate incompatible units (e.g., 'cups' with 'grams' without a conversion table, or 'apples' with 'grams'). *(Met: same unit string, plus mass g↔kg and volume ml↔l. Cross-family units stay separate.)*
 *   **FR-1.5.3:** The system shall display the generated shopping list to the user. *(Met.)*
 *   **FR-1.5.4:** The system shall allow the user to manually add, edit, or remove items from the generated shopping list. *(Met in React + API.)*
 
@@ -63,7 +63,8 @@ Functional and non-functional requirements for the Meal Planning Tool. **Status 
 
 *   **FR-1.6.1:** The system shall provide a web-based user interface accessible through a browser. *(Met.)*
 *   **FR-1.6.2:** The traditional interface (Jinja2) shall provide access to all defined features. *(Withdrawn — Jinja HTML UI decommissioned 2026-09-02. `GET /` 302 → `/ui/`; other HTML GETs 302 to `/ui/…`.)*
-*   **FR-1.6.3:** The modern interface (React @ `/ui/`) shall provide, at a minimum, the ability to display recipes. *(Exceeded: recipes including search, meal plans, shopping lists, ingredient list. This is the only HTML UI.)*
+*   **FR-1.6.3:** The modern interface (React @ `/ui/`) shall provide, at a minimum, the ability to display recipes. *(Exceeded: recipes including search, meal plans, shopping lists, ingredient CRUD. This is the only HTML UI.)*
+*   **FR-1.6.4:** The HTML UI chrome shall be available in English and Polish. *(Met — `i18next`; stored recipe content is not machine-translated.)*
 
 ### 1.7 Future/Desired Features
 
@@ -82,7 +83,7 @@ Functional and non-functional requirements for the Meal Planning Tool. **Status 
 *   **NFR-2.2.2:** The system should provide clear feedback to the user during the recipe extraction process (e.g., "Crawling page...", "Extracting ingredients...", "Success!"). *(Future — discovery only.)*
 
 ### 2.3 Reliability
-*   **NFR-2.3.1:** The application should be available and operational 99.9% of the time. *(Not measured; in-memory store is process-local.)*
+*   **NFR-2.3.1:** The application should be available and operational 99.9% of the time. *(Not measured; SQLite file store is process-local in tests via `:memory:`.)*
 *   **NFR-2.3.2:** The system should handle common user errors gracefully (e.g., invalid URL, non-recipe webpage). *(CRUD paths have basic 4xx; discovery errors are future.)*
 
 ### 2.4 Maintainability

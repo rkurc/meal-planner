@@ -43,6 +43,8 @@ jobs:
         run: npm ci
       - name: Check i18n key parity
         run: npm run i18n:check
+      - name: Unit tests
+        run: npm run test:unit
       - name: Lint with eslint
         run: npm run lint
       - name: Format with prettier
@@ -62,7 +64,13 @@ jobs:
         run: docker buildx bake ci --load
       - name: Version smoke (baked images)
         run: |
-          docker run --rm meal-planner:prod node --version || true
-          docker run --rm meal-planner:prod python --version || true
-          docker run --rm meal-planner:ci node --version || true
-          docker run --rm meal-planner:ci python --version || true
+          docker run --rm --entrypoint python meal-planner:prod --version
+          docker run --rm --entrypoint gunicorn meal-planner:prod --version
+          # Lean prod must not ship Node (avoids the nodesource/gnupg apt path).
+          if docker run --rm --entrypoint sh meal-planner:prod -c 'command -v node'; then
+            echo "prod image unexpectedly contains node" >&2
+            exit 1
+          fi
+          echo "prod has no node (expected)"
+          docker run --rm --entrypoint node meal-planner:ci --version
+          docker run --rm --entrypoint python meal-planner:ci --version

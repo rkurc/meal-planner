@@ -30,25 +30,12 @@ COPY pyproject.toml ./
 COPY meal_planner_app/ ./meal_planner_app/
 RUN pip install --no-cache-dir .
 
-# Stage 3: Final production image
+# Stage 3: Final production image — Python + prebuilt SPA. No Node, no apt.
 FROM python:${PYTHON_VERSION}-slim-bullseye AS final
-# Re-declare ARGs for clarity in this stage (matching how NODE_VERSION is handled).
-# This ensures PYTHON_VERSION from docker-bake.hcl / CLI overrides fully controls
-# the base image and any references (though COPY below uses version-agnostic paths).
-ARG NODE_VERSION=20
+# Re-declare ARG so PYTHON_VERSION from docker-bake.hcl / CLI overrides
+# fully control the base image (COPY paths below are version-agnostic).
 ARG PYTHON_VERSION=3.9
 WORKDIR /app
-
-# Install Node.js using the (major part of) ARG. Nodesource setup scripts only support
-# major versions (setup_20.x even for NODE_VERSION=20.19). This matches the logic in
-# .devcontainer/Dockerfile and allows documented overrides like NODE_VERSION=20.19
-# (required by Vite) to produce working images.
-RUN NODE_MAJOR=$(echo "${NODE_VERSION}" | cut -d. -f1) && \
-    apt-get update && apt-get install -y curl gnupg ca-certificates && \
-    curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - && \
-    apt-get update && \
-    apt-get install -y nodejs fonts-dejavu-core && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user and group
 RUN groupadd -r appuser && useradd -r -g appuser appuser
@@ -62,30 +49,14 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 COPY --from=backend-builder /usr/local/lib /usr/local/lib
 COPY --from=backend-builder /usr/local/bin/gunicorn /usr/local/bin/gunicorn
 
-# Copy built React assets from the frontend-builder stage
-COPY --from=frontend-builder /app/meal_planner_app/static/react_app/ /app/meal_planner_app/static/react_app/
-
-# Copy only the app package (source layout for runtime paths + static assets)
-# NO broad "COPY . ." which would pull in frontend/ node_modules, dev files, and cause root ownership
+# App source first, then built SPA so a host leftover under
+# meal_planner_app/static/react_app/ cannot overwrite the Vite build.
 COPY meal_planner_app/ ./meal_planner_app/
-
-# Copy the rest of the application (brings frontend/ source + package files)
-COPY . .
-RUN chmod +x start_and_seed.sh
-
-# Install frontend dependencies in the final image so "npm run dev" works.
-# We do this as root before switching user. (Adds size but makes the unified
-# start script succeed in the prod-style image.)
-WORKDIR /app/frontend
-RUN npm ci --no-audit --no-fund
-WORKDIR /app
+COPY --from=frontend-builder /app/meal_planner_app/static/react_app/ /app/meal_planner_app/static/react_app/
 
 # Persistent SQLite file (mount a volume over /app/data in production)
 ENV MEAL_PLANNER_DB=/app/data/meal_planner.db
-RUN mkdir -p /app/data
-
-# Apply ownership to everything (including node_modules created above)
-RUN chown -R appuser:appuser /app
+RUN mkdir -p /app/data && chown -R appuser:appuser /app
 
 # Switch to the non-root user
 USER appuser

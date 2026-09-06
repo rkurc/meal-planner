@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { hasPlaceholderInstructions } from "../hasPlaceholderInstructions";
 
 const RecipeForm = () => {
@@ -375,7 +375,7 @@ const RecipeForm = () => {
                   }
                   list="known-locations"
                   className="w-28 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  title="Location / aisle name"
+                  title={t("recipes.locationTitle")}
                 />
                 <button
                   type="button"
@@ -422,23 +422,23 @@ const RecipeForm = () => {
             </label>
             {isEditing && hasPlaceholderInstructions(formData.instructions) && (
               <p className="text-sm text-amber-800 mb-2">
-                These are placeholder instructions from a legacy import. Replace
-                them with the real steps
                 {formData.source_url ? (
-                  <>
-                    {" "}
-                    from{" "}
-                    <a
-                      href={formData.source_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline"
-                    >
-                      the source recipe
-                    </a>
-                  </>
-                ) : null}
-                .
+                  <Trans
+                    i18nKey="recipes.placeholderHintWithSource"
+                    components={{
+                      source: (
+                        <a
+                          href={formData.source_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline"
+                        />
+                      ),
+                    }}
+                  />
+                ) : (
+                  t("recipes.placeholderHint")
+                )}
               </p>
             )}
             <textarea

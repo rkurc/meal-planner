@@ -1,8 +1,8 @@
 # Progress Tracker
 
-**As of:** 2026-09-02
-**Code snapshot:** branch `feat/decommission-jinja-ui` (implementation: `e273724`, `789212c`, `a526cd8`, `5b2df09`; plus this docs commit).
-**Last prior docs reconciliation:** 2026-08-25 (hybrid Jinja + React). This pass records **Jinja decommission complete**.
+**As of:** 2026-09-06
+**Code snapshot:** branch `chore/i18n-ops-cleanup` on top of `main` @ `76b0b64` (i18n chrome #47).
+**Last prior docs reconciliation:** 2026-09-02 (Jinja decommission). This pass records **master-ingredient CRUD, shopping grouping + g↔kg, i18n leftover chrome, lean prod, and extra tests**.
 
 Canonical status lives here. Other `.ai/*.md` files and the root README should match this snapshot.
 
@@ -34,16 +34,16 @@ Canonical status lives here. Other `.ai/*.md` files and the root README should m
 
 ### Ingredients (standalone)
 
-Ingredients are still **denormalized inside recipes**. There is **no product master table**.
+Master ingredient table + `/ui/ingredients` CRUD landed in #42. Recipe rows still store name/qty/unit/location; the catalog is the source for defaults and usage.
 
 | Capability | Backend | React `/ui/` | Legacy Jinja | Tests | Status |
 |---|---|---|---|---|---|
 | Unique names for autocomplete | Done `GET /api/ingredients` | Used by forms | Decommissioned | pytest | **Done** |
-| Summary list (name, usage_count, first-seen unit/location) | Done `GET /api/ingredients/summary` | Done `IngredientList` (one line, no subpages) | Decommissioned | Missing | **Partial** (read-only aggregation) |
-| Detail: recipes using a name | Done `GET /api/ingredients/info?name=` | Dead code: `IngredientDetail.jsx` exists, **no route** | Decommissioned | Missing | **Partial** (API only) |
-| Create / edit / delete a master ingredient (FR-1.3.1–1.3.3) | Missing | "Add new ingredient" → `/recipes/new` | Decommissioned | Future TCs | **Missing** |
+| Summary list (name, usage_count, unit/location) | Done `GET /api/ingredients/summary` | Done `IngredientList` (links to detail) | Decommissioned | pytest + E2E | **Done** |
+| Detail: recipes using this ingredient | Done `GET /api/ingredients/<id>` (+ `/info?name=`) | Done `IngredientDetail` | Decommissioned | pytest + E2E | **Done** |
+| Create / edit / delete a master ingredient (FR-1.3.1–1.3.3) | Done | Done (`/ingredients/new`, `/:id/edit`; 409 if still used) | Decommissioned | pytest + E2E | **Done** |
 | Flexible units on embedded ingredients (FR-1.3.4) | Done | Done | Decommissioned | pytest + E2E | **Done** |
-| Location (aisle) on ingredient | Done (`location` + `location_id`) | Done on recipe form + shopping edit | Decommissioned | pytest locations | **Done** |
+| Location (aisle) on ingredient | Done (`location` + `location_id`) | Done on catalog, recipe form, shopping edit | Decommissioned | pytest locations | **Done** |
 
 ### Meal plans
 
@@ -59,14 +59,14 @@ Ingredients are still **denormalized inside recipes**. There is **no product mas
 
 | Capability | Backend | React `/ui/` | Legacy Jinja | Tests | Status |
 |---|---|---|---|---|---|
-| Generate + consolidate compatible units | Done | Done | Decommissioned | pytest | **Done** |
+| Generate + consolidate compatible units | Done (same unit + g↔kg / ml↔l) | Done | Decommissioned | pytest | **Done** |
 | Persist + edit items (add/remove/qty/unit/location/purchased) | Done `/api/shopping-lists` | Done | Decommissioned | pytest + 1 E2E | **Done** |
-| Standalone list (`POST {name}` → empty) | Done | Done (chooser + create) | Decommissioned | pytest | **Done** |
-| Delete list | Done `DELETE` | Done (picker + detail) | Decommissioned | pytest (API); no E2E | **Done** |
-| PDF of **persisted** list (exclude purchased) | Done `GET /shopping-lists/<id>/pdf` | Done (Download PDF) | Decommissioned | 3 pytest | **Done** |
+| Standalone list (`POST {name}` → empty) | Done | Done (chooser + create) | Decommissioned | pytest + E2E | **Done** |
+| Delete list | Done `DELETE` | Done (picker + detail) | Decommissioned | pytest + E2E | **Done** |
+| PDF of **persisted** list (exclude purchased) | Done `GET /shopping-lists/<id>/pdf` | Done (Download PDF) | Decommissioned | pytest + E2E | **Done** |
 | PDF of **meal-plan generated** list | Done `GET /meal-plans/<id>/shopping-list/pdf` | Missing (React uses persisted route) | Decommissioned (HTML); PDF route kept | pytest PDF | **Done** (API) |
 | Location grouping in PDF | Done | N/A (server PDF) | Decommissioned | pytest `location_id` | **Done** |
-| Location grouping in HTML | N/A | Items show location; not grouped headings | Decommissioned | — | **Partial** |
+| Location grouping in HTML | N/A | Headings by location (`ShoppingListView`) | Decommissioned | node:test grouping + E2E | **Done** |
 
 ### Platform / quality
 
@@ -74,17 +74,17 @@ Ingredients are still **denormalized inside recipes**. There is **no product mas
 |---|---|---|
 | In-memory store | **Replaced** | SQLite file via DAO; tests still use `:memory:` |
 | Legacy CSV / `.odb` migration | **Done** | Relational CSV preferred (`przepisy` + `skladniki` + `produkty`) |
-| Docker bake (`dev` / `prod` / `ci`) | **Done** | Node 20 + Python 3.9; CI also native jobs. Task 5: `docker buildx bake prod` succeeded |
+| Docker bake (`dev` / `prod` / `ci`) | **Done** | Node 20 + Python 3.9; `ci`/`dev` copy Node from `node:*-bullseye` (no nodesource/gnupg apt) |
 | pre-commit (black, pylint) + prettier + eslint | **Done** | Docker-first in AGENTS.md |
-| Backend tests | **Done** | **96** pytest (DAO + existing CRUD/API; Docker 2026-09-04) |
-| E2E Playwright | **Partial** | **10** tests (includes recipe search); no coverage for ingredients page, standalone lists, delete, PDF |
+| Backend tests | **Done** | pytest (DAO + CRUD/API + units + PDF) |
+| E2E Playwright | **Done** | **15** tests: recipes, search, meal-plan shopping, ingredients CRUD, standalone list + PDF + delete, PL smoke |
 | API auth (JWT / login) | **Missing** | All routes open |
 | OpenAPI / Swagger | **Missing** | |
 | Persistent DB (SQLite/Postgres) | **Done** (SQLite) | `data/meal_planner.db`; nested DAOs; Postgres would implement the same protocols |
 | Decommission Jinja (migration Phase 3) | **Done** | Templates, form POSTs, Tailwind v3 CSS gone; GET redirects to `/ui/` |
-| i18n (Polish in UI + lossless PDF) | **Done** (chrome) | react-i18next en/pl; content not MT; PDF DejaVu + NFC + `?lang=` |
-| Lean production image (no Node/Vite runtime) | **Partial** | `prod` still ships Node so `start_and_seed.sh` can run Vite |
-| Frontend unit tests (Jest/RTL) | **Missing** | Playwright only |
+| i18n (Polish in UI + lossless PDF) | **Done** (chrome) | react-i18next en/pl including IngredientForm/Detail + recipe placeholder hint; content not MT; PDF DejaVu + NFC + `?lang=` |
+| Lean production image (no Node/Vite runtime) | **Done** | `prod` is Python + gunicorn + prebuilt `/ui/`; no Node, no apt |
+| Frontend unit tests | **Done** | `node --test src` (placeholder instructions, leftover chrome scan, shopping grouping); not Jest/RTL |
 
 ## What landed on `feat/decommission-jinja-ui` (2026-09-02)
 
@@ -95,21 +95,14 @@ Ingredients are still **denormalized inside recipes**. There is **no product mas
 
 ## Known leftover / dead code
 
-- `frontend/src/components/IngredientDetail.jsx` — unused (route removed). Links to a non-existent `/ingredients/:id/edit`.
-- `GET /api/ingredients/info` — unused by current UI (kept for the dead component / future detail).
+- `GET /api/ingredients/info` — still used as a name lookup; UI detail is `/api/ingredients/<id>`.
 - `list_unique_locations()` still falls back to raw `location_id`, so datalists can mix `"Dairy"` and `"4"`.
 - RecipeForm / ShoppingListView still use several independent `fetch` chains (optional `Promise.all` cleanup).
 
 ## Recommended next work (priority)
 
-Jinja decommission is **done**. Remaining work is **not** migration of HTML UI.
-
-1. **Task 7 of the decommission plan** — full Docker verification (`bake dev` + `prod`, pytest, black, pylint, prettier, Playwright including search). Not claimed done in this docs pass.
-2. Remove or re-route dead `IngredientDetail.jsx`.
-3. API auth + OpenAPI.
-4. Master-ingredient **UI** CRUD (table exists; list is read-only).
-5. Add missing tests: `/api/ingredients/summary` + `/info`; E2E for ingredients list, standalone list, delete, PDF.
-6. Automatic recipe discovery (still the largest unimplemented original feature).
-7. Recipe metadata (prep / actual time / shelf life) if those FRs are still desired.
-8. Proper i18n (stop relying on PDF sanitization).
-9. Lean prod image (drop Node/Vite from the runtime image).
+1. API auth + OpenAPI.
+2. Automatic recipe discovery (still the largest unimplemented original feature).
+3. Recipe metadata (prep / actual time / shelf life) if those FRs are still desired.
+4. Meal-plan calendar / date range (FR-1.4.1).
+5. Meal-plan-as-PDF document (shopping PDF is done).

@@ -33,3 +33,6 @@ worktrees/
 # SQLite persistence
 *.db
 data/*.db
+
+# Generated Vite output (built into the image, not committed)
+meal_planner_app/static/react_app/
