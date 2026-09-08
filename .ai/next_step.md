@@ -1,28 +1,29 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `chore/i18n-ops-cleanup`
-**Last updated:** 2026-09-06
+**Branch:** `feat/shopping-edit-order-by-location`
+**Last updated:** 2026-09-08
 
 ## Standing instruction
 Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Cleanup of leftover i18n chrome + ops/quality:
+Shopping list **edit mode** now uses the same location grouping as view mode:
 
-- IngredientForm / IngredientDetail / RecipeForm placeholder hint now use `t()` / `<Trans>` (en+pl keys).
-- Stale `.ai/progress.md`, `requirements.md`, `test_plan.md`, `stack.md` refreshed (master ingredients, g↔kg, i18n, lean prod, tests).
-- Prod image: no Node, no apt, no `COPY . .`; SPA copied from the frontend-builder stage.
-- `dev`/`ci`: Node copied from official `node:*-bullseye` to `/opt/node` (no nodesource + gnupg apt 404). Chromium + nss/nspr baked in; no `playwright install --with-deps`.
-- E2E: ingredients CRUD + in-use delete; standalone shopping list + PDF + delete.
-- Frontend `node --test src` (leftover chrome scan, shopping grouping) wired in CI.
+- `ShoppingListView` maps `groupItemsByLocation(editedItems)` in edit mode (named locations A–Z, Other last).
+- Location section headings match view mode (`shopping.otherLocation` for blank/missing).
+- Rows keep original item indexes so name/qty/unit/location/remove still mutate the right item.
+- Changing a location re-groups the row immediately (same helper as view).
 
-Verification:
-- `docker buildx bake prod --load` → `exporting to image ... naming to docker.io/library/meal-planner:prod`
-- prod smoke: Python 3.9.23, gunicorn 23.0.0, no `node`, `/ui/` assets present
-- `docker buildx bake ci --load` → Node v20.20.2 from `/opt/node`
-- pytest in ci image: **154 passed**
-- Playwright in ci image: **15 passed** (12.9s)
+Tests:
+
+- `shoppingListGroups.test.js`: display order + source check that edit mode does not `editedItems.map`.
+- Playwright: `edit mode orders items by location like view mode` (Dairy → Pantry → Other; Milk/Flour/Salt; move Milk to Produce).
+- `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev npm run test:unit` → **16 pass**
+- `npm run lint` / `format-check` / `i18n:check` in `meal-planner:dev` → clean
+- Playwright in isolated verify container (`TESTING=true`, Vite :5173): shopping-lists.spec.js **2 passed**
+
+Also: `frontend/.prettierignore` includes `test-results/` so format-check ignores Playwright artifacts.
 
 ## Next
 

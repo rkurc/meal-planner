@@ -499,56 +499,69 @@ const ShoppingListView = ({
 
       {editMode ? (
         <div>
-          <div className="space-y-2 mb-4">
-            {editedItems.map((item, index) => (
-              <div key={index} className="flex gap-2 items-center">
-                <input
-                  type="text"
-                  placeholder={t("shopping.itemName")}
-                  value={item.name}
-                  onChange={(e) =>
-                    handleItemChange(index, "name", e.target.value)
-                  }
-                  list="known-ingredients"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="text"
-                  placeholder={t("shopping.qty")}
-                  value={item.quantity}
-                  onChange={(e) =>
-                    handleItemChange(index, "quantity", e.target.value)
-                  }
-                  className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="text"
-                  placeholder={t("shopping.unit")}
-                  value={item.unit}
-                  onChange={(e) =>
-                    handleItemChange(index, "unit", e.target.value)
-                  }
-                  list="known-units"
-                  className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="text"
-                  placeholder={t("shopping.location")}
-                  value={item.location || ""}
-                  onChange={(e) =>
-                    handleItemChange(index, "location", e.target.value)
-                  }
-                  list="known-locations"
-                  className="w-28 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  title={t("shopping.locationTitle")}
-                />
-                <button
-                  onClick={() => handleRemoveItem(index)}
-                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded"
+          <div className="mb-4">
+            {groupItemsByLocation(editedItems).map((group, groupIndex) => (
+              <React.Fragment key={group.location}>
+                <h3
+                  className={`text-lg font-semibold text-gray-700 mb-2 border-b border-gray-200 pb-1 ${
+                    groupIndex === 0 ? "" : "mt-4"
+                  }`}
                 >
-                  {t("common.remove")}
-                </button>
-              </div>
+                  {group.location === OTHER_LOCATION_GROUP
+                    ? t("shopping.otherLocation")
+                    : group.location}
+                </h3>
+                {group.entries.map(({ item, index }) => (
+                  <div key={index} className="flex gap-2 items-center mb-2">
+                    <input
+                      type="text"
+                      placeholder={t("shopping.itemName")}
+                      value={item.name}
+                      onChange={(e) =>
+                        handleItemChange(index, "name", e.target.value)
+                      }
+                      list="known-ingredients"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder={t("shopping.qty")}
+                      value={item.quantity}
+                      onChange={(e) =>
+                        handleItemChange(index, "quantity", e.target.value)
+                      }
+                      className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder={t("shopping.unit")}
+                      value={item.unit}
+                      onChange={(e) =>
+                        handleItemChange(index, "unit", e.target.value)
+                      }
+                      list="known-units"
+                      className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder={t("shopping.location")}
+                      value={item.location || ""}
+                      onChange={(e) =>
+                        handleItemChange(index, "location", e.target.value)
+                      }
+                      list="known-locations"
+                      className="w-28 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      title={t("shopping.locationTitle")}
+                    />
+                    <button
+                      onClick={() => handleRemoveItem(index)}
+                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded"
+                    >
+                      {t("common.remove")}
+                    </button>
+                  </div>
+                ))}
+              </React.Fragment>
             ))}
           </div>
           <button
