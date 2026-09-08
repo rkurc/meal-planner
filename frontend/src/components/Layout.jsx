@@ -49,15 +49,6 @@ const Layout = () => {
                 {t("nav.mealPlans")}
               </NavLink>
             </li>
-            <li>
-              <NavLink
-                to="/shopping-lists"
-                data-testid="nav-shopping-lists"
-                className={navClass}
-              >
-                {t("nav.shoppingLists")}
-              </NavLink>
-            </li>
           </ul>
           <LocaleSwitcher />
         </div>

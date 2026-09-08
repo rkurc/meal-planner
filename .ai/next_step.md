@@ -1,6 +1,6 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `feat/shopping-edit-order-by-location`
+**Branch:** `feat/remove-standalone-shopping-lists-page`
 **Last updated:** 2026-09-09
 
 ## Standing instruction
@@ -8,22 +8,18 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-CI jobs `docker` and `test-in-container` still failed after c68e42e (`Acquire::Check-Valid-Until=false`). `apt-get update` succeeded, but GitHub's Fastly debian-security pool 404s:
+Removed the standalone Shopping Lists page. Lists live only on a meal plan.
 
-```
-Failed to fetch .../nss/libnss3_3.61-1%2bdeb11u7_amd64.deb  404  Not Found
-```
+- Dropped `/ui/shopping-lists` route and `nav-shopping-lists`.
+- `ShoppingListView` is meal-plan only: generate / edit / PDF / delete. No chooser, switcher, or empty standalone create.
+- PDF URL `GET /shopping-lists/<id>/pdf` is unchanged.
+- Unused standalone i18n keys removed (en+pl).
 
-Minimal fix in `.devcontainer/Dockerfile` only (same package list; no Debian/prod/bake refactor):
+Verification:
 
-- Strip `debian-security` from `/etc/apt/sources.list` (`sed -i '/debian-security/d'`).
-- Install Chromium runtime libs from bullseye main (+ updates). Drop Check-Valid-Until flags (main InRelease is fine).
-- `python:3.9-bullseye` has security only in `sources.list` (empty `sources.list.d`).
-
-Evidence:
-
-- `docker run --rm python:3.9-bullseye` with the same sed + full package list → **APT_MAIN_ONLY_OK**. All debs from `http://deb.debian.org/debian bullseye/main` (libnss3 **2:3.61-1+deb11u3**, not the 404'ing `...+deb11u7`). No debian-security URLs.
-- `docker buildx bake ci --load` → **exit 0**; apt layer used `sed -i '/debian-security/d'` and fetched libnss3 from bullseye/main; `#25 exporting to image` / `naming to docker.io/library/meal-planner:ci done`.
+- `npm run test:unit` in `meal-planner:dev` → **18 passed**
+- `lint` / `i18n:check` / `format-check` → clean
+- Playwright (isolated `TESTING=true` Vite): shopping-lists.spec.js + main.spec.js `--grep shopping` → **6 passed**
 
 ## Next
 

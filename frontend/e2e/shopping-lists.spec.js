@@ -8,19 +8,28 @@ test.beforeEach(async ({ page }) => {
   await page.request.post(`${apiBase}/api/test/seed-db`);
 });
 
-test("should create a standalone shopping list, fetch its PDF, and delete it", async ({
+test("shopping lists are on meal plans, not a separate nav page", async ({
   page,
 }) => {
-  await page.goto("/ui/shopping-lists");
+  await page.goto("/ui/");
+  await expect(page.getByTestId("nav-meal-plans")).toBeVisible();
+  await expect(page.getByTestId("nav-shopping-lists")).toHaveCount(0);
+});
+
+test("should generate a meal-plan shopping list, fetch its PDF, and delete it", async ({
+  page,
+}) => {
+  await page.goto("/ui/meal-plans");
+  await page.getByRole("link", { name: "Weekly Meal Plan" }).click();
+  await page.waitForURL("**/meal-plans/*");
   await expect(
-    page.getByRole("heading", { name: "Shopping Lists" }),
+    page.getByRole("heading", { name: "Shopping List" }),
   ).toBeVisible();
 
-  page.once("dialog", (dialog) => dialog.accept("E2E Standalone List"));
-  await page.getByRole("button", { name: "Create New Shopping List" }).click();
-  await expect(
-    page.getByRole("heading", { name: /E2E Standalone List/ }),
-  ).toBeVisible();
+  const generateButton = page.getByTestId("shopping-generate");
+  if (await generateButton.isVisible()) {
+    await generateButton.click();
+  }
 
   const pdfLink = page.getByTestId("shopping-pdf");
   await expect(pdfLink).toBeVisible();
@@ -35,17 +44,28 @@ test("should create a standalone shopping list, fetch its PDF, and delete it", a
   expect(body.subarray(0, 4).toString()).toBe("%PDF");
 
   page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: "Delete" }).click();
-  await expect(page.getByText("E2E Standalone List")).not.toBeVisible();
+  await page.getByTestId("shopping-delete").click();
+  await expect(page.getByTestId("shopping-generate")).toBeVisible();
 });
 
 test("edit mode orders items by location like view mode", async ({ page }) => {
   const apiBase = process.env.API_BASE_URL || "http://localhost:5000";
-  const listName = `Location Order List ${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}`;
+  const plansResp = await page.request.get(`${apiBase}/api/meal-plans`);
+  expect(plansResp.ok()).toBeTruthy();
+  const plans = await plansResp.json();
+  const weekly = plans.find((p) => p.name === "Weekly Meal Plan");
+  expect(weekly).toBeTruthy();
+
+  const listsResp = await page.request.get(`${apiBase}/api/shopping-lists`);
+  const lists = listsResp.ok() ? await listsResp.json() : [];
+  for (const sl of lists) {
+    if (sl.meal_plan_id === weekly.id) {
+      await page.request.delete(`${apiBase}/api/shopping-lists/${sl.id}`);
+    }
+  }
+
   const created = await page.request.post(`${apiBase}/api/shopping-lists`, {
-    data: { name: listName },
+    data: { meal_plan_id: weekly.id, name: "Location Order List" },
   });
   expect(created.ok()).toBeTruthy();
   const list = await created.json();
@@ -64,12 +84,9 @@ test("edit mode orders items by location like view mode", async ({ page }) => {
   );
   expect(updated.ok()).toBeTruthy();
 
-  await page.goto("/ui/shopping-lists");
-  const row = page.locator("li").filter({ hasText: listName });
-  await expect(row).toHaveCount(1);
-  await row.getByRole("button", { name: "View/Edit" }).click();
+  await page.goto(`/ui/meal-plans/${weekly.id}`);
   await expect(
-    page.getByRole("heading", { name: `Shopping List: ${listName}` }),
+    page.getByRole("heading", { name: /Shopping List:/ }),
   ).toBeVisible();
 
   await expect(page.getByRole("heading", { name: "Dairy" })).toBeVisible();

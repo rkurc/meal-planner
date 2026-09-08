@@ -246,8 +246,9 @@ test("should edit shopping list items", async ({ page }) => {
   page.on("dialog", (dialog) => dialog.accept());
   await page.waitForTimeout(500);
 
-  // Verify the item is in the list (auto unit applied)
-  await expect(page.getByText("5 cups Milk")).toBeVisible();
+  // Verify the item is in the list (auto unit applied).
+  // exact: true so "1.25 cups Milk" from the generated pancakes line does not match.
+  await expect(page.getByText("5 cups Milk", { exact: true })).toBeVisible();
 });
 
 test("should auto-populate default unit on name change but not overwrite if unit pre-entered (recipe + shopping)", async ({

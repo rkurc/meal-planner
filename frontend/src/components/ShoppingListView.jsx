@@ -7,16 +7,8 @@ import {
   groupItemsByLocation,
 } from "../shoppingListGroups";
 
-const ShoppingListView = ({
-  mealPlanId,
-  mealPlanName,
-  shoppingListId: propShoppingListId,
-}) => {
+const ShoppingListView = ({ mealPlanId }) => {
   const { t, i18n } = useTranslation();
-  // Supports two modes (documented for maintainability):
-  // 1. Embedded in MealPlanDetail (mealPlanId provided): generate from plan + edit items.
-  // 2. Standalone (/shopping-lists): create empty list + picker + direct load for any saved list.
-  // Item edit UI is shared.
   const [shoppingList, setShoppingList] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -27,65 +19,31 @@ const ShoppingListView = ({
   const [knownLocations, setKnownLocations] = useState([]);
   const [knownUnits, setKnownUnits] = useState([]);
   const [ingredientDefaultUnits, setIngredientDefaultUnits] = useState({});
-  const [otherLists, setOtherLists] = useState([]);
-
-  // Internal state to support selecting/loading a specific list in standalone mode
-  // (e.g. from picker or future /shopping-lists/:id route). Falls back to prop.
-  const [currentShoppingListId, setCurrentShoppingListId] = useState(null);
-
-  useEffect(() => {
-    // Load all lists for switching/discoverability of standalone lists
-    fetch("/api/shopping-lists")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((lists) => setOtherLists(Array.isArray(lists) ? lists : []))
-      .catch(() => {});
-  }, []);
 
   useEffect(() => {
     setLoading(true);
-    const idToLoad = propShoppingListId || currentShoppingListId;
-    if (idToLoad) {
-      // Direct load for standalone shopping list or specific id (reuses edit UI)
-      // Supports internal currentShoppingListId for picker-driven loads in /shopping-lists
-      fetch(`/api/shopping-lists/${idToLoad}`)
-        .then((response) => {
-          if (!response.ok) throw new Error("Failed to load shopping list");
-          return response.json();
-        })
-        .then((data) => {
-          setShoppingList(data);
-          setEditedItems(data.items || []);
-          setLoading(false);
-        })
-        .catch((err) => {
-          setError(err.message);
-          setLoading(false);
-        });
+    if (!mealPlanId) {
+      setLoading(false);
       return;
     }
-    if (mealPlanId) {
-      // Original: Try to fetch existing shopping lists for this meal plan (embedded mode)
-      fetch("/api/shopping-lists")
-        .then((response) => response.json())
-        .then((lists) => {
-          const existing = lists.find(
-            (list) => list.meal_plan_id === mealPlanId,
-          );
-          if (existing) {
-            setShoppingList(existing);
-            setEditedItems(existing.items || []);
-          }
-          setLoading(false);
-        })
-        .catch((err) => {
-          setError(err.message);
-          setLoading(false);
-        });
-      return;
-    }
-    // Standalone mode with no specific id: do not auto-load; show chooser below
-    setLoading(false);
-  }, [mealPlanId, propShoppingListId, currentShoppingListId]);
+    fetch("/api/shopping-lists")
+      .then((response) => response.json())
+      .then((lists) => {
+        const existing = lists.find((list) => list.meal_plan_id === mealPlanId);
+        if (existing) {
+          setShoppingList(existing);
+          setEditedItems(existing.items || []);
+        } else {
+          setShoppingList(null);
+          setEditedItems([]);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, [mealPlanId]);
 
   useEffect(() => {
     // Fetch known ingredients and locations for suggestions (like in RecipeForm)
@@ -181,37 +139,6 @@ const ShoppingListView = ({
       });
   };
 
-  const handleCreateNewList = (defaultName) => {
-    const fallback = defaultName || t("shopping.newListDefault");
-    const listName =
-      window.prompt(t("shopping.newListPrompt"), fallback) || fallback;
-    setLoading(true);
-    fetch("/api/shopping-lists", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name: listName }),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to create shopping list");
-        }
-        return response.json();
-      })
-      .then((data) => {
-        setShoppingList(data);
-        setEditedItems(data.items || []);
-        setCurrentShoppingListId(data.id);
-        setLoading(false);
-        setEditMode(false);
-      })
-      .catch((error) => {
-        setError(error.message);
-        setLoading(false);
-      });
-  };
-
   const handleDeleteList = (listId) => {
     if (!window.confirm(t("shopping.deleteConfirm"))) {
       return;
@@ -223,19 +150,11 @@ const ShoppingListView = ({
         if (!response.ok) {
           throw new Error("Failed to delete shopping list");
         }
-        // If the deleted list is the currently viewed one, reset to picker (for standalone)
-        // or no-list state (embedded compat)
         if (shoppingList && shoppingList.id === listId) {
           setShoppingList(null);
           setEditedItems([]);
           setEditMode(false);
-          setCurrentShoppingListId(null);
         }
-        // Refresh otherLists so picker/chooser is up to date (shows remaining lists incl. from meal plans)
-        fetch("/api/shopping-lists")
-          .then((r) => (r.ok ? r.json() : []))
-          .then((lists) => setOtherLists(Array.isArray(lists) ? lists : []))
-          .catch(() => {});
       })
       .catch((error) => {
         alert(`Error deleting shopping list: ${error.message}`);
@@ -318,91 +237,20 @@ const ShoppingListView = ({
   }
 
   if (!shoppingList) {
-    const isStandalone = !mealPlanId && !propShoppingListId;
     return (
       <div className="bg-white shadow-md rounded-lg p-6 mt-6">
         <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-          {isStandalone ? t("shopping.title") : t("shopping.heading")}
+          {t("shopping.heading")}
         </h2>
-        {isStandalone ? (
-          <>
-            <p className="text-gray-600 mb-4">{t("shopping.noSelection")}</p>
-            {otherLists.length > 0 ? (
-              <ul className="mb-4 divide-y divide-gray-200 border border-gray-200 rounded">
-                {otherLists.map((l) => (
-                  <li
-                    key={l.id}
-                    className="flex justify-between items-center p-3 hover:bg-gray-50"
-                  >
-                    <span className="text-gray-800">
-                      {l.name}
-                      {l.meal_plan_id ? (
-                        <span className="ml-2 text-xs text-gray-500">
-                          {t("shopping.fromMealPlan")}
-                        </span>
-                      ) : (
-                        <span className="ml-2 text-xs text-gray-500">
-                          {t("shopping.standalone")}
-                        </span>
-                      )}
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          setShoppingList(l);
-                          setEditedItems(l.items || []);
-                          setCurrentShoppingListId(l.id);
-                          setEditMode(false);
-                        }}
-                        className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-1 px-3 rounded text-sm"
-                      >
-                        {t("shopping.viewEdit")}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteList(l.id)}
-                        className="bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded text-sm"
-                      >
-                        {t("common.delete")}
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-gray-500 mb-4">{t("shopping.emptyChooser")}</p>
-            )}
-            <button
-              onClick={() => handleCreateNewList()}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
-            >
-              {t("shopping.create")}
-            </button>
-            <p className="text-xs text-gray-500 mt-2">
-              {t("shopping.createHint")}
-            </p>
-          </>
-        ) : (
-          <>
-            <p className="text-gray-600 mb-4">{t("shopping.noListForPlan")}</p>
-            {mealPlanId && (
-              <button
-                onClick={handleGenerateList}
-                data-testid="shopping-generate"
-                className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded mr-2"
-              >
-                {t("shopping.generate")}
-              </button>
-            )}
-            <button
-              onClick={() => handleCreateNewList()}
-              className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
-            >
-              {t("shopping.create")}
-            </button>
-            <p className="text-xs text-gray-500 mt-2">
-              {t("shopping.createHint")}
-            </p>
-          </>
+        <p className="text-gray-600 mb-4">{t("shopping.noListForPlan")}</p>
+        {mealPlanId && (
+          <button
+            onClick={handleGenerateList}
+            data-testid="shopping-generate"
+            className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded"
+          >
+            {t("shopping.generate")}
+          </button>
         )}
       </div>
     );
@@ -434,6 +282,7 @@ const ShoppingListView = ({
               </a>
               <button
                 onClick={() => handleDeleteList(shoppingList.id)}
+                data-testid="shopping-delete"
                 className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded"
               >
                 {t("common.delete")}
@@ -460,42 +309,6 @@ const ShoppingListView = ({
           )}
         </div>
       </div>
-
-      {/* Minimal picker for other/standalone lists for discoverability (reuses existing load/edit).
-         Visible when multiple lists exist (incl. meal-plan derived lists in standalone /shopping-lists).
-      */}
-      {otherLists.length > 1 && (
-        <div className="mb-4 text-sm">
-          <span className="text-gray-600 mr-2">{t("shopping.switchTo")}</span>
-          {otherLists
-            .filter((l) => l.id !== shoppingList.id)
-            .map((l) => (
-              <button
-                key={l.id}
-                onClick={() => {
-                  setShoppingList(l);
-                  setEditedItems(l.items || []);
-                  setCurrentShoppingListId(l.id);
-                  setEditMode(false);
-                }}
-                className="mr-2 mb-1 px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded text-xs"
-                title={
-                  l.meal_plan_id
-                    ? t("shopping.fromMealPlan")
-                    : t("shopping.standalone")
-                }
-              >
-                {l.name}
-              </button>
-            ))}
-          <button
-            onClick={() => handleCreateNewList()}
-            className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs"
-          >
-            {t("shopping.new")}
-          </button>
-        </div>
-      )}
 
       {editMode ? (
         <div>
@@ -626,7 +439,6 @@ const ShoppingListView = ({
 ShoppingListView.propTypes = {
   mealPlanId: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
   mealPlanName: PropTypes.string,
-  shoppingListId: PropTypes.oneOfType([PropTypes.string, PropTypes.object]),
 };
 
 export default ShoppingListView;

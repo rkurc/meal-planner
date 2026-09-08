@@ -50,3 +50,27 @@ describe("leftover i18n chrome", () => {
     });
   }
 });
+
+describe("shopping lists live on meal plans only", () => {
+  it("does not register a /shopping-lists SPA route", async () => {
+    const src = await readFile(
+      join(dirname(fileURLToPath(import.meta.url)), "..", "App.jsx"),
+      "utf8",
+    );
+    assert.equal(
+      src.includes('path: "shopping-lists"'),
+      false,
+      "App.jsx still has a standalone shopping-lists route",
+    );
+  });
+
+  it("does not link shopping lists in the main nav", async () => {
+    const src = await readFile(join(COMPONENTS, "Layout.jsx"), "utf8");
+    assert.equal(
+      src.includes("nav-shopping-lists"),
+      false,
+      "Layout.jsx still has a Shopping Lists nav item",
+    );
+    assert.equal(src.includes("nav.shoppingLists"), false);
+  });
+});

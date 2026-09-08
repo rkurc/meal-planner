@@ -14,7 +14,6 @@ import IngredientForm from "./components/IngredientForm";
 import MealPlanList from "./components/MealPlanList";
 import MealPlanDetail from "./components/MealPlanDetail";
 import MealPlanForm from "./components/MealPlanForm";
-import ShoppingListView from "./components/ShoppingListView";
 
 const router = createBrowserRouter(
   [
@@ -73,10 +72,6 @@ const router = createBrowserRouter(
         {
           path: "meal-plans/:id/edit",
           element: <MealPlanForm />,
-        },
-        {
-          path: "shopping-lists",
-          element: <ShoppingListView />,
         },
       ],
     },
