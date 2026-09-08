@@ -17,7 +17,8 @@ ENV PATH="/opt/node/bin:${PATH}"
 # Chromium runtime libs (not -dev, not libcups2). `playwright install
 # --with-deps` and cups both pull avahi from debian-security, which 404s
 # (libavahi-common-data_0.8-5+deb11u3). Headless Chromium does not need CUPS.
-RUN apt-get update \
+# bullseye-security InRelease can be expired in CI; skip Valid-Until/Date checks.
+RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update \
     && apt-get install -y --no-install-recommends \
         libnss3 \
         libnspr4 \

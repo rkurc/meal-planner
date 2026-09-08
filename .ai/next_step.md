@@ -1,29 +1,28 @@
 # .ai/next_step.md — Handoff
 
 **Branch:** `feat/shopping-edit-order-by-location`
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-09
 
 ## Standing instruction
 Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Shopping list **edit mode** now uses the same location grouping as view mode:
+CI jobs `docker` (CI workflow) and `test-in-container` (Integration and E2E Tests) failed while building the ci/dev image from `.devcontainer/Dockerfile`:
 
-- `ShoppingListView` maps `groupItemsByLocation(editedItems)` in edit mode (named locations A–Z, Other last).
-- Location section headings match view mode (`shopping.otherLocation` for blank/missing).
-- Rows keep original item indexes so name/qty/unit/location/remove still mutate the right item.
-- Changing a location re-groups the row immediately (same helper as view).
+```
+E: Release file for http://deb.debian.org/debian-security/dists/bullseye-security/InRelease is expired
+```
 
-Tests:
+Minimal fix in `.devcontainer/Dockerfile` only (same package list; no Debian/prod/bake refactor):
 
-- `shoppingListGroups.test.js`: display order + source check that edit mode does not `editedItems.map`.
-- Playwright: `edit mode orders items by location like view mode` (Dairy → Pantry → Other; Milk/Flour/Salt; move Milk to Produce).
-- `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev npm run test:unit` → **16 pass**
-- `npm run lint` / `format-check` / `i18n:check` in `meal-planner:dev` → clean
-- Playwright in isolated verify container (`TESTING=true`, Vite :5173): shopping-lists.spec.js **2 passed**
+- `apt-get update` → `apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update`
+- Comment: bullseye-security InRelease can be expired in CI.
 
-Also: `frontend/.prettierignore` includes `test-results/` so format-check ignores Playwright artifacts.
+Evidence:
+
+- `docker run --rm python:3.9-bullseye bash -c 'apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update && apt-get install -y --no-install-recommends libnss3 && echo APT_WORKAROUND_OK'` → **APT_WORKAROUND_OK** (bullseye-security InRelease fetched; libnss3 installed from debian-security).
+- `docker buildx bake ci --load` → **exit 0**; apt layer ran the new flags; `#25 exporting to image` / `naming to docker.io/library/meal-planner:ci done`.
 
 ## Next
 
