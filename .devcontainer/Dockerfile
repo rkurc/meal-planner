@@ -14,11 +14,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Isolate Node from Python's /usr/local so we do not clobber pip/python.
 COPY --from=node-bin /usr/local /opt/node
 ENV PATH="/opt/node/bin:${PATH}"
-# Chromium runtime libs (not -dev, not libcups2). `playwright install
-# --with-deps` and cups both pull avahi from debian-security, which 404s
-# (libavahi-common-data_0.8-5+deb11u3). Headless Chromium does not need CUPS.
-# bullseye-security InRelease can be expired in CI; skip Valid-Until/Date checks.
-RUN apt-get -o Acquire::Check-Valid-Until=false -o Acquire::Check-Date=false update \
+# Chromium runtime libs (not -dev, not libcups2). Headless Chromium does
+# not need CUPS. debian-security pool 404s in CI (libnss3_3.61-1+deb11u7,
+# gnupg, avahi); install from bullseye main only.
+RUN sed -i '/debian-security/d' /etc/apt/sources.list \
+    && apt-get update \
     && apt-get install -y --no-install-recommends \
         libnss3 \
         libnspr4 \
