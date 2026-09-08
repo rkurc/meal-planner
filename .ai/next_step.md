@@ -1,28 +1,29 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `chore/i18n-ops-cleanup`
-**Last updated:** 2026-09-06
+**Branch:** `feat/shopping-edit-order-by-location`
+**Last updated:** 2026-09-09
 
 ## Standing instruction
 Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Cleanup of leftover i18n chrome + ops/quality:
+CI jobs `docker` and `test-in-container` still failed after c68e42e (`Acquire::Check-Valid-Until=false`). `apt-get update` succeeded, but GitHub's Fastly debian-security pool 404s:
 
-- IngredientForm / IngredientDetail / RecipeForm placeholder hint now use `t()` / `<Trans>` (en+pl keys).
-- Stale `.ai/progress.md`, `requirements.md`, `test_plan.md`, `stack.md` refreshed (master ingredients, g↔kg, i18n, lean prod, tests).
-- Prod image: no Node, no apt, no `COPY . .`; SPA copied from the frontend-builder stage.
-- `dev`/`ci`: Node copied from official `node:*-bullseye` to `/opt/node` (no nodesource + gnupg apt 404). Chromium + nss/nspr baked in; no `playwright install --with-deps`.
-- E2E: ingredients CRUD + in-use delete; standalone shopping list + PDF + delete.
-- Frontend `node --test src` (leftover chrome scan, shopping grouping) wired in CI.
+```
+Failed to fetch .../nss/libnss3_3.61-1%2bdeb11u7_amd64.deb  404  Not Found
+```
 
-Verification:
-- `docker buildx bake prod --load` → `exporting to image ... naming to docker.io/library/meal-planner:prod`
-- prod smoke: Python 3.9.23, gunicorn 23.0.0, no `node`, `/ui/` assets present
-- `docker buildx bake ci --load` → Node v20.20.2 from `/opt/node`
-- pytest in ci image: **154 passed**
-- Playwright in ci image: **15 passed** (12.9s)
+Minimal fix in `.devcontainer/Dockerfile` only (same package list; no Debian/prod/bake refactor):
+
+- Strip `debian-security` from `/etc/apt/sources.list` (`sed -i '/debian-security/d'`).
+- Install Chromium runtime libs from bullseye main (+ updates). Drop Check-Valid-Until flags (main InRelease is fine).
+- `python:3.9-bullseye` has security only in `sources.list` (empty `sources.list.d`).
+
+Evidence:
+
+- `docker run --rm python:3.9-bullseye` with the same sed + full package list → **APT_MAIN_ONLY_OK**. All debs from `http://deb.debian.org/debian bullseye/main` (libnss3 **2:3.61-1+deb11u3**, not the 404'ing `...+deb11u7`). No debian-security URLs.
+- `docker buildx bake ci --load` → **exit 0**; apt layer used `sed -i '/debian-security/d'` and fetched libnss3 from bullseye/main; `#25 exporting to image` / `naming to docker.io/library/meal-planner:ci done`.
 
 ## Next
 
