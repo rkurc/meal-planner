@@ -8,27 +8,25 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Task 2: persist `source_recipe_names` on shopping-list items in SQLite.
+Task 3: view-mode native `title` tooltip for `source_recipe_names` on shopping-list items.
 
-- `ShoppingListItem.source_recipe_names: List[str]` (default `[]`).
-- `shopping_list_items.source_recipe_names TEXT NOT NULL DEFAULT '[]'` (JSON list of strings; invalid JSON → `[]`).
-- Schema v2 migration: existing v1 DBs get `ALTER TABLE` if the column is missing, then `schema_version=2`.
-- `create_shopping_list` copies `source_recipe_names` from generated item dicts.
-- `update_shopping_list` uses an explicit constructor (missing sources → `[]`); does not splat `**item_data`.
+- `formatSourceRecipeNames(names)`: trim, drop blanks, join with `", "`; non-array → `""`.
+- View-mode item label `span`: `title={... || undefined}`; `data-testid="shopping-item-sources"` only when title is non-empty.
+- No tooltip in edit mode. `handleAddItem` includes `source_recipe_names: []`. No new i18n keys.
 
-Verification (Docker `meal-planner:dev`):
+Verification (Docker `meal-planner:dev`, frontend volume mount):
 
 ```
-python -m pytest meal_planner_app/tests/test_dao.py \
-  meal_planner_app/tests/test_shopping_list_api.py \
-  meal_planner_app/tests/test_shopping_list.py -q
+npm run test:unit
+npm run format-check
+npm run lint
 ```
 
-**48 passed.** New tests failed first (missing field / schema still v1 / API items lacked the key), then passed after implementation. pylint 10.00/10 on changed files.
+**21 passed, 0 failed.** New `formatSourceRecipeNames` tests failed first (missing export), then passed after implementation. format-check and lint clean.
 
 ## Next
 
-Task 3: surface `source_recipe_names` in the shopping-list UI (tooltips).
+This feature branch's planned tasks (aggregate → persist → tooltip) are done.
 
 Unrelated remaining: auth; OpenAPI; recipe discovery; prep-time metadata; meal-plan calendar; meal-plan PDF.
 

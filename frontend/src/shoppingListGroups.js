@@ -36,3 +36,11 @@ export function formatItemLabel(item) {
   }
   return item.name;
 }
+
+export function formatSourceRecipeNames(names) {
+  if (!Array.isArray(names)) return "";
+  return names
+    .map((n) => String(n).trim())
+    .filter(Boolean)
+    .join(", ");
+}
