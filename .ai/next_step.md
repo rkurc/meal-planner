@@ -8,25 +8,27 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Task 1: aggregate unique recipe names at generate time (names only, first-seen order; not persisted).
+Task 2: persist `source_recipe_names` on shopping-list items in SQLite.
 
-- `add_to_aggregate(..., recipe_name="")` records unique `source_recipe_names` on each bucket.
-- `_item_dict` / `_finalize_entry` include `source_recipe_names` on generated item dicts.
-- `generate_shopping_list` passes `recipe_name=recipe.name or ""`.
-- SQLite persistence and frontend are unchanged (Task 2 / later).
+- `ShoppingListItem.source_recipe_names: List[str]` (default `[]`).
+- `shopping_list_items.source_recipe_names TEXT NOT NULL DEFAULT '[]'` (JSON list of strings; invalid JSON → `[]`).
+- Schema v2 migration: existing v1 DBs get `ALTER TABLE` if the column is missing, then `schema_version=2`.
+- `create_shopping_list` copies `source_recipe_names` from generated item dicts.
+- `update_shopping_list` uses an explicit constructor (missing sources → `[]`); does not splat `**item_data`.
 
 Verification (Docker `meal-planner:dev`):
 
 ```
-python -m pytest meal_planner_app/tests/test_units.py \
+python -m pytest meal_planner_app/tests/test_dao.py \
+  meal_planner_app/tests/test_shopping_list_api.py \
   meal_planner_app/tests/test_shopping_list.py -q
 ```
 
-**33 passed** (new tests failed first on missing `recipe_name` / `source_recipe_names`, then passed after the implementation).
+**48 passed.** New tests failed first (missing field / schema still v1 / API items lacked the key), then passed after implementation. pylint 10.00/10 on changed files.
 
 ## Next
 
-Task 2: persist `source_recipe_names` on shopping-list items in SQLite.
+Task 3: surface `source_recipe_names` in the shopping-list UI (tooltips).
 
 Unrelated remaining: auth; OpenAPI; recipe discovery; prep-time metadata; meal-plan calendar; meal-plan PDF.
 

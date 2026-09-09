@@ -1,6 +1,7 @@
 """DAO tests: SQLite adapter behind MealPlannerDao protocols."""
 
 import os
+import sqlite3
 import tempfile
 import unittest
 import uuid
@@ -244,3 +245,71 @@ class TestMealPlanAndShoppingListDao(unittest.TestCase):
         found = self.dao.shopping_lists.find_by_id(sl.id)
         self.assertIsNotNone(found)
         self.assertIsNone(found.meal_plan_id)
+
+    def test_shopping_list_persists_source_recipe_names(self):
+        sl = ShoppingList(
+            name="Breakfast",
+            items=[
+                ShoppingListItem(
+                    name="Eggs",
+                    quantity=4,
+                    unit="pc",
+                    source_recipe_names=["Pancakes", "Omelette"],
+                )
+            ],
+        )
+        saved = self.dao.shopping_lists.insert(sl)
+        found = self.dao.shopping_lists.find_by_id(saved.id)
+        self.assertEqual(found.items[0].source_recipe_names, ["Pancakes", "Omelette"])
+
+    def test_schema_v2_adds_source_recipe_names_on_existing_db(self):
+        fd, path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        try:
+            conn = sqlite3.connect(path)
+            conn.executescript(
+                """
+                CREATE TABLE schema_version (version INTEGER NOT NULL);
+                INSERT INTO schema_version (version) VALUES (1);
+                CREATE TABLE shopping_lists (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    meal_plan_id TEXT
+                );
+                CREATE TABLE shopping_list_items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    shopping_list_id TEXT NOT NULL,
+                    position INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    quantity TEXT NOT NULL,
+                    unit TEXT NOT NULL DEFAULT '',
+                    purchased INTEGER NOT NULL DEFAULT 0,
+                    location TEXT,
+                    location_id TEXT
+                );
+                """
+            )
+            conn.commit()
+            conn.close()
+
+            dao = create_dao(path)
+            dao.close()
+
+            check = sqlite3.connect(path)
+            check.row_factory = sqlite3.Row
+            try:
+                version_row = check.execute(
+                    "SELECT version FROM schema_version"
+                ).fetchone()
+                self.assertEqual(version_row["version"], 2)
+                columns = [
+                    info["name"]
+                    for info in check.execute(
+                        "PRAGMA table_info(shopping_list_items)"
+                    ).fetchall()
+                ]
+                self.assertIn("source_recipe_names", columns)
+            finally:
+                check.close()
+        finally:
+            os.remove(path)

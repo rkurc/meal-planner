@@ -315,6 +315,41 @@ class ShoppingListApiTestCase(unittest.TestCase):
         self.assertEqual(created["items"], [])
         self.assertIsNone(created["meal_plan_id"])
 
+    def test_generated_list_items_include_source_recipe_names(self):
+        response = self.client.post(
+            "/api/shopping-lists",
+            content_type="application/json",
+            data=json.dumps({"meal_plan_id": str(self.meal_plan.meal_plan_id)}),
+        )
+        self.assertEqual(response.status_code, 201)
+        created = response.get_json()
+        self.assertTrue(created["items"])
+        for item in created["items"]:
+            self.assertIn("source_recipe_names", item)
+        self.assertTrue(any(item["source_recipe_names"] for item in created["items"]))
+
+    def test_put_preserves_source_recipe_names(self):
+        post_response = self.client.post(
+            "/api/shopping-lists",
+            content_type="application/json",
+            data=json.dumps({"meal_plan_id": str(self.meal_plan.meal_plan_id)}),
+        )
+        self.assertEqual(post_response.status_code, 201)
+        shopping_list = post_response.get_json()
+        original_names = shopping_list["items"][0]["source_recipe_names"]
+        self.assertTrue(original_names)
+
+        shopping_list["items"][0]["purchased"] = True
+        put_response = self.client.put(
+            f"/api/shopping-lists/{shopping_list['id']}",
+            content_type="application/json",
+            data=json.dumps(shopping_list),
+        )
+        self.assertEqual(put_response.status_code, 200)
+        updated = put_response.get_json()
+        self.assertEqual(updated["items"][0]["source_recipe_names"], original_names)
+        self.assertTrue(updated["items"][0]["purchased"])
+
     def test_api_get_units(self):
         """GET /api/units returns sorted unique non-empty unit strings from recipes."""
         # Reset and seed controlled data with mix of units (incl. empty)

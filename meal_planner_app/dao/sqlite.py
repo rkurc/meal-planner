@@ -70,7 +70,8 @@ CREATE TABLE IF NOT EXISTS shopping_list_items (
     unit TEXT NOT NULL DEFAULT '',
     purchased INTEGER NOT NULL DEFAULT 0,
     location TEXT,
-    location_id TEXT
+    location_id TEXT,
+    source_recipe_names TEXT NOT NULL DEFAULT '[]'
 );
 """
 
@@ -86,6 +87,24 @@ def _qty_load(raw: Optional[str]) -> Union[str, float, int, list]:
         return json.loads(raw)
     except (TypeError, json.JSONDecodeError):
         return raw
+
+
+def _names_dump(value: Any) -> str:
+    if not value:
+        return "[]"
+    return json.dumps(list(value))
+
+
+def _names_load(raw: Optional[str]) -> List[str]:
+    if raw is None:
+        return []
+    try:
+        loaded = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return []
+    if not isinstance(loaded, list):
+        return []
+    return [str(name) for name in loaded]
 
 
 def _uuid_str(value: uuid.UUID) -> str:
@@ -481,8 +500,8 @@ class _SqliteShoppingListDao:
                 """
                 INSERT INTO shopping_list_items (
                     shopping_list_id, position, name, quantity, unit,
-                    purchased, location, location_id
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    purchased, location, location_id, source_recipe_names
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     _uuid_str(shopping_list.id),
@@ -493,6 +512,7 @@ class _SqliteShoppingListDao:
                     1 if item.purchased else 0,
                     item.location,
                     item.location_id,
+                    _names_dump(getattr(item, "source_recipe_names", None)),
                 ),
             )
 
@@ -500,7 +520,8 @@ class _SqliteShoppingListDao:
         list_id = uuid.UUID(row["id"])
         item_rows = self._conn.execute(
             """
-            SELECT name, quantity, unit, purchased, location, location_id
+            SELECT name, quantity, unit, purchased, location, location_id,
+                   source_recipe_names
             FROM shopping_list_items
             WHERE shopping_list_id = ?
             ORDER BY position
@@ -515,6 +536,7 @@ class _SqliteShoppingListDao:
                 purchased=bool(item["purchased"]),
                 location=item["location"],
                 location_id=item["location_id"],
+                source_recipe_names=_names_load(item["source_recipe_names"]),
             )
             for item in item_rows
         ]
@@ -549,6 +571,24 @@ class SqliteDao:
         row = self._conn.execute("SELECT version FROM schema_version").fetchone()
         if row is None:
             self._conn.execute("INSERT INTO schema_version (version) VALUES (1)")
+            self._conn.commit()
+            version = 1
+        else:
+            version = row["version"]
+
+        if version < 2:
+            columns = {
+                info["name"]
+                for info in self._conn.execute(
+                    "PRAGMA table_info(shopping_list_items)"
+                ).fetchall()
+            }
+            if "source_recipe_names" not in columns:
+                self._conn.execute(
+                    "ALTER TABLE shopping_list_items "
+                    "ADD COLUMN source_recipe_names TEXT NOT NULL DEFAULT '[]'"
+                )
+            self._conn.execute("UPDATE schema_version SET version = 2")
             self._conn.commit()
 
     def reset(self) -> None:
