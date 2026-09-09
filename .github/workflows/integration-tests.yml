@@ -64,7 +64,7 @@ jobs:
           echo "Running Playwright tests..."
           docker exec -e BASE_URL=http://localhost:5000 -e API_BASE_URL=http://localhost:5000 \
             -e PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
-            -w /app/frontend meal-planner-container npx playwright test
+            -w /app/frontend meal-planner-container npx playwright test --workers=1
 
       - name: Copy test results from container
         if: always()

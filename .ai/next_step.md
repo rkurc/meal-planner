@@ -1,6 +1,6 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `feat/remove-standalone-shopping-lists-page`
+**Branch:** `fix/e2e-serial-workers`
 **Last updated:** 2026-09-09
 
 ## Standing instruction
@@ -8,22 +8,29 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Removed the standalone Shopping Lists page. Lists live only on a meal plan.
+Fixed failing `main` Integration/E2E job (run 34292239075 on `aca77be`).
 
-- Dropped `/ui/shopping-lists` route and `nav-shopping-lists`.
-- `ShoppingListView` is meal-plan only: generate / edit / PDF / delete. No chooser, switcher, or empty standalone create.
-- PDF URL `GET /shopping-lists/<id>/pdf` is unchanged.
-- Unused standalone i18n keys removed (en+pl).
+Root cause: Playwright defaulted to multiple workers. Every spec `beforeEach` POSTs `/api/test/seed-db`, which **resets** the shared SQLite DB and mints new recipe IDs. Parallel workers raced that reset:
 
-Verification:
+- #50 (`aca77be`): `should edit an existing recipe` → `#description` timeout, page was **Error: Recipe not found**
+- #49 (`ad8bb52`): `should create, edit, and delete a master ingredient` → `waitForURL` timeout
+- #48 passed (same flake, lucky schedule)
 
-- `npm run test:unit` in `meal-planner:dev` → **18 passed**
-- `lint` / `i18n:check` / `format-check` → clean
-- Playwright (isolated `TESTING=true` Vite): shopping-lists.spec.js + main.spec.js `--grep shopping` → **6 passed**
+Fix:
+
+- `frontend/playwright.config.js`: `workers: 1`
+- `.github/workflows/integration-tests.yml`: `npx playwright test --workers=1`
+- `frontend/src/e2e-workers.test.js` locks the config value
+
+Verification (Docker):
+
+- `meal-planner:dev` `npm run test:unit` → **15 passed** (includes workers lock)
+- `format-check` / `lint` / `i18n:check` → clean
+- `meal-planner:ci` Playwright `--workers=1` → **16 passed**, including `should edit an existing recipe` and `should create, edit, and delete a master ingredient`
 
 ## Next
 
-Unrelated remaining: auth; OpenAPI; recipe discovery; prep-time metadata; meal-plan calendar; meal-plan PDF.
+Merge `fix/e2e-serial-workers` once CI is green. Unrelated remaining: auth; OpenAPI; recipe discovery; prep-time metadata; meal-plan calendar; meal-plan PDF.
 
 ## Out of scope
 
