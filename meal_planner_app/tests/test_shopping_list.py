@@ -141,6 +141,15 @@ class TestShoppingList(
             self.get_total_items(shopping_list), 6
         )  # Flour, Sugar (cup), Egg, Cheese, Salt, Pepper
 
+    def test_generate_shopping_list_includes_source_recipe_names(self):
+        shopping_list = crud.generate_shopping_list(self.meal_plan1.meal_plan_id)
+        flour = self.find_ingredient(shopping_list, "Flour", "cup")
+        self.assertEqual(flour["source_recipe_names"], ["Pancakes"])
+        egg = self.find_ingredient(shopping_list, "Egg", "pc")
+        self.assertEqual(egg["source_recipe_names"], ["Pancakes", "Deluxe Omelette"])
+        cheese = self.find_ingredient(shopping_list, "Cheese", "g")
+        self.assertEqual(cheese["source_recipe_names"], ["Deluxe Omelette"])
+
     def test_generate_shopping_list_complex_aggregation(self):
         """Test aggregation with different units and non-numeric quantities."""
         shopping_list = crud.generate_shopping_list(

@@ -362,6 +362,7 @@ def generate_shopping_list(
                     "location_id": getattr(ingredient, "location_id", None),
                 },
                 count,
+                recipe_name=recipe.name or "",
             )
 
     return _group_generated_items(finalize_aggregated(aggregated))

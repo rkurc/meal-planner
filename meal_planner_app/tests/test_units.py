@@ -135,6 +135,28 @@ class TestAggregationIdentity(unittest.TestCase):
         self.assertEqual(items[0]["unit"], "kg")
         self.assertEqual(items[0]["quantity"], 1)
 
+    def test_add_to_aggregate_collects_unique_recipe_names_first_seen_order(self):
+        aggregated = {}
+        add_to_aggregate(
+            aggregated,
+            {"name": "Flour", "quantity": 1, "unit": "cups"},
+            recipe_name="Pancakes",
+        )
+        add_to_aggregate(
+            aggregated,
+            {"name": "Flour", "quantity": 2, "unit": "cups"},
+            recipe_name="Omelette",
+        )
+        add_to_aggregate(
+            aggregated,
+            {"name": "Flour", "quantity": 1, "unit": "cups"},
+            recipe_name="Pancakes",
+        )
+        items = finalize_aggregated(aggregated)
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]["source_recipe_names"], ["Pancakes", "Omelette"])
+        self.assertEqual(items[0]["quantity"], 4)
+
 
 if __name__ == "__main__":
     unittest.main()

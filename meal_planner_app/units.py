@@ -158,11 +158,13 @@ def add_to_aggregate(
     aggregated: Dict[str, dict],
     item: dict,
     count: float = 1.0,
+    recipe_name: str = "",
 ) -> None:
     """Accumulate one recipe-line into a name/family/location bucket.
 
     ``item`` keys: name, quantity, unit, location, location_id.
     Numeric quantities are multiplied by ``count`` (recipe servings).
+    Unique ``recipe_name`` values are kept in first-seen order.
     """
     name = item.get("name") or ""
     unit = item.get("unit") or ""
@@ -188,6 +190,7 @@ def add_to_aggregate(
             "location": location,
             "location_id": location_id,
             "contributions": [contribution],
+            "source_recipe_names": [recipe_name] if recipe_name else [],
         }
         return
     aggregated[key]["contributions"].append(contribution)
@@ -196,14 +199,17 @@ def add_to_aggregate(
         aggregated[key]["location"] = location
     if location_id and not aggregated[key].get("location_id"):
         aggregated[key]["location_id"] = location_id
+    if recipe_name and recipe_name not in aggregated[key]["source_recipe_names"]:
+        aggregated[key]["source_recipe_names"].append(recipe_name)
 
 
-def _item_dict(
+def _item_dict(  # pylint: disable=too-many-arguments, too-many-positional-arguments
     name: str,
     quantity: QuantityValue,
     unit: str,
     location: Optional[str],
     location_id: Optional[str],
+    source_recipe_names: Optional[List[str]] = None,
 ) -> dict:
     return {
         "name": name,
@@ -211,6 +217,7 @@ def _item_dict(
         "unit": unit,
         "location": location,
         "location_id": location_id,
+        "source_recipe_names": source_recipe_names or [],
     }
 
 
@@ -219,8 +226,9 @@ def _finalize_entry(entry: dict) -> dict:
     name = entry["name"]
     location = entry.get("location")
     location_id = entry.get("location_id")
+    source_recipe_names = entry.get("source_recipe_names") or []
     if not contribs:
-        return _item_dict(name, "", "", location, location_id)
+        return _item_dict(name, "", "", location, location_id, source_recipe_names)
 
     all_numeric = all(c["numeric"] is not None for c in contribs)
     if all_numeric:
@@ -231,17 +239,26 @@ def _finalize_entry(entry: dict) -> dict:
         else:
             qty = _pretty_qty(sum(c["numeric"] for c in contribs))
             unit = contribs[0]["unit"]
-        return _item_dict(name, qty, unit, location, location_id)
+        return _item_dict(name, qty, unit, location, location_id, source_recipe_names)
 
     if len(contribs) == 1:
         only = contribs[0]
-        return _item_dict(name, only["quantity"], only["unit"], location, location_id)
+        return _item_dict(
+            name,
+            only["quantity"],
+            only["unit"],
+            location,
+            location_id,
+            source_recipe_names,
+        )
 
     qty_list: List[Union[str, float]] = [
         str(c["numeric"]) if c["numeric"] is not None else str(c["quantity"])
         for c in contribs
     ]
-    return _item_dict(name, qty_list, contribs[0]["unit"], location, location_id)
+    return _item_dict(
+        name, qty_list, contribs[0]["unit"], location, location_id, source_recipe_names
+    )
 
 
 def finalize_aggregated(aggregated: Dict[str, dict]) -> List[dict]:
