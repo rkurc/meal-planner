@@ -2,7 +2,7 @@
 
 **Branch:** `refactor/abc`
 **Last updated:** 2026-09-10
-**HEAD:** `b5d4e93` (C2) on top of merged A/B/C work
+**HEAD:** `refactor/abc` (review fixes after A/B/C)
 
 ## Standing instruction
 Create a new branch only when starting **unrelated** work.
@@ -19,10 +19,11 @@ Executed the codebase-review plans. **A3 = drop purchased checkboxes.**
 
 Docs: `docs/superpowers/specs/2026-09-10-codebase-review.md` and `docs/superpowers/plans/2026-09-10-refactor-*.md`.
 
+Code review follow-up: `seedDb` asserts HTTP OK; `start_and_seed.sh` exports `TESTING=true`. Playwright **20 passed** against gunicorn + rebuilt SPA (`TESTING=true`).
+
 ## Next
 
-- Push `refactor/abc` and open a PR (or stacked PRs) against `main`
-- Playwright against `meal-planner:ci` was not re-run on the fully merged tree in this session
+- Open a PR from `refactor/abc` against `main`
 - Unrelated product work: auth; OpenAPI; calendar; prep-time
 
 ## Out of scope

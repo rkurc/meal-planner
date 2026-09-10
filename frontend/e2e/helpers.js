@@ -5,7 +5,8 @@ import { expect } from "@playwright/test";
 /** POST /api/test/seed-db against the API backend (not the Vite baseURL). */
 export async function seedDb(page) {
   const apiBase = process.env.API_BASE_URL || "http://localhost:5000";
-  await page.request.post(`${apiBase}/api/test/seed-db`);
+  const resp = await page.request.post(`${apiBase}/api/test/seed-db`);
+  expect(resp.ok()).toBeTruthy();
 }
 
 /**

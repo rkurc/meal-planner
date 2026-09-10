@@ -14,4 +14,10 @@ describe("e2e hygiene", () => {
       assert.equal(src.includes("waitForTimeout"), false, f);
     }
   });
+
+  it("seedDb fails the spec when seed-db is not OK", async () => {
+    const src = await readFile(join(E2E, "helpers.js"), "utf8");
+    assert.match(src, /seedDb/);
+    assert.match(src, /\.ok\(\)/);
+  });
 });

@@ -9,6 +9,10 @@ set -e
 #   - serves React SPA from /ui/
 # For dev with full HMR use the devcontainer or run this on host with Node.
 
+# Enable /api/test/seed-db for local E2E against this dev process.
+# Prod gunicorn does not use this script; do not set TESTING in Dockerfile CMD.
+export TESTING=true
+
 # Start the backend in the background
 echo "Starting Flask backend..."
 python -m meal_planner_app.main &
