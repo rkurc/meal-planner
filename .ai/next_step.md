@@ -1,6 +1,6 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `refactor/abc`
+**Branch:** `refactor/a1-seed`
 **Last updated:** 2026-09-10
 
 ## Standing instruction
@@ -8,25 +8,17 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Codebase review of `origin/main` @ `c8b480e`. Report + A/B/C plans committed.
+A1 seed reset: `seed_database()` now calls `get_dao().reset()` (wipes recipes, meal plans, shopping lists) then inserts `RECIPES_TO_SEED` and recreates Weekly Meal Plan. `seed_if_empty` / `seed_meal_plans` unchanged.
 
-**A3 decision:** drop view-mode purchased checkboxes (do not persist).
-
-Documents:
-
-- `docs/superpowers/specs/2026-09-10-codebase-review.md`
-- `docs/superpowers/plans/2026-09-10-refactor-parallelism.md`
-- `docs/superpowers/plans/2026-09-10-refactor-a-correctness.md`
-- `docs/superpowers/plans/2026-09-10-refactor-b-simplification.md`
-- `docs/superpowers/plans/2026-09-10-refactor-c-structural.md`
-
-**Wave 1 (parallel, isolated worktrees):** A1 seed reset, A2 meal-plan PUT, A3 drop checkboxes, A4 MealPlanForm errors, A5 Vite PDF proxy. Optional: B6 batch find_all, C3 move migrate_legacy.
-
-**Then:** Plan B, then Plan C (C3 may already be done).
+**Evidence:**
+- TDD red: `docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev python -m pytest meal_planner_app/tests/test_seed.py -q --tb=short` → FAIL `assert 0 == 2` on Weekly Meal Plan recipes after second seed.
+- Green: same image `python -m pytest meal_planner_app/tests/test_seed.py meal_planner_app/tests/test_crud.py -q --tb=short` → **38 passed**, including `test_seed_if_empty_is_idempotent`.
 
 ## Next
 
-Execute Wave 1 from Plan A. Do not implement on `main`.
+Wave 1 remaining (parallel, isolated worktrees): A2 meal-plan PUT, A3 drop checkboxes, A4 MealPlanForm errors, A5 Vite PDF proxy. Optional: B6 batch find_all, C3 move migrate_legacy.
+
+Then Plan B, then Plan C.
 
 ## Out of scope
 
