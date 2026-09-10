@@ -52,8 +52,7 @@ def handle_http_exception(exc):
 @app.before_request
 def remove_trailing_slash():
     """Normalize URLs: collapse multiple slashes and redirect trailing slash versions.
-    e.g. /recipes//edit -> /recipes/edit , /recipes/ -> /recipes
-    This prevents 404s from common typing / copy-paste errors on legacy routes.
+    e.g. /api/recipes/ -> /api/recipes
 
     We skip /ui paths so the React SPA and its client-side router aren't interfered with.
     """
@@ -71,60 +70,9 @@ def remove_trailing_slash():
     return None
 
 
-def _redirect_ui(path: str):
-    """302 into the React SPA. path is like '/recipes' or '/meal-plans/<id>'."""
-    target = "/ui" + path if path.startswith("/") else "/ui/" + path
-    return redirect(target, code=302)
-
-
 @app.route("/")
 def root():
     return redirect("/ui/", code=302)
-
-
-@app.route("/recipes")
-def legacy_recipe_list():
-    return _redirect_ui("/recipes")
-
-
-@app.route("/recipes/new")
-def legacy_recipe_new():
-    return _redirect_ui("/recipes/new")
-
-
-@app.route("/recipes/<uuid:recipe_id>")
-def legacy_recipe_detail(recipe_id: uuid.UUID):
-    return _redirect_ui(f"/recipes/{recipe_id}")
-
-
-@app.route("/recipes/<uuid:recipe_id>/edit")
-def legacy_recipe_edit(recipe_id: uuid.UUID):
-    return _redirect_ui(f"/recipes/{recipe_id}/edit")
-
-
-@app.route("/meal-plans")
-def legacy_meal_plan_list():
-    return _redirect_ui("/meal-plans")
-
-
-@app.route("/meal-plans/new")
-def legacy_meal_plan_new():
-    return _redirect_ui("/meal-plans/new")
-
-
-@app.route("/meal-plans/<uuid:meal_plan_id>")
-def legacy_meal_plan_detail(meal_plan_id: uuid.UUID):
-    return _redirect_ui(f"/meal-plans/{meal_plan_id}")
-
-
-@app.route("/meal-plans/<uuid:meal_plan_id>/edit")
-def legacy_meal_plan_edit(meal_plan_id: uuid.UUID):
-    return _redirect_ui(f"/meal-plans/{meal_plan_id}/edit")
-
-
-@app.route("/meal-plans/<uuid:meal_plan_id>/shopping-list")
-def legacy_shopping_list_html(meal_plan_id: uuid.UUID):
-    return _redirect_ui(f"/meal-plans/{meal_plan_id}")
 
 
 def _resolve_pdf_lang() -> str:
@@ -207,7 +155,11 @@ def _recipe_to_dict(recipe: Recipe) -> dict:
 
 
 def _meal_plan_to_dict(meal_plan: MealPlan) -> dict:
-    """Serializes using the primary 'recipes' shape + legacy 'recipe_ids' for compat."""
+    """Serialize a meal plan as JSON with recipes: [{id, name, count}].
+
+    Does not emit legacy `recipe_ids`. Writers still accept that key (see
+    api_create_meal_plan / api_update_meal_plan) so old clients do not wipe plans.
+    """
     recipes_by_id = {str(recipe.recipe_id): recipe for recipe in crud.list_recipes()}
     recipes_out = []
     for e in meal_plan.recipes or []:
@@ -225,7 +177,6 @@ def _meal_plan_to_dict(meal_plan: MealPlan) -> dict:
         "id": str(meal_plan.meal_plan_id),
         "name": meal_plan.name,
         "description": meal_plan.description,
-        "recipe_ids": [r["id"] for r in recipes_out],
         "recipes": recipes_out,
     }
 
@@ -486,8 +437,11 @@ def api_get_meal_plans():
 
 @app.route("/api/meal-plans", methods=["POST"])
 def api_create_meal_plan():
-    """API endpoint to create a new meal plan.
-    Accepts new 'recipes': [{'id': uuidstr, 'count': float}, ...] or legacy 'recipe_ids'.
+    """Create a meal plan.
+
+    Preferred body: ``recipes`` as ``[{id, count}, ...]``.
+    Still accepts legacy ``recipe_ids`` (list of uuid strings) when ``recipes``
+    is absent so old clients do not persist empty plans.
     """
     data = request.get_json()
     if not data or not data.get("name"):
@@ -516,8 +470,11 @@ def api_get_meal_plan(meal_plan_id: uuid.UUID):
 
 @app.route("/api/meal-plans/<uuid:meal_plan_id>", methods=["PUT"])
 def api_update_meal_plan(meal_plan_id: uuid.UUID):
-    """API endpoint to update an existing meal plan.
-    Supports 'recipes' list with counts (fractional ok) or legacy 'recipe_ids'.
+    """Update a meal plan.
+
+    Preferred body: ``recipes`` as ``[{id, count}, ...]``.
+    Still accepts legacy ``recipe_ids`` when ``recipes`` is absent so old
+    clients do not wipe the plan's recipes. Omitting both leaves recipes unchanged.
     """
     data = request.get_json()
     if not data:

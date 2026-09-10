@@ -1,6 +1,6 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `refactor/b3-ingredient-list-objects` (from `refactor/abc`)
+**Branch:** `refactor/c4-drop-legacy-payloads` (from `refactor/abc`)
 **Last updated:** 2026-09-10
 
 ## Standing instruction
@@ -8,46 +8,45 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Wave 1 (Plan A) merged. Plan B in progress:
+Plan C Task 4 (C4): drop meal-plan JSON `recipe_ids` and Jinja HTML 302 aliases.
 
 | Task | SHA | Status |
 |---|---|---|
 | A1–A5 | on `refactor/abc` | done |
-| B1 api.js / drop axios | `da7fa1a` | merged |
-| B5 JSON /api errors | `2118281` | merged |
-| B6 batch find_all | `82baede` | merged |
-| B2 catalog hook + line fields | `688e968` | merged |
-| B4 meal-plan recipe names | `c818bad` | merged |
-| B3 collapse ingredient GETs | this commit | done |
-| B7 E2E hygiene | next | pending |
+| B1–B7 | on `refactor/abc` | done |
+| C3 migrate_legacy | `eef6264` | done |
+| C4 drop recipe_ids + Jinja 302s | this commit | done |
+| C1 create_app() | next | pending |
+| C2 split crud.py | after C1 | pending |
 
-### B3 done
+### C4 done
 
-`GET /api/ingredients` now returns `[{id, name, usage_count, unit, location}, ...]`.
-`GET /api/ingredients/info` and `GET /api/ingredients/summary` are 404.
-POST `/api/ingredients` still creates; `GET /api/ingredients/<uuid>` unchanged.
-Frontend hook and IngredientList switched to `GET /api/ingredients`.
+- `_meal_plan_to_dict` emits `recipes: [{id, name, count}]` only — no `recipe_ids`.
+- POST/PUT `/api/meal-plans` still accept `data.get("recipes") or data.get("recipe_ids")` so old clients do not wipe plans.
+- Deleted Jinja HTML GET aliases (`/recipes`, `/meal-plans`, shopping-list HTML, `_redirect_ui`).
+- Kept `GET /` → `/ui/`, trailing-slash 308 normalizer, and PDF routes.
+- `create_app()` is not present on this tree (still module-level `app = Flask(__name__)`).
 
 Verified:
 
 ```bash
 docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev \
-  python -m pytest meal_planner_app/tests/test_ingredient_api.py \
-  meal_planner_app/tests/test_shopping_list_api.py meal_planner_app/tests/test_api.py -q --tb=short
-# 65 passed
+  python -m pytest meal_planner_app/tests/test_api.py meal_planner_app/tests/test_pdf.py -q --tb=short
+# 56 passed (test_app_factory.py does not exist)
 
-docker run --rm -v "$(pwd)/frontend:/app/frontend" -v /app/frontend/node_modules \
-  -w /app/frontend meal-planner:dev sh -c 'npm run test:unit && npm run lint'
-# 34 pass, eslint clean
+docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev \
+  python -m pylint meal_planner_app/main.py
+# 10.00/10
 ```
 
-`frontend/src` has no remaining `/api/ingredients/info` or `/api/ingredients/summary`.
+MealPlanForm still *reads* `recipe_ids` as a fallback; it does not send it.
+E2E `shopping-lists.spec.js` still PUTs `recipe_ids` (write path remains accepted).
 
 ## Next
 
-B7 E2E hygiene, then Plan C.
+C1 `create_app()` with opt-in seed route, then C2 split `crud.py`.
 
 ## Out of scope
 
 Auth; OpenAPI; React Query; SQLAlchemy; persisting purchased checkboxes.
-SQL `GROUP BY` usage counts still a Python loop in `list_ingredients_summary`.
+`create_app()` was not added in C4.
