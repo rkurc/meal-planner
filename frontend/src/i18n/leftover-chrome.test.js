@@ -42,6 +42,7 @@ const FORBIDDEN = {
   "MealPlanForm.jsx": [
     "Error loading form:",
     "Use decimals for fractions e.g. 0.5, 1.25. Each row selects a recipe",
+    "recipe_ids",
   ],
 };
 

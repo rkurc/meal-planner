@@ -94,9 +94,9 @@ When the legacy dir is mounted at `/app/legacy`:
 
 ```bash
 # Inside container
-python -m meal_planner_app.migrate_legacy
+python tools/migrate_legacy.py
 # or
-python -m meal_planner_app.migrate_legacy /path/to/the/csv/dir
+python tools/migrate_legacy.py /path/to/the/csv/dir
 ```
 
 The loader will automatically prefer the relational set (`przepisy.csv` + `skladniki.csv` + `produkty.csv`).

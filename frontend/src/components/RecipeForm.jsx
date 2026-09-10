@@ -5,6 +5,7 @@ import { hasPlaceholderInstructions } from "../hasPlaceholderInstructions";
 import { formDataFromDraft } from "../recipeDraft";
 import { applyDefaultUnit } from "../defaultUnit";
 import { useCatalogLookups } from "../hooks/useCatalogLookups";
+import { api } from "../api.js";
 import IngredientLineFields from "./IngredientLineFields";
 
 const RecipeForm = () => {
@@ -35,13 +36,8 @@ const RecipeForm = () => {
 
   useEffect(() => {
     if (isEditing) {
-      fetch(`/api/recipes/${id}`)
-        .then((response) => {
-          if (!response.ok) {
-            throw new Error("Recipe not found");
-          }
-          return response.json();
-        })
+      api
+        .get(`/api/recipes/${id}`)
         .then((data) => {
           setFormData({
             name: data.name || "",
@@ -159,22 +155,11 @@ const RecipeForm = () => {
       ingredients: filteredIngredients,
     };
 
-    const url = isEditing ? `/api/recipes/${id}` : "/api/recipes";
-    const method = isEditing ? "PUT" : "POST";
+    const save = isEditing
+      ? api.put(`/api/recipes/${id}`, recipeData)
+      : api.post("/api/recipes", recipeData);
 
-    fetch(url, {
-      method: method,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(recipeData),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to save recipe");
-        }
-        return response.json();
-      })
+    save
       .then((data) => {
         navigate(`/recipes/${data.id}`);
       })

@@ -40,12 +40,6 @@ const MealPlanForm = () => {
                     : parseFloat(r.count) || 1,
               }))
               .filter((r) => r.recipe_id);
-          } else if (Array.isArray(data.recipe_ids)) {
-            // graceful support for old format
-            loadedRecipes = data.recipe_ids.map((rid) => ({
-              recipe_id: rid,
-              count: 1,
-            }));
           }
           setFormData({
             name: data.name || "",

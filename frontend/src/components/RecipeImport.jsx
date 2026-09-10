@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { api, ApiError } from "../api.js";
 
 const RecipeImport = () => {
   const { t } = useTranslation();
@@ -11,27 +12,22 @@ const RecipeImport = () => {
   const [parsing, setParsing] = useState(false);
   const [fetching, setFetching] = useState(false);
 
-  const errorFromResponse = async (response) => {
-    let body = {};
-    try {
-      body = await response.json();
-    } catch {
-      body = {};
-    }
-    if (response.status === 503) {
+  const importErrorMessage = (err) => {
+    const status = err instanceof ApiError ? err.status : 0;
+    if (status === 503) {
       return t("recipes.importUnavailable");
     }
-    if (response.status === 504) {
+    if (status === 504) {
       return t("recipes.importTimeout");
     }
-    if (response.status === 502) {
+    if (status === 502) {
       return t("recipes.importFetchFailed");
     }
-    if (response.status === 422) {
+    if (status === 422) {
       return t("recipes.importUnusable");
     }
     return t("recipes.importError", {
-      message: body.error || t("recipes.failedSave"),
+      message: err.message || t("recipes.failedSave"),
     });
   };
 
@@ -43,17 +39,8 @@ const RecipeImport = () => {
     }
     setFetching(true);
     setError(null);
-    fetch("/api/recipes/fetch", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: sourceUrl.trim() }),
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(await errorFromResponse(response));
-        }
-        return response.json();
-      })
+    api
+      .post("/api/recipes/fetch", { url: sourceUrl.trim() })
       .then((data) => {
         setText(data.text || "");
         if (data.source_url) {
@@ -62,7 +49,7 @@ const RecipeImport = () => {
         setFetching(false);
       })
       .catch((err) => {
-        setError(err.message);
+        setError(importErrorMessage(err));
         setFetching(false);
       });
   };
@@ -75,25 +62,16 @@ const RecipeImport = () => {
     }
     setParsing(true);
     setError(null);
-    fetch("/api/recipes/parse", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    api
+      .post("/api/recipes/parse", {
         text,
         source_url: sourceUrl.trim(),
-      }),
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(await errorFromResponse(response));
-        }
-        return response.json();
       })
       .then((draft) => {
         navigate("/recipes/new", { state: { draft } });
       })
       .catch((err) => {
-        setError(err.message);
+        setError(importErrorMessage(err));
         setParsing(false);
       });
   };

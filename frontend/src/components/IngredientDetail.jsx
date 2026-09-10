@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { api, ApiError } from "../api.js";
 
 const IngredientDetail = () => {
   const { t } = useTranslation();
@@ -16,13 +17,8 @@ const IngredientDetail = () => {
       setLoading(false);
       return;
     }
-    fetch(`/api/ingredients/${id}`)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(t("ingredients.notFound"));
-        }
-        return response.json();
-      })
+    api
+      .get(`/api/ingredients/${id}`)
       .then((data) => {
         setIngredient(data);
         setLoading(false);
@@ -39,33 +35,20 @@ const IngredientDetail = () => {
     ) {
       return;
     }
-    fetch(`/api/ingredients/${id}`, {
-      method: "DELETE",
-    })
-      .then(async (response) => {
-        if (response.status === 204) {
-          navigate("/ingredients");
-          return;
-        }
-        if (response.status === 409) {
-          let usage = ingredient.usage_count || 0;
-          try {
-            const data = await response.json();
-            if (typeof data.usage_count === "number") {
-              usage = data.usage_count;
-            }
-          } catch {
-            // Fall back to the already-loaded usage count.
-          }
+    api
+      .del(`/api/ingredients/${id}`)
+      .then(() => {
+        navigate("/ingredients");
+      })
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 409) {
+          const usage =
+            typeof err.body?.usage_count === "number"
+              ? err.body.usage_count
+              : ingredient.usage_count || 0;
           setError(t("ingredients.cannotDelete", { count: usage }));
           return;
         }
-        if (response.status === 404) {
-          throw new Error(t("ingredients.notFound"));
-        }
-        throw new Error(t("ingredients.failedDelete"));
-      })
-      .catch((err) => {
         setError(err.message);
       });
   };

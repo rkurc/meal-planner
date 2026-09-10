@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { api, ApiError } from "../api.js";
+import { useCatalogLookups } from "../hooks/useCatalogLookups";
 
 const IngredientForm = () => {
   const { t } = useTranslation();
@@ -13,7 +15,7 @@ const IngredientForm = () => {
     default_unit: "",
     location: "",
   });
-  const [knownLocations, setKnownLocations] = useState([]);
+  const { knownLocations } = useCatalogLookups();
   const [loading, setLoading] = useState(isEditing);
   const [error, setError] = useState(null);
 
@@ -21,13 +23,8 @@ const IngredientForm = () => {
     if (!isEditing) {
       return;
     }
-    fetch(`/api/ingredients/${id}`)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(t("ingredients.notFound"));
-        }
-        return response.json();
-      })
+    api
+      .get(`/api/ingredients/${id}`)
       .then((data) => {
         setFormData({
           name: data.name || "",
@@ -41,22 +38,6 @@ const IngredientForm = () => {
         setLoading(false);
       });
   }, [id, isEditing, t]);
-
-  useEffect(() => {
-    fetch("/api/locations")
-      .then((response) => {
-        if (!response.ok) return [];
-        return response.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setKnownLocations(data);
-        }
-      })
-      .catch(() => {
-        // non-fatal for suggestions
-      });
-  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -78,31 +59,20 @@ const IngredientForm = () => {
       default_unit: formData.default_unit.trim(),
       location: formData.location.trim(),
     };
-    const url = isEditing ? `/api/ingredients/${id}` : "/api/ingredients";
-    const method = isEditing ? "PUT" : "POST";
+    const save = isEditing
+      ? api.put(`/api/ingredients/${id}`, payload)
+      : api.post("/api/ingredients", payload);
 
-    fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    })
-      .then(async (response) => {
-        const data = await response.json().catch(() => ({}));
-        if (response.status === 409) {
-          throw new Error(data.error || t("ingredients.duplicateName"));
-        }
-        if (!response.ok) {
-          throw new Error(data.error || t("ingredients.failedSave"));
-        }
-        return data;
-      })
+    save
       .then((data) => {
         navigate(`/ingredients/${data.id}`);
       })
       .catch((err) => {
-        setError(err.message);
+        if (err instanceof ApiError && err.status === 409) {
+          setError(err.message || t("ingredients.duplicateName"));
+          return;
+        }
+        setError(err.message || t("ingredients.failedSave"));
       });
   };
 

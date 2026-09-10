@@ -218,8 +218,8 @@ docker run -d `
 
 Or run manually inside a running container:
 ```powershell
-docker exec -it meal-planner-dev python -m meal_planner_app.migrate_legacy C:/.../recipes.csv
-# or just the module name (it auto-detects common names)
+docker exec -it meal-planner-dev python tools/migrate_legacy.py C:/.../recipes.csv
+# or just the script (it auto-detects common names)
 ```
 
 The CSV route produces clean structured data (proper ingredients list with quantity/unit when possible).
@@ -227,7 +227,7 @@ The CSV route produces clean structured data (proper ingredients list with quant
 ### Direct .odb (still supported but not recommended)
 
 ```powershell
-docker exec -it meal-planner-dev python -m meal_planner_app.migrate_legacy
+docker exec -it meal-planner-dev python tools/migrate_legacy.py
 ```
 
 This still works via heuristics but can produce truncated names and noisy ingredients from the binary storage format. Use CSV for production data.
