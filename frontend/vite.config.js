@@ -16,6 +16,14 @@ export default defineConfig({
         target: "http://127.0.0.1:5000",
         changeOrigin: true,
       },
+      "/shopping-lists": {
+        target: "http://127.0.0.1:5000",
+        changeOrigin: true,
+      },
+      "/meal-plans": {
+        target: "http://127.0.0.1:5000",
+        changeOrigin: true,
+      },
     },
   },
 });

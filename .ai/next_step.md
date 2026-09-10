@@ -1,6 +1,6 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `refactor/abc`
+**Branch:** `refactor/a5-vite-pdf-proxy`
 **Last updated:** 2026-09-10
 
 ## Standing instruction
@@ -8,25 +8,20 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Codebase review of `origin/main` @ `c8b480e`. Report + A/B/C plans committed.
+A5 (Vite PDF proxy) complete on `refactor/a5-vite-pdf-proxy`.
 
-**A3 decision:** drop view-mode purchased checkboxes (do not persist).
+Vite `server.proxy` now forwards `/api`, `/shopping-lists`, and `/meal-plans` to Flask at `http://127.0.0.1:5000` with `changeOrigin: true`. `/ui` is not proxied (SPA stays on Vite).
 
-Documents:
+Source lock: `frontend/src/vite-proxy.test.js`.
 
-- `docs/superpowers/specs/2026-09-10-codebase-review.md`
-- `docs/superpowers/plans/2026-09-10-refactor-parallelism.md`
-- `docs/superpowers/plans/2026-09-10-refactor-a-correctness.md`
-- `docs/superpowers/plans/2026-09-10-refactor-b-simplification.md`
-- `docs/superpowers/plans/2026-09-10-refactor-c-structural.md`
-
-**Wave 1 (parallel, isolated worktrees):** A1 seed reset, A2 meal-plan PUT, A3 drop checkboxes, A4 MealPlanForm errors, A5 Vite PDF proxy. Optional: B6 batch find_all, C3 move migrate_legacy.
-
-**Then:** Plan B, then Plan C (C3 may already be done).
+**Verification:**
+- FAIL (before impl): `docker run --rm -v "$(pwd)/frontend:/app/frontend" -w /app/frontend meal-planner:dev node --test src/vite-proxy.test.js` — assertion failed: only `/api` proxied.
+- PASS: `docker run --rm -v "$(pwd)/frontend:/app/frontend" -v /app/frontend/node_modules -w /app/frontend meal-planner:dev npm run test:unit` — 26 pass, 0 fail. Anonymous `node_modules` volume needed so the host mount does not hide image deps (`e2e-workers.test.js` imports `@playwright/test`).
+- PASS: `npm run format-check` in the same image (prettier).
 
 ## Next
 
-Execute Wave 1 from Plan A. Do not implement on `main`.
+Continue Wave 1 from Plan A (A1 seed reset, A2 meal-plan PUT, A3 drop checkboxes, A4 MealPlanForm errors) if not already done. Then Plan B, then Plan C.
 
 ## Out of scope
 
