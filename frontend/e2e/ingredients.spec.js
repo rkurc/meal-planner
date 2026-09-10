@@ -1,11 +1,9 @@
 // @ts-check
 import { test, expect } from "@playwright/test";
-
-/* global process */
+import { seedDb } from "./helpers.js";
 
 test.beforeEach(async ({ page }) => {
-  const apiBase = process.env.API_BASE_URL || "http://localhost:5000";
-  await page.request.post(`${apiBase}/api/test/seed-db`);
+  await seedDb(page);
 });
 
 test("should list seeded ingredients and block deleting one in use", async ({
