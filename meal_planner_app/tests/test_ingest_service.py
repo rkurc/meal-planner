@@ -2,6 +2,7 @@
 
 import pytest
 
+from meal_planner_app import crud
 from meal_planner_app.ingest.llm_client import LlmTimeoutError, LlmUnavailableError
 from meal_planner_app.ingest.service import (
     ParseUnusableError,
@@ -129,8 +130,6 @@ def test_llm_timeout_bubbles_up():
 
 
 def test_parse_does_not_write_catalog_or_recipes():
-    from meal_planner_app import crud
-
     llm = FakeLlm(
         {
             "name": "Naleśniki",
