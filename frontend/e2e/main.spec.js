@@ -61,7 +61,7 @@ test("should create a new recipe", async ({ page }) => {
   await page.fill("#source_url", "https://example.com/recipe");
   await page.fill("#instructions", "Step 1: Do this\nStep 2: Do that");
 
-  // Add an ingredient; rely on auto-populate of default unit from /api/ingredients/summary
+  // Add an ingredient; rely on auto-populate of default unit from GET /api/ingredients
   // (tests the Ingredient UX default-unit requirement in RecipeForm)
   await page.fill("input[placeholder='Ingredient name']", "Flour");
   await page.fill("input[placeholder='Quantity']", "2");

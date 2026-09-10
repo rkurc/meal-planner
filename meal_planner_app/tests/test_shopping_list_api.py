@@ -226,17 +226,24 @@ class ShoppingListApiTestCase(unittest.TestCase):
         self.assertTrue(pdf_resp.data.startswith(b"%PDF"))
 
     def test_api_get_ingredients(self):
-        """GET /api/ingredients returns sorted unique ingredient names from recipes."""
+        """GET /api/ingredients returns sorted catalog summary objects."""
         # Our setUp creates a recipe with Spaghetti, Pancetta, Eggs
         resp = self.client.get("/api/ingredients")
         self.assertEqual(resp.status_code, 200)
-        names = resp.get_json()
-        self.assertIsInstance(names, list)
-        self.assertEqual(names, sorted(names))
-        # At minimum these should be present
+        items = resp.get_json()
+        self.assertIsInstance(items, list)
+        self.assertTrue(items)
+        self.assertTrue(all(isinstance(item, dict) for item in items))
+        names = [item["name"] for item in items]
+        self.assertEqual(names, sorted(names, key=str.lower))
         self.assertIn("Spaghetti", names)
         self.assertIn("Pancetta", names)
         self.assertIn("Eggs", names)
+        for item in items:
+            self.assertIn("id", item)
+            self.assertIn("usage_count", item)
+            self.assertIn("unit", item)
+            self.assertIn("location", item)
 
     def test_api_get_locations(self):
         """GET /api/locations returns sorted unique location values."""

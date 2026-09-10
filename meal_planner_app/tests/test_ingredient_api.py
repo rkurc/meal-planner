@@ -54,15 +54,19 @@ def test_create_ingredient_duplicate_name_409():
     assert "error" in data
 
 
-def test_autocomplete_stays_string_list():
+def test_list_returns_ingredient_objects():
     client = _client()
-    _post_ingredient(client, {"name": "Pepper"})
+    created = json.loads(_post_ingredient(client, {"name": "Pepper"}).data)
     response = client.get("/api/ingredients")
     assert response.status_code == 200
-    names = json.loads(response.data)
-    assert isinstance(names, list)
-    assert all(isinstance(n, str) for n in names)
-    assert "Pepper" in names
+    items = json.loads(response.data)
+    assert isinstance(items, list)
+    pepper = next(item for item in items if item["name"] == "Pepper")
+    assert pepper["id"] == created["id"]
+    assert pepper["name"] == "Pepper"
+    assert pepper["usage_count"] == 0
+    assert "unit" in pepper
+    assert "location" in pepper
 
 
 def test_summary_includes_id():
@@ -70,13 +74,14 @@ def test_summary_includes_id():
     created = json.loads(
         _post_ingredient(client, {"name": "Yeast", "default_unit": "g"}).data
     )
-    response = client.get("/api/ingredients/summary")
+    response = client.get("/api/ingredients")
     assert response.status_code == 200
     summaries = json.loads(response.data)
     yeast = next(item for item in summaries if item["name"] == "Yeast")
     assert yeast["id"] == created["id"]
     assert yeast["unit"] == "g"
     assert yeast["usage_count"] == 0
+    assert yeast["location"] == ""
 
 
 def test_get_ingredient_by_id():
@@ -183,12 +188,14 @@ def test_delete_ingredient_in_use_returns_409():
     assert get_resp.status_code == 200
 
 
-def test_info_includes_id():
+def test_get_ingredient_info_removed():
     client = _client()
-    created = json.loads(_post_ingredient(client, {"name": "Cocoa"}).data)
+    _post_ingredient(client, {"name": "Cocoa"})
     response = client.get("/api/ingredients/info?name=Cocoa")
-    assert response.status_code == 200
-    data = json.loads(response.data)
-    assert data["id"] == created["id"]
-    assert data["name"] == "Cocoa"
-    assert data["usage_count"] == 0
+    assert response.status_code == 404
+
+
+def test_get_ingredients_summary_removed():
+    client = _client()
+    response = client.get("/api/ingredients/summary")
+    assert response.status_code == 404

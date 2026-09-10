@@ -9,7 +9,7 @@ export function useCatalogLookups() {
 
   useEffect(() => {
     api
-      .get("/api/ingredients/summary")
+      .get("/api/ingredients")
       .then((data) => {
         if (!Array.isArray(data)) {
           return;

@@ -266,9 +266,12 @@ def _master_ingredient_to_dict(ingredient) -> dict:
 
 @app.route("/api/ingredients", methods=["GET"])
 def api_get_ingredients():
-    """API endpoint to get unique ingredient names (for suggestion/autocomplete in UI)."""
-    names = crud.list_unique_ingredient_names()  # pylint: disable=no-member
-    return jsonify(names)
+    """Return catalog summaries [{id, name, usage_count, unit, location}, ...].
+
+    POST on this same path still creates a master ingredient (REST collision).
+    """
+    summaries = crud.list_ingredients_summary()  # pylint: disable=no-member
+    return jsonify(summaries)
 
 
 @app.route("/api/ingredients", methods=["POST"])
@@ -301,44 +304,6 @@ def api_get_units():
     """API endpoint to get unique units for suggestions (collected from recipe ingredients)."""
     units = crud.list_unique_units()  # pylint: disable=no-member
     return jsonify(units)
-
-
-@app.route("/api/ingredients/summary", methods=["GET"])
-def api_get_ingredients_summary():
-    """Return ingredient summaries (id, name, usage, unit, loc) for IngredientList.
-    Catalog-backed; /api/ingredients kept as a string list for autocomplete.
-    """
-    summaries = crud.list_ingredients_summary()  # pylint: disable=no-member
-    return jsonify(summaries)
-
-
-@app.route("/api/ingredients/info", methods=["GET"])
-def api_get_ingredient_info():
-    """API for IngredientDetail: {id, name, usage_count, recipes} for ?name= .
-    Exact name match. Read-only.
-    """
-    name = request.args.get("name", "").strip()
-    if not name:
-        abort(400, description="name query parameter is required")
-    recipes_using = crud.get_recipes_for_ingredient(name)  # pylint: disable=no-member
-    master = crud.get_master_ingredient_by_name(name)
-    slim_recipes = [
-        {"id": str(r.recipe_id), "name": r.name, "description": r.description}
-        for r in recipes_using
-    ]
-    return jsonify(
-        {
-            "id": str(master.ingredient_id) if master else None,
-            "name": master.name if master else name,
-            "default_unit": (master.default_unit or "") if master else "",
-            "unit": (master.default_unit or "") if master else "",
-            "location": (
-                (master.location or master.location_id or "") if master else ""
-            ),
-            "usage_count": len(recipes_using),
-            "recipes": slim_recipes,
-        }
-    )
 
 
 @app.route("/api/ingredients/<uuid:ingredient_id>", methods=["GET"])
