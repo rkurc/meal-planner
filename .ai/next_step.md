@@ -1,6 +1,6 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `feat/recipe-ingest-url-fetch`
+**Branch:** `refactor/abc`
 **Last updated:** 2026-09-10
 
 ## Standing instruction
@@ -8,23 +8,26 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-PR #53 (paste + local LLM ingest) merged to `main` as `3bd1b23`. Backend CI had failed on pylint C0415; fixed in `0dd0851` before merge.
+Codebase review of `origin/main` @ `c8b480e`. Report + A/B/C plans committed.
 
-Iteration 2: **URL scraping**. `ingest/fetch.py` downloads a public page; Import can Fetch page into the textarea or Parse with only a URL. Same review-in-RecipeForm save path. SSRF: no localhost/private/link-local/metadata IPs.
+**A3 decision:** drop view-mode purchased checkboxes (do not persist).
 
-### Verification
+Documents:
 
-- pylint `meal_planner_app` **10.00/10**, exit 0
-- pytest **205 passed**
-- frontend format/lint/i18n + unit **25 passed**
-- Playwright **20 passed**, including `should fetch a recipe URL then parse it`
+- `docs/superpowers/specs/2026-09-10-codebase-review.md`
+- `docs/superpowers/plans/2026-09-10-refactor-parallelism.md`
+- `docs/superpowers/plans/2026-09-10-refactor-a-correctness.md`
+- `docs/superpowers/plans/2026-09-10-refactor-b-simplification.md`
+- `docs/superpowers/plans/2026-09-10-refactor-c-structural.md`
+
+**Wave 1 (parallel, isolated worktrees):** A1 seed reset, A2 meal-plan PUT, A3 drop checkboxes, A4 MealPlanForm errors, A5 Vite PDF proxy. Optional: B6 batch find_all, C3 move migrate_legacy.
+
+**Then:** Plan B, then Plan C (C3 may already be done).
 
 ## Next
 
-- Merge PR for `feat/recipe-ingest-url-fetch`
-- Manual smoke: real Ollama + a public Polish recipe URL
-- Unrelated remaining: auth; OpenAPI; prep-time metadata; meal-plan calendar; meal-plan PDF
+Execute Wave 1 from Plan A. Do not implement on `main`.
 
 ## Out of scope
 
-Cloud LLM fallback; auto-save; fuzzy ingredient merge; JS-rendered-only pages (no headless browser).
+Auth; OpenAPI; React Query; SQLAlchemy; second DAO backend; persisting purchased checkboxes.
