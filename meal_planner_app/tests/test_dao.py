@@ -155,6 +155,45 @@ class TestRecipeDao(unittest.TestCase):
         self.assertTrue(self.dao.recipes.delete(saved.recipe_id))
         self.assertTrue(self.dao.ingredients.delete(self.flour.ingredient_id))
 
+    def test_find_all_does_not_cross_ingredient_lines(self):
+        milk = self.dao.ingredients.insert(
+            MasterIngredient(name="Milk", default_unit="cups")
+        )
+        self.dao.recipes.insert(
+            Recipe(
+                name="A",
+                instructions="Mix",
+                ingredients=[
+                    Ingredient(
+                        name="Flour",
+                        quantity=1,
+                        unit="cups",
+                        ingredient_id=self.flour.ingredient_id,
+                    )
+                ],
+            )
+        )
+        self.dao.recipes.insert(
+            Recipe(
+                name="B",
+                instructions="Pour",
+                ingredients=[
+                    Ingredient(
+                        name="Milk",
+                        quantity=2,
+                        unit="cups",
+                        ingredient_id=milk.ingredient_id,
+                    )
+                ],
+            )
+        )
+        self.dao.recipes.insert(Recipe(name="C", instructions="None", ingredients=[]))
+        all_recipes = self.dao.recipes.find_all()
+        by_name = {r.name: r for r in all_recipes}
+        self.assertEqual([i.name for i in by_name["A"].ingredients], ["Flour"])
+        self.assertEqual([i.name for i in by_name["B"].ingredients], ["Milk"])
+        self.assertEqual(by_name["C"].ingredients, [])
+
 
 class TestMealPlanAndShoppingListDao(unittest.TestCase):
     """Meal plans reference recipes; shopping lists snapshot items."""
@@ -215,6 +254,35 @@ class TestMealPlanAndShoppingListDao(unittest.TestCase):
         self.assertEqual(found.recipes[0]["recipe_id"], first)
         self.assertEqual(found.recipes[1]["recipe_id"], second)
 
+    def test_find_all_does_not_cross_recipe_entries(self):
+        other = self.dao.recipes.insert(
+            Recipe(name="Waffles", instructions="Cook", ingredients=[])
+        )
+        self.dao.meal_plans.insert(
+            MealPlan(
+                name="PlanA",
+                recipes=[{"recipe_id": self.recipe.recipe_id, "count": 2.0}],
+            )
+        )
+        self.dao.meal_plans.insert(
+            MealPlan(
+                name="PlanB",
+                recipes=[{"recipe_id": other.recipe_id, "count": 3.0}],
+            )
+        )
+        self.dao.meal_plans.insert(MealPlan(name="PlanC", recipes=[]))
+        all_plans = self.dao.meal_plans.find_all()
+        by_name = {plan.name: plan for plan in all_plans}
+        self.assertEqual(len(by_name["PlanA"].recipes), 1)
+        self.assertEqual(
+            by_name["PlanA"].recipes[0]["recipe_id"], self.recipe.recipe_id
+        )
+        self.assertEqual(by_name["PlanA"].recipes[0]["count"], 2.0)
+        self.assertEqual(len(by_name["PlanB"].recipes), 1)
+        self.assertEqual(by_name["PlanB"].recipes[0]["recipe_id"], other.recipe_id)
+        self.assertEqual(by_name["PlanB"].recipes[0]["count"], 3.0)
+        self.assertEqual(by_name["PlanC"].recipes, [])
+
     def test_shopping_list_snapshot_and_quantity_list(self):
         sl = ShoppingList(
             name="Groceries",
@@ -245,6 +313,26 @@ class TestMealPlanAndShoppingListDao(unittest.TestCase):
         found = self.dao.shopping_lists.find_by_id(sl.id)
         self.assertIsNotNone(found)
         self.assertIsNone(found.meal_plan_id)
+
+    def test_find_all_does_not_cross_shopping_list_items(self):
+        self.dao.shopping_lists.insert(
+            ShoppingList(
+                name="ListA",
+                items=[ShoppingListItem(name="Flour", quantity=1, unit="cups")],
+            )
+        )
+        self.dao.shopping_lists.insert(
+            ShoppingList(
+                name="ListB",
+                items=[ShoppingListItem(name="Salt", quantity=1, unit="pinch")],
+            )
+        )
+        self.dao.shopping_lists.insert(ShoppingList(name="ListC", items=[]))
+        all_lists = self.dao.shopping_lists.find_all()
+        by_name = {shopping.name: shopping for shopping in all_lists}
+        self.assertEqual([item.name for item in by_name["ListA"].items], ["Flour"])
+        self.assertEqual([item.name for item in by_name["ListB"].items], ["Salt"])
+        self.assertEqual(by_name["ListC"].items, [])
 
     def test_shopping_list_persists_source_recipe_names(self):
         sl = ShoppingList(
