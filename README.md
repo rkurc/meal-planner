@@ -1,17 +1,17 @@
 # Meal Planner Application
 
-This is a web application for managing recipes and meal plans. It features a Flask backend (REST API + PDF) and a **React-only** HTML UI at `/ui/`. `GET /` redirects (302) to `/ui/`. Jinja templates are gone.
+This is a web application for managing recipes and meal plans. It features a Flask backend (REST API + PDF) and a **React-only** HTML UI at `/ui/`. `GET /` redirects (302) to `/ui/`.
 
-**Current reality (as of 2026-09-02):**
+**Current features (as of 2026-09-02):**
 - Full CRUD APIs + React for recipes, meal plans, and shopping lists (including standalone lists, delete, persisted PDF).
+- Recipe **import** from pasted text/HTML via a local LLM (Ollama sidecar). URL fetch is not in this version. No auth.
 - Recipe **search** on `GET /api/recipes?q=&ingredient=` and the React recipe list.
 - Meal-plan recipe **counts** (fractions) multiply shopping-list quantities.
 - Ingredients: master SQLite table; recipe lines FK to it. `/ui/ingredients` is still a read-only list. Suggestion APIs for names/units/locations; default unit auto-fill.
 - SQLite file at `data/meal_planner.db` (`MEAL_PLANNER_DB`), behind nested DAOs. Tests use in-memory SQLite.
 - **95+** backend pytest tests in tree; Playwright E2E covers recipe, import, search, and shopping flows.
-- Recipe **import** from pasted text/HTML via a local LLM (Ollama sidecar). URL fetch is not in this version. No auth.
+  
 - Dev/verification via Docker (see AGENTS.md). Canonical status: `.ai/progress.md`.
-- Former Jinja HTML GET paths 302 into `/ui/…`. Form POSTs are not served.
 
 ## Development
 
