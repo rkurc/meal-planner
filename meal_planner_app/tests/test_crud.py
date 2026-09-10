@@ -196,16 +196,10 @@ class TestMealPlanCRUD(unittest.TestCase):
 
         # Add non-existent recipe to existing meal plan
         non_existent_recipe_id = uuid.uuid4()
-        # Current crud.add_recipe_to_meal_plan returns the meal_plan even if recipe not found.
-        # This behavior might be acceptable, or could be changed to return None or raise error.
-        # For now, test current behavior:
         updated_mp_with_non_recipe = crud.add_recipe_to_meal_plan(
             mp.meal_plan_id, non_existent_recipe_id
         )
-        self.assertIsNotNone(updated_mp_with_non_recipe)  # Meal plan itself is found
-        self.assertNotIn(
-            non_existent_recipe_id, updated_mp_with_non_recipe.recipe_ids
-        )  # Non-existent recipe should not be added
+        self.assertIsNone(updated_mp_with_non_recipe)
 
     def test_remove_recipe_from_meal_plan(self):
         """Test removing recipes from a meal plan."""

@@ -3,6 +3,9 @@ import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import { hasPlaceholderInstructions } from "../hasPlaceholderInstructions";
 import { formDataFromDraft } from "../recipeDraft";
+import { applyDefaultUnit } from "../defaultUnit";
+import { useCatalogLookups } from "../hooks/useCatalogLookups";
+import IngredientLineFields from "./IngredientLineFields";
 
 const RecipeForm = () => {
   const { t } = useTranslation();
@@ -23,10 +26,12 @@ const RecipeForm = () => {
 
   const [loading, setLoading] = useState(isEditing);
   const [error, setError] = useState(null);
-  const [knownIngredients, setKnownIngredients] = useState([]);
-  const [knownLocations, setKnownLocations] = useState([]);
-  const [knownUnits, setKnownUnits] = useState([]);
-  const [ingredientDefaultUnits, setIngredientDefaultUnits] = useState({});
+  const {
+    knownIngredients,
+    knownLocations,
+    knownUnits,
+    ingredientDefaultUnits,
+  } = useCatalogLookups();
 
   useEffect(() => {
     if (isEditing) {
@@ -89,73 +94,6 @@ const RecipeForm = () => {
     }
   }, [loading, location.hash, isEditing, formData.instructions]);
 
-  useEffect(() => {
-    // Fetch known ingredients for suggestions (cached in this component instance)
-    fetch("/api/ingredients")
-      .then((response) => {
-        if (!response.ok) return [];
-        return response.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setKnownIngredients(data);
-        }
-      })
-      .catch(() => {
-        // non-fatal for suggestions
-      });
-
-    // Fetch richer summary data to support default unit auto-populate (name -> unit)
-    // Follows exact existing pattern of separate fetch + non-fatal catch for known data.
-    fetch("/api/ingredients/summary")
-      .then((response) => {
-        if (!response.ok) return [];
-        return response.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data)) {
-          const map = {};
-          data.forEach((item) => {
-            if (item && item.name) {
-              map[item.name] = item.unit || "";
-            }
-          });
-          setIngredientDefaultUnits(map);
-        }
-      })
-      .catch(() => {
-        // non-fatal
-      });
-
-    fetch("/api/locations")
-      .then((response) => {
-        if (!response.ok) return [];
-        return response.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setKnownLocations(data);
-        }
-      })
-      .catch(() => {
-        // non-fatal
-      });
-
-    fetch("/api/units")
-      .then((response) => {
-        if (!response.ok) return [];
-        return response.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setKnownUnits(data);
-        }
-      })
-      .catch(() => {
-        // non-fatal
-      });
-  }, []);
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -165,26 +103,16 @@ const RecipeForm = () => {
   };
 
   const handleIngredientChange = (index, field, value) => {
-    const updatedIngredients = [...formData.ingredients];
-    const currentUnit = updatedIngredients[index].unit;
-    updatedIngredients[index][field] = value;
-    // Auto-populate unit with ingredient's default (from summary) ONLY if unit field is currently empty/falsy.
-    // This supports "when adding an ingredient" UX; does not overwrite if user already entered/changed unit.
-    if (
-      field === "name" &&
-      value &&
-      (!currentUnit || currentUnit.trim() === "")
-    ) {
-      const trimmedName = value.trim();
-      const defUnit = ingredientDefaultUnits[trimmedName];
-      if (defUnit) {
-        updatedIngredients[index].unit = defUnit;
-      }
-    }
-    setFormData((prev) => ({
-      ...prev,
-      ingredients: updatedIngredients,
-    }));
+    setFormData((prev) => {
+      const updatedIngredients = [...prev.ingredients];
+      updatedIngredients[index] = applyDefaultUnit(
+        updatedIngredients[index],
+        field,
+        value,
+        ingredientDefaultUnits,
+      );
+      return { ...prev, ingredients: updatedIngredients };
+    });
   };
 
   const addIngredient = () => {
@@ -349,56 +277,26 @@ const RecipeForm = () => {
               {t("recipes.ingredients")}
             </label>
             {formData.ingredients.map((ingredient, index) => (
-              <div key={index} className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  placeholder={t("recipes.ingredientName")}
-                  value={ingredient.name}
-                  onChange={(e) =>
-                    handleIngredientChange(index, "name", e.target.value)
-                  }
-                  list="known-ingredients"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="text"
-                  placeholder={t("recipes.quantity")}
-                  value={ingredient.quantity}
-                  onChange={(e) =>
-                    handleIngredientChange(index, "quantity", e.target.value)
-                  }
-                  className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="text"
-                  placeholder={t("recipes.unit")}
-                  value={ingredient.unit}
-                  onChange={(e) =>
-                    handleIngredientChange(index, "unit", e.target.value)
-                  }
-                  list="known-units"
-                  className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="text"
-                  placeholder={t("recipes.location")}
-                  value={ingredient.location || ""}
-                  onChange={(e) =>
-                    handleIngredientChange(index, "location", e.target.value)
-                  }
-                  list="known-locations"
-                  className="w-28 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  title={t("recipes.locationTitle")}
-                />
-                <button
-                  type="button"
-                  onClick={() => removeIngredient(index)}
-                  className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-md"
-                  disabled={formData.ingredients.length === 1}
-                >
-                  {t("common.remove")}
-                </button>
-              </div>
+              <IngredientLineFields
+                key={index}
+                item={ingredient}
+                onChange={(field, value) =>
+                  handleIngredientChange(index, field, value)
+                }
+                onRemove={() => removeIngredient(index)}
+                namePlaceholder={t("recipes.ingredientName")}
+                quantityPlaceholder={t("recipes.quantity")}
+                unitPlaceholder={t("recipes.unit")}
+                locationPlaceholder={t("recipes.location")}
+                locationTitle={t("recipes.locationTitle")}
+                removeLabel={t("common.remove")}
+                removeDisabled={formData.ingredients.length === 1}
+                listIds={{
+                  ingredients: "known-ingredients",
+                  units: "known-units",
+                  locations: "known-locations",
+                }}
+              />
             ))}
             <button
               type="button"

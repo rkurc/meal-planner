@@ -1,30 +1,34 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `feat/recipe-ingest-url-fetch`
+**Branch:** `refactor/abc`
 **Last updated:** 2026-09-10
+**HEAD:** `6c6fb85` (+ follow-up notes commit)
 
 ## Standing instruction
 Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-PR #53 (paste + local LLM ingest) merged to `main` as `3bd1b23`. Backend CI had failed on pylint C0415; fixed in `0dd0851` before merge.
+A/B/C refactor is on `refactor/abc`. A3 = drop purchased checkboxes. Review fixes: `seedDb` asserts HTTP OK; `start_and_seed.sh` exports `TESTING=true`. Playwright **20 passed**.
 
-Iteration 2: **URL scraping**. `ingest/fetch.py` downloads a public page; Import can Fetch page into the textarea or Parse with only a URL. Same review-in-RecipeForm save path. SSRF: no localhost/private/link-local/metadata IPs.
+## Follow-up (after `refactor/abc` merges)
 
-### Verification
+Do this on a **new branch from `main`** (e.g. `refactor/abc-follow-up`). Keep each item a small commit.
 
-- pylint `meal_planner_app` **10.00/10**, exit 0
-- pytest **205 passed**
-- frontend format/lint/i18n + unit **25 passed**
-- Playwright **20 passed**, including `should fetch a recipe URL then parse it`
+1. **Dead `recipe_ids` read fallback** — `frontend/src/components/MealPlanForm.jsx` still maps `data.recipe_ids` if `data.recipes` is missing. API no longer emits `recipe_ids`. Delete the fallback; keep write-side acceptance on the backend for one more release.
+2. **Adopt `api.js` for remaining CRUD** — `RecipeForm.jsx`, `RecipeDetail.jsx`, `IngredientForm.jsx`, `IngredientDetail.jsx`, `IngredientList.jsx`, `ShoppingListView.jsx` still use raw `fetch`. Switch to `api.get/post/put/del` so B5 JSON `{error}` bodies surface. Do not add React Query.
+3. **Meal-plan list N+1 names** — `_meal_plan_to_dict` (`meal_planner_app/main.py`) calls `crud.list_recipes()` per plan. Cache one map in `api_get_meal_plans`.
+4. **Lock `crud` re-exports** — expand `meal_planner_app/tests/test_crud_exports.py` to the full `__all__` list in `crud.py` (or import `__all__` and assert each name).
+5. **Docs for migrate path** — README and `docs/legacy_przepisy_schema.md` still say `python -m meal_planner_app.migrate_legacy`. Point at `python tools/migrate_legacy.py`. Update `meal_planner_app/README.md` if it still lists `services.py`.
+6. **Stale E2E comment** — `frontend/e2e/shopping-lists.spec.js` still claims seed-db keeps the meal plan and stale recipe IDs (the A1 bug). Rewrite the comment to match `dao.reset()`.
+
+Optional / later (not blocking):
+
+- SQL `GROUP BY` for `list_ingredients_summary` usage counts
+- Dedicated `SEED_DB` env instead of overloading Flask `TESTING`
+
+Out of scope: auth; OpenAPI; calendar; React Query; SQLAlchemy; persisting purchased checkboxes.
 
 ## Next
 
-- Merge PR for `feat/recipe-ingest-url-fetch`
-- Manual smoke: real Ollama + a public Polish recipe URL
-- Unrelated remaining: auth; OpenAPI; prep-time metadata; meal-plan calendar; meal-plan PDF
-
-## Out of scope
-
-Cloud LLM fallback; auto-save; fuzzy ingredient merge; JS-rendered-only pages (no headless browser).
+Open PR for `refactor/abc`, wait for CI, merge, then start follow-up item 1 on a new branch.

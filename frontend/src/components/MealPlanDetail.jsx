@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import axios from "axios";
+import { api } from "../api.js";
 import ShoppingListView from "./ShoppingListView";
 
 const MealPlanDetail = () => {
@@ -11,13 +11,12 @@ const MealPlanDetail = () => {
   const [mealPlan, setMealPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [recipesInPlan, setRecipesInPlan] = useState([]); // now [{recipe, count}, ...]
 
   useEffect(() => {
-    axios
+    api
       .get(`/api/meal-plans/${id}`)
-      .then((response) => {
-        setMealPlan(response.data);
+      .then((data) => {
+        setMealPlan(data);
         setLoading(false);
       })
       .catch((error) => {
@@ -26,40 +25,10 @@ const MealPlanDetail = () => {
       });
   }, [id]);
 
-  useEffect(() => {
-    const entries =
-      (mealPlan && mealPlan.recipes) ||
-      (mealPlan && mealPlan.recipe_ids
-        ? mealPlan.recipe_ids.map((rid) => ({ id: rid, count: 1 }))
-        : []);
-    if (!mealPlan || !entries || entries.length === 0) {
-      setRecipesInPlan([]);
-      return;
-    }
-    // Fetch all recipes then filter (small dataset; keeps one request)
-    axios
-      .get("/api/recipes")
-      .then((res) => {
-        const byId = Object.fromEntries(res.data.map((r) => [r.id, r]));
-        const resolved = entries
-          .map((e) => {
-            const rid = e.id || e.recipe_id;
-            const rec = byId[rid];
-            if (!rec) return null;
-            const c =
-              typeof e.count === "number" ? e.count : parseFloat(e.count) || 1;
-            return { recipe: rec, count: c };
-          })
-          .filter(Boolean);
-        setRecipesInPlan(resolved);
-      })
-      .catch(() => setRecipesInPlan([]));
-  }, [mealPlan]);
-
   const handleDelete = () => {
     if (window.confirm(t("mealPlans.deleteConfirm"))) {
-      axios
-        .delete(`/api/meal-plans/${id}`)
+      api
+        .del(`/api/meal-plans/${id}`)
         .then(() => {
           navigate("/meal-plans");
         })
@@ -115,14 +84,19 @@ const MealPlanDetail = () => {
         <h3 className="text-2xl font-semibold text-gray-700 mb-4">
           {t("mealPlans.recipes")}
         </h3>
-        {recipesInPlan.length > 0 ? (
+        {mealPlan.recipes && mealPlan.recipes.length > 0 ? (
           <ul className="space-y-2">
-            {recipesInPlan.map(({ recipe, count }) => (
+            {mealPlan.recipes.map(({ id: recipeId, name, count }) => (
               <li
-                key={recipe.id}
+                key={recipeId}
                 className="bg-gray-100 p-3 rounded-md flex justify-between items-center"
               >
-                <span className="font-medium">{recipe.name}</span>
+                <Link
+                  to={`/recipes/${recipeId}`}
+                  className="font-medium text-blue-600 hover:underline"
+                >
+                  {name}
+                </Link>
                 <span className="text-sm text-gray-600 font-mono">
                   x {count}
                 </span>

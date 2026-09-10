@@ -4,7 +4,8 @@ import json
 import os
 import sqlite3
 import uuid
-from typing import Any, List, Optional, Union
+from collections import defaultdict
+from typing import Any, Dict, List, Optional, Union
 
 from meal_planner_app.models.ingredient import Ingredient, MasterIngredient
 from meal_planner_app.models.meal_plan import MealPlan
@@ -215,7 +216,24 @@ class _SqliteRecipeDao:
 
     def find_all(self) -> List[Recipe]:
         rows = self._conn.execute("SELECT * FROM recipes ORDER BY name").fetchall()
-        return [self._recipe_from_row(row) for row in rows]
+        if not rows:
+            return []
+        line_rows = self._conn.execute(
+            """
+            SELECT ri.recipe_id, ri.quantity, ri.unit, ri.ingredient_id,
+                   i.name, i.default_unit, i.location, i.location_id
+            FROM recipe_ingredients ri
+            JOIN ingredients i ON i.id = ri.ingredient_id
+            ORDER BY ri.recipe_id, ri.position
+            """
+        ).fetchall()
+        lines_by_recipe: Dict[str, List[sqlite3.Row]] = defaultdict(list)
+        for line in line_rows:
+            lines_by_recipe[line["recipe_id"]].append(line)
+        return [
+            self._recipe_from_row(row, lines_by_recipe.get(row["id"], []))
+            for row in rows
+        ]
 
     def update(self, recipe: Recipe) -> Optional[Recipe]:
         cursor = self._conn.execute(
@@ -288,19 +306,24 @@ class _SqliteRecipeDao:
                 ),
             )
 
-    def _recipe_from_row(self, row: sqlite3.Row) -> Recipe:
+    def _recipe_from_row(
+        self,
+        row: sqlite3.Row,
+        line_rows: Optional[List[sqlite3.Row]] = None,
+    ) -> Recipe:
         recipe_id = uuid.UUID(row["id"])
-        line_rows = self._conn.execute(
-            """
-            SELECT ri.quantity, ri.unit, ri.ingredient_id,
-                   i.name, i.default_unit, i.location, i.location_id
-            FROM recipe_ingredients ri
-            JOIN ingredients i ON i.id = ri.ingredient_id
-            WHERE ri.recipe_id = ?
-            ORDER BY ri.position
-            """,
-            (_uuid_str(recipe_id),),
-        ).fetchall()
+        if line_rows is None:
+            line_rows = self._conn.execute(
+                """
+                SELECT ri.quantity, ri.unit, ri.ingredient_id,
+                       i.name, i.default_unit, i.location, i.location_id
+                FROM recipe_ingredients ri
+                JOIN ingredients i ON i.id = ri.ingredient_id
+                WHERE ri.recipe_id = ?
+                ORDER BY ri.position
+                """,
+                (_uuid_str(recipe_id),),
+            ).fetchall()
         ingredients = []
         for line in line_rows:
             unit = line["unit"] or line["default_unit"] or ""
@@ -345,7 +368,18 @@ class _SqliteMealPlanDao:
 
     def find_all(self) -> List[MealPlan]:
         rows = self._conn.execute("SELECT * FROM meal_plans ORDER BY name").fetchall()
-        return [self._from_row(row) for row in rows]
+        if not rows:
+            return []
+        link_rows = self._conn.execute(
+            """
+            SELECT meal_plan_id, recipe_id, count FROM meal_plan_recipes
+            ORDER BY meal_plan_id, rowid
+            """
+        ).fetchall()
+        links_by_plan: Dict[str, List[sqlite3.Row]] = defaultdict(list)
+        for link in link_rows:
+            links_by_plan[link["meal_plan_id"]].append(link)
+        return [self._from_row(row, links_by_plan.get(row["id"], [])) for row in rows]
 
     def update(self, meal_plan: MealPlan) -> Optional[MealPlan]:
         cursor = self._conn.execute(
@@ -404,16 +438,21 @@ class _SqliteMealPlanDao:
                 ),
             )
 
-    def _from_row(self, row: sqlite3.Row) -> MealPlan:
+    def _from_row(
+        self,
+        row: sqlite3.Row,
+        link_rows: Optional[List[sqlite3.Row]] = None,
+    ) -> MealPlan:
         meal_plan_id = uuid.UUID(row["id"])
-        link_rows = self._conn.execute(
-            """
-            SELECT recipe_id, count FROM meal_plan_recipes
-            WHERE meal_plan_id = ?
-            ORDER BY rowid
-            """,
-            (_uuid_str(meal_plan_id),),
-        ).fetchall()
+        if link_rows is None:
+            link_rows = self._conn.execute(
+                """
+                SELECT recipe_id, count FROM meal_plan_recipes
+                WHERE meal_plan_id = ?
+                ORDER BY rowid
+                """,
+                (_uuid_str(meal_plan_id),),
+            ).fetchall()
         recipes = [
             {"recipe_id": uuid.UUID(link["recipe_id"]), "count": float(link["count"])}
             for link in link_rows
@@ -449,7 +488,20 @@ class _SqliteShoppingListDao:
         rows = self._conn.execute(
             "SELECT * FROM shopping_lists ORDER BY name"
         ).fetchall()
-        return [self._from_row(row) for row in rows]
+        if not rows:
+            return []
+        item_rows = self._conn.execute(
+            """
+            SELECT shopping_list_id, name, quantity, unit, purchased, location,
+                   location_id, source_recipe_names
+            FROM shopping_list_items
+            ORDER BY shopping_list_id, position
+            """
+        ).fetchall()
+        items_by_list: Dict[str, List[sqlite3.Row]] = defaultdict(list)
+        for item in item_rows:
+            items_by_list[item["shopping_list_id"]].append(item)
+        return [self._from_row(row, items_by_list.get(row["id"], [])) for row in rows]
 
     def update(self, shopping_list: ShoppingList) -> Optional[ShoppingList]:
         cursor = self._conn.execute(
@@ -516,18 +568,23 @@ class _SqliteShoppingListDao:
                 ),
             )
 
-    def _from_row(self, row: sqlite3.Row) -> ShoppingList:
+    def _from_row(
+        self,
+        row: sqlite3.Row,
+        item_rows: Optional[List[sqlite3.Row]] = None,
+    ) -> ShoppingList:
         list_id = uuid.UUID(row["id"])
-        item_rows = self._conn.execute(
-            """
-            SELECT name, quantity, unit, purchased, location, location_id,
-                   source_recipe_names
-            FROM shopping_list_items
-            WHERE shopping_list_id = ?
-            ORDER BY position
-            """,
-            (_uuid_str(list_id),),
-        ).fetchall()
+        if item_rows is None:
+            item_rows = self._conn.execute(
+                """
+                SELECT name, quantity, unit, purchased, location, location_id,
+                       source_recipe_names
+                FROM shopping_list_items
+                WHERE shopping_list_id = ?
+                ORDER BY position
+                """,
+                (_uuid_str(list_id),),
+            ).fetchall()
         items = [
             ShoppingListItem(
                 name=item["name"],

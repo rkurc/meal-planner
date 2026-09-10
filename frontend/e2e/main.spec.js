@@ -4,17 +4,10 @@
 //   docker run --rm -v $(pwd):/app -w /app/frontend --network host meal-planner-dev sh -c 'npm ci && npx playwright install --with-deps && npx playwright test'
 // (Servers started via start_and_seed.sh in another container or use container network + baseURL adjustment.)
 import { test, expect } from "@playwright/test";
+import { seedDb, ensureShoppingList } from "./helpers.js";
 
-/* global process */
-
-// Seed the database before each test in this file (enables reliable E2E
-// against gunicorn in the integration test container, which does not use
-// start_and_seed.sh). The URL is configurable for different environments
-// (container networking, local ports, etc.).
 test.beforeEach(async ({ page }) => {
-  // Call the API backend directly (not via the Vite dev server / baseURL).
-  const apiBase = process.env.API_BASE_URL || "http://localhost:5000";
-  await page.request.post(`${apiBase}/api/test/seed-db`);
+  await seedDb(page);
 });
 
 test("homepage has expected title", async ({ page }) => {
@@ -61,7 +54,7 @@ test("should create a new recipe", async ({ page }) => {
   await page.fill("#source_url", "https://example.com/recipe");
   await page.fill("#instructions", "Step 1: Do this\nStep 2: Do that");
 
-  // Add an ingredient; rely on auto-populate of default unit from /api/ingredients/summary
+  // Add an ingredient; rely on auto-populate of default unit from GET /api/ingredients
   // (tests the Ingredient UX default-unit requirement in RecipeForm)
   await page.fill("input[placeholder='Ingredient name']", "Flour");
   await page.fill("input[placeholder='Quantity']", "2");
@@ -228,10 +221,7 @@ test("should delete a recipe", async ({ page }) => {
     page.getByRole("button", { name: "Delete Recipe" }),
   ).toBeVisible();
 
-  // Set up dialog handler before clicking delete
-  page.on("dialog", (dialog) => dialog.accept());
-
-  // Click Delete button
+  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Delete Recipe" }).click();
 
   // Verify we're redirected to the recipe list
@@ -261,27 +251,12 @@ test("should generate shopping list from meal plan", async ({ page }) => {
   await page.getByRole("link", { name: "Weekly Meal Plan" }).click();
   await page.waitForURL("**/meal-plans/*");
 
-  // Verify shopping list section is visible
   await expect(
     page.getByRole("heading", { name: /Shopping List/ }),
   ).toBeVisible();
 
-  // Check if "Generate Shopping List" button exists (if not already generated)
-  const generateButton = page.getByRole("button", {
-    name: "Generate from Meal Plan",
-  });
-  const editButton = page.getByRole("button", { name: "Edit" });
-
-  if (await generateButton.isVisible()) {
-    // Generate the shopping list
-    await generateButton.click();
-
-    // Wait for the list to be generated
-    await page.waitForTimeout(1000);
-
-    // Verify the shopping list is now visible
-    await expect(editButton).toBeVisible();
-  }
+  await ensureShoppingList(page);
+  await expect(page.getByTestId("shopping-item-sources").first()).toBeVisible();
 });
 
 test("should edit shopping list items", async ({ page }) => {
@@ -290,19 +265,11 @@ test("should edit shopping list items", async ({ page }) => {
   await page.getByRole("link", { name: "Weekly Meal Plan" }).click();
   await page.waitForURL("**/meal-plans/*");
 
-  // Wait for shopping section to be ready (avoids undefined click)
-  await page.waitForSelector("text=Shopping List", { timeout: 10000 });
+  await expect(
+    page.getByRole("heading", { name: /Shopping List/ }),
+  ).toBeVisible();
 
-  // Generate shopping list if not already present
-  const generateButton = page.getByRole("button", {
-    name: "Generate from Meal Plan",
-  });
-  if (await generateButton.isVisible()) {
-    await generateButton.click();
-    await page.waitForSelector("text=Edit", { timeout: 5000 }); // wait for edit to appear after generate
-  }
-
-  // Click Edit button for shopping list (use first visible "Edit" button; meal plan edit is a link not button)
+  await ensureShoppingList(page);
   await page.getByRole("button", { name: "Edit" }).first().click();
 
   // Add a new item
@@ -321,12 +288,8 @@ test("should edit shopping list items", async ({ page }) => {
 
   // Do not fill unit; expect auto "cups" from summary (Milk default)
 
-  // Save the changes
+  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Save" }).click();
-
-  // Wait for save confirmation
-  page.on("dialog", (dialog) => dialog.accept());
-  await page.waitForTimeout(500);
 
   // Verify the item is in the list (auto unit applied).
   // exact: true so "1.25 cups Milk" from the generated pancakes line does not match.
@@ -366,13 +329,8 @@ test("should auto-populate default unit on name change but not overwrite if unit
   await page.goto("/ui/meal-plans");
   await page.getByRole("link", { name: "Weekly Meal Plan" }).click();
   await page.waitForURL("**/meal-plans/*");
-  const genBtn = page.getByRole("button", { name: "Generate from Meal Plan" });
-  if (await genBtn.isVisible()) {
-    await genBtn.click();
-    await page.waitForTimeout(500);
-  }
-  const editBtn = page.getByRole("button", { name: "Edit" }).first();
-  await editBtn.click();
+  await ensureShoppingList(page);
+  await page.getByRole("button", { name: "Edit" }).first().click();
   await page.getByRole("button", { name: "Add Item" }).click();
   const sNames = await page.locator("input[placeholder='Item name']").all();
   const sUnits = await page.locator("input[placeholder='Unit']").all();

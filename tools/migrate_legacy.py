@@ -706,7 +706,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         arg = sys.argv[1]
         if os.path.isdir(arg):
-            # python -m ... /path/to/dir-containing-the-csvs
+            # python tools/migrate_legacy.py /path/to/dir-containing-the-csvs
             seed_from_legacy(
                 base_dir=arg, odb_path=os.path.join(arg, "przepisy_tmp.odb")
             )

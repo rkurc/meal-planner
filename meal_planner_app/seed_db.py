@@ -9,7 +9,7 @@ test-only /api/test/seed-db endpoint.
 
 from meal_planner_app.crud import (
     create_recipe,
-    reset_recipes_db,
+    get_dao,
     list_recipes,
     list_meal_plans,
     create_meal_plan,
@@ -59,22 +59,19 @@ RECIPES_TO_SEED = [
 
 
 def seed_database():
+    """Wipe all tables, then insert RECIPES_TO_SEED and Weekly Meal Plan.
+
+    Used by POST /api/test/seed-db (E2E). Not used for persistent-DB startup
+    (that is seed_if_empty).
     """
-    Resets and seeds the database with initial recipe data from RECIPES_TO_SEED.
-    Always resets to ensure a clean state for tests/E2E.
-    """
-    # Reset the database to ensure a clean state
-    print("Resetting recipes database...")
-    reset_recipes_db()
+    print("Resetting database...")
+    get_dao().reset()
 
     print(f"Seeding database with {len(RECIPES_TO_SEED)} recipes...")
     for recipe_data in RECIPES_TO_SEED:
         create_recipe(**recipe_data)
 
     print("Database seeding complete!")
-
-    # Always attempt to seed the Weekly Meal Plan (idempotent inside)
-    # even if recipes were already present (fixes early-return skip).
     seed_meal_plans()
 
 

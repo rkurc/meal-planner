@@ -39,6 +39,10 @@ const FORBIDDEN = {
     "Fetch page",
     "Local LLM is not running",
   ],
+  "MealPlanForm.jsx": [
+    "Error loading form:",
+    "Use decimals for fractions e.g. 0.5, 1.25. Each row selects a recipe",
+  ],
 };
 
 describe("leftover i18n chrome", () => {

@@ -1,5 +1,5 @@
 """
-Application services, such as PDF generation.
+PDF generation for shopping lists.
 """
 
 from importlib import resources

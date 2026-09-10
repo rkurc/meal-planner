@@ -7,7 +7,7 @@ import unicodedata
 import unittest
 from unittest.mock import patch
 
-from meal_planner_app import crud, services
+from meal_planner_app import crud, pdf
 from meal_planner_app.i18n.pdf_strings import pdf_chrome
 from meal_planner_app.main import app
 
@@ -17,20 +17,20 @@ class TestPdfTextNfc(unittest.TestCase):
 
     def test_pdf_text_composes_combining_ogonek(self):
         decomposed = "e\u0328"
-        result = services.pdf_text(decomposed)
+        result = pdf.pdf_text(decomposed)
         self.assertEqual(result, "ę")
         self.assertEqual(result, unicodedata.normalize("NFC", decomposed))
 
     def test_pdf_text_keeps_precomposed_polish(self):
         polish = "Żurek ąęćłńóśźż"
-        self.assertEqual(services.pdf_text(polish), polish)
+        self.assertEqual(pdf.pdf_text(polish), polish)
 
     def test_pdf_text_none_and_empty(self):
-        self.assertEqual(services.pdf_text(None), "")
-        self.assertEqual(services.pdf_text(""), "")
+        self.assertEqual(pdf.pdf_text(None), "")
+        self.assertEqual(pdf.pdf_text(""), "")
 
     def test_pdf_text_source_has_no_latin1_ignore(self):
-        source = inspect.getsource(services.pdf_text)
+        source = inspect.getsource(pdf.pdf_text)
         self.assertNotIn('errors="ignore"', source)
         self.assertNotIn("errors='ignore'", source)
         self.assertNotIn("NFKD", source)
@@ -38,7 +38,7 @@ class TestPdfTextNfc(unittest.TestCase):
 
 class TestSanitizeRemoved(unittest.TestCase):
     def test_sanitize_for_pdf_deleted(self):
-        self.assertFalse(hasattr(services, "sanitize_for_pdf"))
+        self.assertFalse(hasattr(pdf, "sanitize_for_pdf"))
 
 
 class TestBundledFonts(unittest.TestCase):
@@ -68,7 +68,7 @@ class TestBundledFonts(unittest.TestCase):
 
 class TestResolveDejavuFonts(unittest.TestCase):
     def test_resolver_returns_bundled_pair_when_present(self):
-        regular, bold = services.resolve_dejavu_fonts()
+        regular, bold = pdf.resolve_dejavu_fonts()
         self.assertTrue(os.path.isfile(regular))
         self.assertTrue(os.path.isfile(bold))
         self.assertTrue(regular.endswith("DejaVuSans.ttf"))
@@ -81,29 +81,25 @@ class TestResolveDejavuFonts(unittest.TestCase):
         )
 
     def test_resolver_raises_when_no_fonts(self):
-        with patch.object(
-            services, "_bundled_font_path", return_value=None
-        ), patch.object(
-            services, "_SYSTEM_DEJAVU_REGULAR", "/no/such/DejaVuSans.ttf"
-        ), patch.object(
-            services, "_SYSTEM_DEJAVU_BOLD", "/no/such/DejaVuSans-Bold.ttf"
-        ):
-            with self.assertRaises(services.FontUnavailableError):
-                services.resolve_dejavu_fonts()
+        with patch.object(pdf, "_bundled_font_path", return_value=None), patch.object(
+            pdf, "_SYSTEM_DEJAVU_REGULAR", "/no/such/DejaVuSans.ttf"
+        ), patch.object(pdf, "_SYSTEM_DEJAVU_BOLD", "/no/such/DejaVuSans-Bold.ttf"):
+            with self.assertRaises(pdf.FontUnavailableError):
+                pdf.resolve_dejavu_fonts()
 
 
 class TestGenerateShoppingListPdf(unittest.TestCase):
     def test_generate_uses_dejavu_family(self):
         family = []
-        real = services._register_dejavu  # pylint: disable=protected-access
+        real = pdf._register_dejavu  # pylint: disable=protected-access
 
-        def capture(pdf, regular, bold):
-            result = real(pdf, regular, bold)
+        def capture(pdf_doc, regular, bold):
+            result = real(pdf_doc, regular, bold)
             family.append(result)
             return result
 
-        with patch.object(services, "_register_dejavu", side_effect=capture):
-            data = services.generate_shopping_list_pdf(
+        with patch.object(pdf, "_register_dejavu", side_effect=capture):
+            data = pdf.generate_shopping_list_pdf(
                 "Żurek",
                 {"nabiał": [{"name": "Mąka", "quantity": "500", "unit": "ząbek"}]},
             )
@@ -112,14 +108,14 @@ class TestGenerateShoppingListPdf(unittest.TestCase):
 
     def test_quantity_and_unit_go_through_pdf_text(self):
         seen = []
-        real = services.pdf_text
+        real = pdf.pdf_text
 
         def spy(text):
             seen.append(text)
             return real(text)
 
-        with patch.object(services, "pdf_text", side_effect=spy):
-            services.generate_shopping_list_pdf(
+        with patch.object(pdf, "pdf_text", side_effect=spy):
+            pdf.generate_shopping_list_pdf(
                 "Plan",
                 {"": [{"name": "Czosnek", "quantity": "2", "unit": "ząbek"}]},
             )
@@ -129,7 +125,7 @@ class TestGenerateShoppingListPdf(unittest.TestCase):
         self.assertIn("ząbek", joined)
 
     def test_empty_list_still_uses_unicode_font(self):
-        out = services.generate_shopping_list_pdf("Empty", {})
+        out = pdf.generate_shopping_list_pdf("Empty", {})
         self.assertTrue(out.startswith(b"%PDF"))
 
 
@@ -151,9 +147,9 @@ class TestPdfHttpFontMiss(unittest.TestCase):
         )
         sl = crud.create_shopping_list(meal_plan_id=plan.meal_plan_id)
         with patch.object(
-            services,
+            pdf,
             "resolve_dejavu_fonts",
-            side_effect=services.FontUnavailableError("missing"),
+            side_effect=pdf.FontUnavailableError("missing"),
         ):
             resp = self.client.get(f"/shopping-lists/{sl.id}/pdf")
         self.assertEqual(resp.status_code, 500)

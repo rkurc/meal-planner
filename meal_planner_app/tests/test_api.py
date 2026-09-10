@@ -1,16 +1,24 @@
 """
-Tests for the Flask API endpoints and legacy GET redirects into /ui/.
+Tests for the Flask API endpoints.
+
+Former Jinja HTML paths (/recipes, /meal-plans, ...) are gone and must 404.
+The SPA lives at /ui/; only GET / still 302s there.
 """
 
 import unittest
 import json
 import uuid
-from meal_planner_app.main import app
+from meal_planner_app.main import app, create_app
 from meal_planner_app import crud
 
 
+def _recipe_ids(data):
+    """Recipe ids from meal-plan JSON `recipes` entries."""
+    return [r["id"] for r in data.get("recipes") or []]
+
+
 class TestApi(unittest.TestCase):  # pylint: disable=too-many-public-methods
-    """Tests for the main API and legacy GET redirects."""
+    """Tests for the main API; legacy HTML GET aliases must 404."""
 
     def setUp(self):
         """Set up a test client and initialize the database."""
@@ -73,56 +81,76 @@ class TestApi(unittest.TestCase):  # pylint: disable=too-many-public-methods
         self.assertEqual(len(get_data), 1)
         self.assertEqual(get_data[0]["name"], "API Recipe")
 
+    def test_api_400_returns_json_error(self):
+        response = self.client.post("/api/recipes", json={})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.content_type, "application/json")
+        data = json.loads(response.data)
+        self.assertIn("error", data)
+
     def test_root_redirects_to_ui(self):
         response = self.client.get("/", follow_redirects=False)
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.headers["Location"].rstrip("/").endswith("/ui"))
 
-    def test_legacy_recipes_list_redirects_to_ui(self):
+    def test_legacy_recipes_list_returns_404(self):
         response = self.client.get("/recipes", follow_redirects=False)
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/ui/recipes", response.headers["Location"])
+        self.assertEqual(response.status_code, 404)
 
-    def test_legacy_recipe_detail_redirects_to_ui(self):
+    def test_legacy_recipe_new_returns_404(self):
+        response = self.client.get("/recipes/new", follow_redirects=False)
+        self.assertEqual(response.status_code, 404)
+
+    def test_legacy_recipe_detail_returns_404(self):
         recipe = crud.create_recipe(name="R", instructions="x")
         response = self.client.get(
             f"/recipes/{recipe.recipe_id}", follow_redirects=False
         )
-        self.assertEqual(response.status_code, 302)
-        self.assertIn(f"/ui/recipes/{recipe.recipe_id}", response.headers["Location"])
+        self.assertEqual(response.status_code, 404)
 
-    def test_legacy_meal_plans_list_redirects_to_ui(self):
+    def test_legacy_recipe_edit_returns_404(self):
+        recipe = crud.create_recipe(name="R", instructions="x")
+        response = self.client.get(
+            f"/recipes/{recipe.recipe_id}/edit", follow_redirects=False
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_legacy_meal_plans_list_returns_404(self):
         response = self.client.get("/meal-plans", follow_redirects=False)
-        self.assertEqual(response.status_code, 302)
-        self.assertIn("/ui/meal-plans", response.headers["Location"])
+        self.assertEqual(response.status_code, 404)
 
-    def test_legacy_meal_plan_detail_redirects_to_ui(self):
+    def test_legacy_meal_plan_new_returns_404(self):
+        response = self.client.get("/meal-plans/new", follow_redirects=False)
+        self.assertEqual(response.status_code, 404)
+
+    def test_legacy_meal_plan_detail_returns_404(self):
         mp = crud.create_meal_plan(name="Plan")
         response = self.client.get(
             f"/meal-plans/{mp.meal_plan_id}", follow_redirects=False
         )
-        self.assertEqual(response.status_code, 302)
-        self.assertIn(f"/ui/meal-plans/{mp.meal_plan_id}", response.headers["Location"])
+        self.assertEqual(response.status_code, 404)
 
-    def test_legacy_shopping_list_html_redirects_to_meal_plan_ui(self):
+    def test_legacy_meal_plan_edit_returns_404(self):
+        mp = crud.create_meal_plan(name="Plan")
+        response = self.client.get(
+            f"/meal-plans/{mp.meal_plan_id}/edit", follow_redirects=False
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_legacy_shopping_list_html_returns_404(self):
         mp = crud.create_meal_plan(name="Plan")
         response = self.client.get(
             f"/meal-plans/{mp.meal_plan_id}/shopping-list",
             follow_redirects=False,
         )
-        self.assertEqual(response.status_code, 302)
-        self.assertIn(f"/ui/meal-plans/{mp.meal_plan_id}", response.headers["Location"])
-        self.assertNotIn(
-            "shopping-list", response.headers["Location"].split("/ui/")[-1]
-        )
+        self.assertEqual(response.status_code, 404)
 
     def test_seed_database_endpoint(self):
-        """Test the test-only /api/test/seed-db endpoint (guarded by TESTING)."""
-        # Ensure the route is enabled for this test client invocation.
-        app.config["TESTING"] = True
+        """Test the test-only /api/test/seed-db endpoint (opt-in via testing)."""
+        client = create_app(testing=True).test_client()
 
         # The endpoint should be reachable and should populate via the seed util.
-        response = self.client.post("/api/test/seed-db")
+        response = client.post("/api/test/seed-db")
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
         self.assertEqual(data.get("message"), "Database seeded successfully")
@@ -305,7 +333,8 @@ class TestMealPlanApi(unittest.TestCase):
         data = json.loads(response.data)
         self.assertEqual(data["name"], "New API Plan")
         self.assertEqual(data["description"], "A plan for the new API.")
-        self.assertIn(str(self.recipe1.recipe_id), data["recipe_ids"])
+        self.assertNotIn("recipe_ids", data)
+        self.assertIn(str(self.recipe1.recipe_id), _recipe_ids(data))
         self.assertEqual(data["recipes"][0]["count"], 1)
         self.assertIn("id", data)
 
@@ -314,6 +343,36 @@ class TestMealPlanApi(unittest.TestCase):
         self.assertIsNotNone(mp)
         self.assertEqual(mp.name, "New API Plan")
         self.assertEqual(mp.description, "A plan for the new API.")
+
+    def test_create_meal_plan_accepts_legacy_recipe_ids_on_write(self):
+        """Old clients may still POST recipe_ids; do not wipe plans."""
+        response = self.client.post(
+            "/api/meal-plans",
+            json={
+                "name": "Legacy Write Plan",
+                "recipe_ids": [str(self.recipe1.recipe_id)],
+            },
+        )
+        self.assertEqual(response.status_code, 201)
+        data = json.loads(response.data)
+        self.assertNotIn("recipe_ids", data)
+        self.assertEqual(_recipe_ids(data), [str(self.recipe1.recipe_id)])
+        self.assertEqual(data["recipes"][0]["name"], self.recipe1.name)
+
+    def test_update_meal_plan_accepts_legacy_recipe_ids_on_write(self):
+        """Old clients may still PUT recipe_ids; that must replace recipes."""
+        mp = crud.create_meal_plan(
+            name="Legacy Put",
+            recipe_ids=[self.recipe1.recipe_id],
+        )
+        response = self.client.put(
+            f"/api/meal-plans/{mp.meal_plan_id}",
+            json={"recipe_ids": [str(self.recipe2.recipe_id)]},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertNotIn("recipe_ids", data)
+        self.assertEqual(_recipe_ids(data), [str(self.recipe2.recipe_id)])
 
     def test_get_meal_plan_by_id_api(self):
         """Test GET /api/meal-plans/<id>."""
@@ -328,7 +387,20 @@ class TestMealPlanApi(unittest.TestCase):
         self.assertEqual(data["name"], "Test Plan")
         self.assertEqual(data["description"], "Test Description")
         self.assertEqual(data["id"], str(mp.meal_plan_id))
-        self.assertEqual(data["recipe_ids"], [str(self.recipe1.recipe_id)])
+        self.assertNotIn("recipe_ids", data)
+        self.assertEqual(_recipe_ids(data), [str(self.recipe1.recipe_id)])
+
+    def test_meal_plan_json_includes_recipe_names(self):
+        mp = crud.create_meal_plan(
+            name="Named",
+            recipe_ids=[self.recipe1.recipe_id],
+        )
+        response = self.client.get(f"/api/meal-plans/{mp.meal_plan_id}")
+        data = json.loads(response.data)
+        self.assertNotIn("recipe_ids", data)
+        self.assertEqual(data["recipes"][0]["id"], str(self.recipe1.recipe_id))
+        self.assertEqual(data["recipes"][0]["name"], self.recipe1.name)
+        self.assertEqual(data["recipes"][0]["count"], 1.0)
 
     def test_update_meal_plan_api(self):
         """Test PUT /api/meal-plans/<id>."""
@@ -349,7 +421,8 @@ class TestMealPlanApi(unittest.TestCase):
         data = json.loads(response.data)
         self.assertEqual(data["name"], "New Name")
         self.assertEqual(data["description"], "New Description")
-        self.assertEqual(data["recipe_ids"], [str(self.recipe2.recipe_id)])
+        self.assertNotIn("recipe_ids", data)
+        self.assertEqual(_recipe_ids(data), [str(self.recipe2.recipe_id)])
         self.assertEqual(data["recipes"][0]["count"], 1.0)
 
         # Verify changes in DB
@@ -358,6 +431,22 @@ class TestMealPlanApi(unittest.TestCase):
         self.assertEqual(updated_mp.description, "New Description")
         self.assertNotIn(self.recipe1.recipe_id, updated_mp.recipe_ids)
         self.assertIn(self.recipe2.recipe_id, updated_mp.recipe_ids)
+
+    def test_update_meal_plan_api_name_only_preserves_recipes(self):
+        mp = crud.create_meal_plan(
+            name="Keep Recipes",
+            recipe_ids=[self.recipe1.recipe_id],
+        )
+        response = self.client.put(
+            f"/api/meal-plans/{mp.meal_plan_id}",
+            json={"name": "Renamed Only"},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertEqual(data["name"], "Renamed Only")
+        self.assertNotIn("recipe_ids", data)
+        self.assertEqual(_recipe_ids(data), [str(self.recipe1.recipe_id)])
+        self.assertEqual(len(data["recipes"]), 1)
 
     def test_delete_meal_plan_api(self):
         """Test DELETE /api/meal-plans/<id>."""
@@ -375,7 +464,27 @@ class TestMealPlanApi(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
-        self.assertIn(str(self.recipe1.recipe_id), data["recipe_ids"])
+        self.assertNotIn("recipe_ids", data)
+        self.assertIn(str(self.recipe1.recipe_id), _recipe_ids(data))
+
+    def test_add_missing_recipe_to_meal_plan_api_returns_404(self):
+        mp = crud.create_meal_plan(name="My Plan")
+        response = self.client.post(
+            f"/api/meal-plans/{mp.meal_plan_id}/recipes",
+            json={"recipe_id": str(uuid.uuid4())},
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_add_recipe_to_meal_plan_api_honors_count(self):
+        mp = crud.create_meal_plan(name="My Plan")
+        response = self.client.post(
+            f"/api/meal-plans/{mp.meal_plan_id}/recipes",
+            json={"recipe_id": str(self.recipe1.recipe_id), "count": 2.5},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        by_id = {r["id"]: r["count"] for r in data["recipes"]}
+        self.assertEqual(by_id[str(self.recipe1.recipe_id)], 2.5)
 
     def test_remove_recipe_from_meal_plan_api(self):
         """Test DELETE /api/meal-plans/<id>/recipes/<recipe_id>."""
@@ -387,8 +496,9 @@ class TestMealPlanApi(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
-        self.assertNotIn(str(self.recipe1.recipe_id), data["recipe_ids"])
-        self.assertIn(str(self.recipe2.recipe_id), data["recipe_ids"])
+        self.assertNotIn("recipe_ids", data)
+        self.assertNotIn(str(self.recipe1.recipe_id), _recipe_ids(data))
+        self.assertIn(str(self.recipe2.recipe_id), _recipe_ids(data))
 
     def test_get_shopping_list_api(self):
         """Test GET /api/meal-plans/<id>/shopping-list."""
@@ -434,9 +544,7 @@ class TestMealPlanApi(unittest.TestCase):
         self.assertEqual(flour_item["unit"], "g")
 
     def test_create_update_meal_plan_with_recipe_counts_api(self):
-        """Test POST/PUT /api/meal-plans using new 'recipes' payload with fractional counts.
-        Also verifies response includes both recipes and recipe_ids, and compat load.
-        """
+        """Test POST/PUT /api/meal-plans using 'recipes' payload with fractional counts."""
         # Create with fractions
         create_resp = self.client.post(
             "/api/meal-plans",
@@ -456,7 +564,7 @@ class TestMealPlanApi(unittest.TestCase):
         counts = {r["id"]: r["count"] for r in data["recipes"]}
         self.assertEqual(counts[str(self.recipe1.recipe_id)], 1.5)
         self.assertEqual(counts[str(self.recipe2.recipe_id)], 0.25)
-        self.assertEqual(len(data["recipe_ids"]), 2)  # legacy still there
+        self.assertNotIn("recipe_ids", data)
 
         mp_id = data["id"]
 

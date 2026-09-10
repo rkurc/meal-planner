@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import axios from "axios";
+import { api } from "../api.js";
 
 const MealPlanList = () => {
   const { t } = useTranslation();
@@ -10,10 +10,10 @@ const MealPlanList = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    axios
+    api
       .get("/api/meal-plans")
-      .then((response) => {
-        setMealPlans(response.data);
+      .then((data) => {
+        setMealPlans(data);
         setLoading(false);
       })
       .catch((error) => {
