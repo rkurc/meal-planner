@@ -545,14 +545,17 @@ def api_update_meal_plan(meal_plan_id: uuid.UUID):
     name = data.get("name")
     description = data.get("description")
 
-    recipes_input = data.get("recipes") or data.get("recipe_ids")
-    recipes_arg = _normalize_recipe_entries(recipes_input)
+    update_kwargs = {
+        "name": name,
+        "description": description,
+    }
+    if "recipes" in data or "recipe_ids" in data:
+        recipes_input = data.get("recipes") or data.get("recipe_ids")
+        update_kwargs["recipes"] = _normalize_recipe_entries(recipes_input)
 
     updated_meal_plan = crud.update_meal_plan(  # pylint: disable=unexpected-keyword-arg
         meal_plan_id,
-        name=name,
-        description=description,
-        recipes=recipes_arg,
+        **update_kwargs,
     )
     if not updated_meal_plan:
         abort(404)
@@ -575,7 +578,11 @@ def api_add_recipe_to_meal_plan(meal_plan_id: uuid.UUID):
         abort(400, description="recipe_id is required.")
 
     recipe_id = uuid.UUID(data["recipe_id"])
-    meal_plan = crud.add_recipe_to_meal_plan(meal_plan_id, recipe_id)
+    try:
+        count = float(data.get("count", 1.0))
+    except (TypeError, ValueError):
+        abort(400, description="count must be a number.")
+    meal_plan = crud.add_recipe_to_meal_plan(meal_plan_id, recipe_id, count=count)
     if not meal_plan:
         abort(404, description="Meal plan or recipe not found.")
     return jsonify(_meal_plan_to_dict(meal_plan))
