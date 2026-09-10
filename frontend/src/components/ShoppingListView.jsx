@@ -182,12 +182,6 @@ const ShoppingListView = ({ mealPlanId }) => {
     setEditedItems(updated);
   };
 
-  const handleTogglePurchased = (index) => {
-    const updated = [...editedItems];
-    updated[index].purchased = !updated[index].purchased;
-    setEditedItems(updated);
-  };
-
   const handleAddItem = () => {
     setEditedItems([
       ...editedItems,
@@ -426,14 +420,8 @@ const ShoppingListView = ({ mealPlanId }) => {
                       key={index}
                       className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded"
                     >
-                      <input
-                        type="checkbox"
-                        checked={item.purchased || false}
-                        onChange={() => handleTogglePurchased(index)}
-                        className="w-5 h-5 cursor-pointer"
-                      />
                       <span
-                        className={`flex-1 ${item.purchased ? "line-through text-gray-400" : "text-gray-800"}`}
+                        className="flex-1 text-gray-800"
                         title={sourceTitle || undefined}
                         data-testid={
                           sourceTitle ? "shopping-item-sources" : undefined
