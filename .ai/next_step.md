@@ -8,29 +8,25 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Task 4: Playwright coverage for shopping-list source-recipe titles.
+Follow-up on Task 4 e2e: fail closed in
+`generated items show source recipe names on hover title`.
 
-- Added `generated items show source recipe names on hover title` in
-  `frontend/e2e/shopping-lists.spec.js`. Asserts Flour (not Salt) has
-  `data-testid="shopping-item-sources"` and `title="Classic Pancakes"`.
-- Existing PDF test kept.
-- Test setup relinks Weekly Meal Plan recipe IDs and deletes leftover
-  shopping lists: `/api/test/seed-db` recreates recipes but keeps the
-  meal plan, so IDs go stale and the previous spec's Location Order List
-  would hide Generate.
+- Require Generate after leftover lists are deleted
+  (`await expect(generateButton).toBeVisible()` then click). No optional click.
+- Shopping-lists GET must succeed (`expect(listsResp.ok())`); do not treat
+  a failed GET as an empty list.
+- Recipe-ID relink and Flour `title="Classic Pancakes"` kept.
 
-Verification (UI baked from this worktree, `meal-planner:ci` mount, `--workers=1`):
+Verification (`meal-planner:ci` mount, gunicorn `TESTING=true`, `--workers=1`):
 
 ```
-docker.exe run --rm -v "$(wslpath -w "$(pwd)"):/app" -w /app/frontend \
-  meal-planner:dev npm run build
-# gunicorn in meal-planner-e2e (TESTING=true, worktree mounted)
 docker.exe exec -e BASE_URL=http://localhost:5000 -e API_BASE_URL=http://localhost:5000 \
   -e PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
-  -w /app/frontend meal-planner-e2e npx playwright test --workers=1
+  -w /app/frontend meal-planner-e2e \
+  npx playwright test e2e/shopping-lists.spec.js --workers=1
 ```
 
-**18 passed (1.3m), 0 failed.** Includes the new hover-title test.
+**4 passed (21.6s), 0 failed.** Includes hover-title after required Generate click.
 
 ## Next
 

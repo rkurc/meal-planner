@@ -143,7 +143,8 @@ test("generated items show source recipe names on hover title", async ({
   expect(relinked.ok()).toBeTruthy();
 
   const listsResp = await page.request.get(`${apiBase}/api/shopping-lists`);
-  const lists = listsResp.ok() ? await listsResp.json() : [];
+  expect(listsResp.ok()).toBeTruthy();
+  const lists = await listsResp.json();
   for (const sl of lists) {
     if (sl.meal_plan_id === weekly.id) {
       await page.request.delete(`${apiBase}/api/shopping-lists/${sl.id}`);
@@ -157,9 +158,8 @@ test("generated items show source recipe names on hover title", async ({
     page.getByRole("heading", { name: "Shopping List" }),
   ).toBeVisible();
   const generateButton = page.getByTestId("shopping-generate");
-  if (await generateButton.isVisible()) {
-    await generateButton.click();
-  }
+  await expect(generateButton).toBeVisible();
+  await generateButton.click();
   const flour = page
     .getByTestId("shopping-item-sources")
     .filter({ hasText: "Flour" });
