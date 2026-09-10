@@ -359,6 +359,21 @@ class TestMealPlanApi(unittest.TestCase):
         self.assertNotIn(self.recipe1.recipe_id, updated_mp.recipe_ids)
         self.assertIn(self.recipe2.recipe_id, updated_mp.recipe_ids)
 
+    def test_update_meal_plan_api_name_only_preserves_recipes(self):
+        mp = crud.create_meal_plan(
+            name="Keep Recipes",
+            recipe_ids=[self.recipe1.recipe_id],
+        )
+        response = self.client.put(
+            f"/api/meal-plans/{mp.meal_plan_id}",
+            json={"name": "Renamed Only"},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertEqual(data["name"], "Renamed Only")
+        self.assertEqual(data["recipe_ids"], [str(self.recipe1.recipe_id)])
+        self.assertEqual(len(data["recipes"]), 1)
+
     def test_delete_meal_plan_api(self):
         """Test DELETE /api/meal-plans/<id>."""
         mp = crud.create_meal_plan(name="To Delete")
@@ -376,6 +391,25 @@ class TestMealPlanApi(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
         self.assertIn(str(self.recipe1.recipe_id), data["recipe_ids"])
+
+    def test_add_missing_recipe_to_meal_plan_api_returns_404(self):
+        mp = crud.create_meal_plan(name="My Plan")
+        response = self.client.post(
+            f"/api/meal-plans/{mp.meal_plan_id}/recipes",
+            json={"recipe_id": str(uuid.uuid4())},
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_add_recipe_to_meal_plan_api_honors_count(self):
+        mp = crud.create_meal_plan(name="My Plan")
+        response = self.client.post(
+            f"/api/meal-plans/{mp.meal_plan_id}/recipes",
+            json={"recipe_id": str(self.recipe1.recipe_id), "count": 2.5},
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        by_id = {r["id"]: r["count"] for r in data["recipes"]}
+        self.assertEqual(by_id[str(self.recipe1.recipe_id)], 2.5)
 
     def test_remove_recipe_from_meal_plan_api(self):
         """Test DELETE /api/meal-plans/<id>/recipes/<recipe_id>."""

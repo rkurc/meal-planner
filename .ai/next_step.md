@@ -1,6 +1,6 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `refactor/abc`
+**Branch:** `refactor/a2-meal-plan-put`
 **Last updated:** 2026-09-10
 
 ## Standing instruction
@@ -8,25 +8,26 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Codebase review of `origin/main` @ `c8b480e`. Report + A/B/C plans committed.
+A2 (Plan A Task 2): meal-plan PUT/POST correctness.
 
-**A3 decision:** drop view-mode purchased checkboxes (do not persist).
+- `PUT /api/meal-plans/<id>` with `{name}` only no longer wipes recipes; `recipes=` is passed only when `"recipes"` or `"recipe_ids"` is in the body.
+- `POST /api/meal-plans/<id>/recipes` returns 404 for unknown `recipe_id` (`add_recipe_to_meal_plan` now returns `None` if recipe missing).
+- That POST honors JSON `count` (float, default 1.0; 400 if invalid).
 
-Documents:
+**Verify:**
+```
+docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev \
+  python -m pytest meal_planner_app/tests/test_api.py meal_planner_app/tests/test_crud.py -q --tb=short
+# 68 passed in 0.33s
+```
 
-- `docs/superpowers/specs/2026-09-10-codebase-review.md`
-- `docs/superpowers/plans/2026-09-10-refactor-parallelism.md`
-- `docs/superpowers/plans/2026-09-10-refactor-a-correctness.md`
-- `docs/superpowers/plans/2026-09-10-refactor-b-simplification.md`
-- `docs/superpowers/plans/2026-09-10-refactor-c-structural.md`
-
-**Wave 1 (parallel, isolated worktrees):** A1 seed reset, A2 meal-plan PUT, A3 drop checkboxes, A4 MealPlanForm errors, A5 Vite PDF proxy. Optional: B6 batch find_all, C3 move migrate_legacy.
-
-**Then:** Plan B, then Plan C (C3 may already be done).
+TDD: name-only PUT wiped recipes (`[] != [recipe_id]`); missing recipe POST was 200; count stayed 1.0. Then implementation.
 
 ## Next
 
-Execute Wave 1 from Plan A. Do not implement on `main`.
+Continue Wave 1 from Plan A (remaining: A1 seed reset, A3 drop checkboxes, A4 MealPlanForm errors, A5 Vite PDF proxy). Optional: B6 batch find_all, C3 move migrate_legacy.
+
+Then Plan B, then Plan C (C3 may already be done).
 
 ## Out of scope
 

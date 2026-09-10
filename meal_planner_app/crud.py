@@ -257,11 +257,8 @@ def add_recipe_to_meal_plan(
     meal_plan = get_meal_plan(meal_plan_id)
     recipe = get_recipe(recipe_id)  # Check if recipe exists
 
-    if not meal_plan:
-        return None  # Meal plan not found
-    if not recipe:
-        # Depending on desired behavior, could raise error or just not add
-        return meal_plan  # Or None, if we want to signify failure due to non-existent recipe
+    if not meal_plan or not recipe:
+        return None
 
     existing = next((e for e in meal_plan.recipes if e["recipe_id"] == recipe_id), None)
     cnt = float(count)
