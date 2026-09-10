@@ -1,6 +1,6 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `refactor/a1-seed`
+**Branch:** `refactor/abc`
 **Last updated:** 2026-09-10
 
 ## Standing instruction
@@ -8,18 +8,24 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-A1 seed reset: `seed_database()` now calls `get_dao().reset()` (wipes recipes, meal plans, shopping lists) then inserts `RECIPES_TO_SEED` and recreates Weekly Meal Plan. `seed_if_empty` / `seed_meal_plans` unchanged.
+Codebase review + A/B/C plans committed (`8c20a4a`). **Wave 1 (Plan A) merged** onto `refactor/abc`:
 
-**Evidence:**
-- TDD red: `docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev python -m pytest meal_planner_app/tests/test_seed.py -q --tb=short` → FAIL `assert 0 == 2` on Weekly Meal Plan recipes after second seed.
-- Green: same image `python -m pytest meal_planner_app/tests/test_seed.py meal_planner_app/tests/test_crud.py -q --tb=short` → **38 passed**, including `test_seed_if_empty_is_idempotent`.
+| Task | SHA | What |
+|---|---|---|
+| A1 | `49ef8d1` | `seed_database()` calls `dao.reset()` |
+| A2 | `75c7ddc` | Name-only meal-plan PUT preserves recipes; missing recipe 404; count honored |
+| A3 | `a00d80f` | Dropped view-mode purchased checkboxes |
+| A4 | `8fe48dd` | MealPlanForm load vs submit errors; `mealPlans.formHint` |
+| A5 | `bde1267` | Vite proxies `/shopping-lists` and `/meal-plans` for PDFs |
+
+**A3 decision:** drop checkboxes (do not persist).
 
 ## Next
 
-Wave 1 remaining (parallel, isolated worktrees): A2 meal-plan PUT, A3 drop checkboxes, A4 MealPlanForm errors, A5 Vite PDF proxy. Optional: B6 batch find_all, C3 move migrate_legacy.
+Plan B (`docs/superpowers/plans/2026-09-10-refactor-b-simplification.md`): `api.js`, catalog hook, collapse ingredient GETs, meal-plan names, JSON errors, N+1 `find_all`, E2E hygiene.
 
-Then Plan B, then Plan C.
+Then Plan C. C3 (move `migrate_legacy`) can still run in parallel with B.
 
 ## Out of scope
 
-Auth; OpenAPI; React Query; SQLAlchemy; second DAO backend; persisting purchased checkboxes.
+Auth; OpenAPI; React Query; SQLAlchemy; persisting purchased checkboxes.
