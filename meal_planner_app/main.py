@@ -38,18 +38,15 @@ from meal_planner_app.services import FontUnavailableError, generate_shopping_li
 from dataclasses import asdict
 from meal_planner_app.models.shopping_list import ShoppingList
 
-app = Flask(__name__)
 _LOG = logging.getLogger(__name__)
 
 
-@app.errorhandler(HTTPException)
 def handle_http_exception(exc):
     if request.path.startswith("/api/"):
         return jsonify({"error": exc.description or exc.name}), exc.code
     return exc
 
 
-@app.before_request
 def remove_trailing_slash():
     """Normalize URLs: collapse multiple slashes and redirect trailing slash versions.
     e.g. /recipes//edit -> /recipes/edit , /recipes/ -> /recipes
@@ -77,52 +74,42 @@ def _redirect_ui(path: str):
     return redirect(target, code=302)
 
 
-@app.route("/")
 def root():
     return redirect("/ui/", code=302)
 
 
-@app.route("/recipes")
 def legacy_recipe_list():
     return _redirect_ui("/recipes")
 
 
-@app.route("/recipes/new")
 def legacy_recipe_new():
     return _redirect_ui("/recipes/new")
 
 
-@app.route("/recipes/<uuid:recipe_id>")
 def legacy_recipe_detail(recipe_id: uuid.UUID):
     return _redirect_ui(f"/recipes/{recipe_id}")
 
 
-@app.route("/recipes/<uuid:recipe_id>/edit")
 def legacy_recipe_edit(recipe_id: uuid.UUID):
     return _redirect_ui(f"/recipes/{recipe_id}/edit")
 
 
-@app.route("/meal-plans")
 def legacy_meal_plan_list():
     return _redirect_ui("/meal-plans")
 
 
-@app.route("/meal-plans/new")
 def legacy_meal_plan_new():
     return _redirect_ui("/meal-plans/new")
 
 
-@app.route("/meal-plans/<uuid:meal_plan_id>")
 def legacy_meal_plan_detail(meal_plan_id: uuid.UUID):
     return _redirect_ui(f"/meal-plans/{meal_plan_id}")
 
 
-@app.route("/meal-plans/<uuid:meal_plan_id>/edit")
 def legacy_meal_plan_edit(meal_plan_id: uuid.UUID):
     return _redirect_ui(f"/meal-plans/{meal_plan_id}/edit")
 
 
-@app.route("/meal-plans/<uuid:meal_plan_id>/shopping-list")
 def legacy_shopping_list_html(meal_plan_id: uuid.UUID):
     return _redirect_ui(f"/meal-plans/{meal_plan_id}")
 
@@ -155,7 +142,6 @@ def _pdf_attachment_response(title: str, grouped_data: dict) -> Response:
     return response
 
 
-@app.route("/meal-plans/<uuid:meal_plan_id>/shopping-list/pdf")
 def download_shopping_list_pdf(meal_plan_id: uuid.UUID):
     """Generates and serves a PDF of the shopping list for a meal plan."""
     meal_plan = crud.get_meal_plan(meal_plan_id)
@@ -168,7 +154,6 @@ def download_shopping_list_pdf(meal_plan_id: uuid.UUID):
     return _pdf_attachment_response(meal_plan.name, generated or {})
 
 
-@app.route("/shopping-lists/<uuid:shopping_list_id>/pdf")
 def download_persisted_shopping_list_pdf(shopping_list_id: uuid.UUID):
     """Generates and serves a PDF for a persisted (user-editable) shopping list.
     This is the modern path used by React for downloading the current/edited list.
@@ -230,7 +215,6 @@ def _meal_plan_to_dict(meal_plan: MealPlan) -> dict:
     }
 
 
-@app.route("/api/recipes", methods=["GET"])
 def api_get_recipes():
     """List recipes, optionally filtered with q / ingredient query params."""
     query = (request.args.get("q") or "").strip()
@@ -264,7 +248,6 @@ def _master_ingredient_to_dict(ingredient) -> dict:
     }
 
 
-@app.route("/api/ingredients", methods=["GET"])
 def api_get_ingredients():
     """Return catalog summaries [{id, name, usage_count, unit, location}, ...].
 
@@ -274,7 +257,6 @@ def api_get_ingredients():
     return jsonify(summaries)
 
 
-@app.route("/api/ingredients", methods=["POST"])
 def api_create_ingredient():
     """Create a master ingredient. Name is required and must be unique after trim."""
     data = request.get_json()
@@ -292,21 +274,18 @@ def api_create_ingredient():
     return jsonify(_master_ingredient_to_dict(created)), 201
 
 
-@app.route("/api/locations", methods=["GET"])
 def api_get_locations():
     """API endpoint to get unique location names for suggestions (resolved where possible)."""
     locs = crud.list_unique_locations()  # pylint: disable=no-member
     return jsonify(locs)
 
 
-@app.route("/api/units", methods=["GET"])
 def api_get_units():
     """API endpoint to get unique units for suggestions (collected from recipe ingredients)."""
     units = crud.list_unique_units()  # pylint: disable=no-member
     return jsonify(units)
 
 
-@app.route("/api/ingredients/<uuid:ingredient_id>", methods=["GET"])
 def api_get_ingredient(ingredient_id: uuid.UUID):
     """Return a single catalog ingredient by id, including usage and recipes."""
     ingredient = crud.get_master_ingredient(ingredient_id)
@@ -315,7 +294,6 @@ def api_get_ingredient(ingredient_id: uuid.UUID):
     return jsonify(_master_ingredient_to_dict(ingredient))
 
 
-@app.route("/api/ingredients/<uuid:ingredient_id>", methods=["PUT"])
 def api_update_ingredient(ingredient_id: uuid.UUID):
     """Update a catalog ingredient by id. Unique name is still enforced."""
     data = request.get_json()
@@ -340,7 +318,6 @@ def api_update_ingredient(ingredient_id: uuid.UUID):
     return jsonify(_master_ingredient_to_dict(updated))
 
 
-@app.route("/api/ingredients/<uuid:ingredient_id>", methods=["DELETE"])
 def api_delete_ingredient(ingredient_id: uuid.UUID):
     """Delete a catalog ingredient. 409 if recipes still reference it."""
     try:
@@ -355,7 +332,6 @@ def api_delete_ingredient(ingredient_id: uuid.UUID):
     return "", 204
 
 
-@app.route("/api/recipes", methods=["POST"])
 def api_create_recipe():
     """API endpoint to create a new recipe."""
     data = request.get_json()
@@ -378,7 +354,6 @@ def api_create_recipe():
     return jsonify(_recipe_to_dict(created_recipe)), 201
 
 
-@app.route("/api/recipes/parse", methods=["POST"])
 def api_parse_recipe():
     """Parse pasted text/HTML into a recipe draft. Does not persist."""
     data = request.get_json(silent=True) or {}
@@ -413,7 +388,6 @@ def api_parse_recipe():
     return jsonify(draft.to_dict()), 200
 
 
-@app.route("/api/recipes/fetch", methods=["POST"])
 def api_fetch_recipe_page():
     """Download a public recipe page as text. Does not persist or call the LLM."""
     data = request.get_json(silent=True) or {}
@@ -436,7 +410,6 @@ def api_fetch_recipe_page():
     )
 
 
-@app.route("/api/recipes/<uuid:recipe_id>", methods=["GET"])
 def api_get_recipe(recipe_id: uuid.UUID):
     """API endpoint to get a single recipe by its ID."""
     recipe = crud.get_recipe(recipe_id)
@@ -445,7 +418,6 @@ def api_get_recipe(recipe_id: uuid.UUID):
     return jsonify(_recipe_to_dict(recipe))
 
 
-@app.route("/api/recipes/<uuid:recipe_id>", methods=["PUT"])
 def api_update_recipe(recipe_id: uuid.UUID):
     """API endpoint to update an existing recipe."""
     data = request.get_json()
@@ -469,7 +441,6 @@ def api_update_recipe(recipe_id: uuid.UUID):
     return jsonify(_recipe_to_dict(updated_recipe))
 
 
-@app.route("/api/recipes/<uuid:recipe_id>", methods=["DELETE"])
 def api_delete_recipe(recipe_id: uuid.UUID):
     """API endpoint to delete a recipe."""
     if not crud.delete_recipe(recipe_id):
@@ -477,14 +448,12 @@ def api_delete_recipe(recipe_id: uuid.UUID):
     return "", 204
 
 
-@app.route("/api/meal-plans", methods=["GET"])
 def api_get_meal_plans():
     """API endpoint to get a list of all meal plans."""
     meal_plans = crud.list_meal_plans()
     return jsonify([_meal_plan_to_dict(mp) for mp in meal_plans])
 
 
-@app.route("/api/meal-plans", methods=["POST"])
 def api_create_meal_plan():
     """API endpoint to create a new meal plan.
     Accepts new 'recipes': [{'id': uuidstr, 'count': float}, ...] or legacy 'recipe_ids'.
@@ -505,7 +474,6 @@ def api_create_meal_plan():
     return jsonify(_meal_plan_to_dict(created_meal_plan)), 201
 
 
-@app.route("/api/meal-plans/<uuid:meal_plan_id>", methods=["GET"])
 def api_get_meal_plan(meal_plan_id: uuid.UUID):
     """API endpoint to get a single meal plan by its ID."""
     meal_plan = crud.get_meal_plan(meal_plan_id)
@@ -514,7 +482,6 @@ def api_get_meal_plan(meal_plan_id: uuid.UUID):
     return jsonify(_meal_plan_to_dict(meal_plan))
 
 
-@app.route("/api/meal-plans/<uuid:meal_plan_id>", methods=["PUT"])
 def api_update_meal_plan(meal_plan_id: uuid.UUID):
     """API endpoint to update an existing meal plan.
     Supports 'recipes' list with counts (fractional ok) or legacy 'recipe_ids'.
@@ -543,7 +510,6 @@ def api_update_meal_plan(meal_plan_id: uuid.UUID):
     return jsonify(_meal_plan_to_dict(updated_meal_plan))
 
 
-@app.route("/api/meal-plans/<uuid:meal_plan_id>", methods=["DELETE"])
 def api_delete_meal_plan(meal_plan_id: uuid.UUID):
     """API endpoint to delete a meal plan."""
     if not crud.delete_meal_plan(meal_plan_id):
@@ -551,7 +517,6 @@ def api_delete_meal_plan(meal_plan_id: uuid.UUID):
     return "", 204
 
 
-@app.route("/api/meal-plans/<uuid:meal_plan_id>/recipes", methods=["POST"])
 def api_add_recipe_to_meal_plan(meal_plan_id: uuid.UUID):
     """API endpoint to add a recipe to a meal plan."""
     data = request.get_json()
@@ -569,9 +534,6 @@ def api_add_recipe_to_meal_plan(meal_plan_id: uuid.UUID):
     return jsonify(_meal_plan_to_dict(meal_plan))
 
 
-@app.route(
-    "/api/meal-plans/<uuid:meal_plan_id>/recipes/<uuid:recipe_id>", methods=["DELETE"]
-)
 def api_remove_recipe_from_meal_plan(meal_plan_id: uuid.UUID, recipe_id: uuid.UUID):
     """API endpoint to remove a recipe from a meal plan."""
     meal_plan = crud.remove_recipe_from_meal_plan(meal_plan_id, recipe_id)
@@ -580,7 +542,6 @@ def api_remove_recipe_from_meal_plan(meal_plan_id: uuid.UUID, recipe_id: uuid.UU
     return jsonify(_meal_plan_to_dict(meal_plan))
 
 
-@app.route("/api/meal-plans/<uuid:meal_plan_id>/shopping-list", methods=["GET"])
 def api_get_shopping_list(meal_plan_id: uuid.UUID):
     """API endpoint to generate a shopping list for a meal plan."""
     shopping_list = crud.generate_shopping_list(meal_plan_id)
@@ -602,7 +563,6 @@ def _shopping_list_to_dict(shopping_list: ShoppingList) -> dict:
     return sl_dict
 
 
-@app.route("/api/shopping-lists", methods=["POST"])
 def api_create_shopping_list():
     """API endpoint to create a new shopping list.
     Supports:
@@ -629,14 +589,12 @@ def api_create_shopping_list():
     return jsonify(_shopping_list_to_dict(shopping_list)), 201
 
 
-@app.route("/api/shopping-lists", methods=["GET"])
 def api_list_shopping_lists():
     """API endpoint to get all saved shopping lists."""
     shopping_lists = crud.list_shopping_lists()
     return jsonify([_shopping_list_to_dict(sl) for sl in shopping_lists])
 
 
-@app.route("/api/shopping-lists/<uuid:shopping_list_id>", methods=["GET"])
 def api_get_single_shopping_list(shopping_list_id: uuid.UUID):
     """API endpoint to get a single shopping list by its ID."""
     shopping_list = crud.get_shopping_list(shopping_list_id)
@@ -645,7 +603,6 @@ def api_get_single_shopping_list(shopping_list_id: uuid.UUID):
     return jsonify(_shopping_list_to_dict(shopping_list))
 
 
-@app.route("/api/shopping-lists/<uuid:shopping_list_id>", methods=["PUT"])
 def api_update_shopping_list(shopping_list_id: uuid.UUID):
     """API endpoint to update an existing shopping list."""
     data = request.get_json()
@@ -662,7 +619,6 @@ def api_update_shopping_list(shopping_list_id: uuid.UUID):
     return jsonify(_shopping_list_to_dict(updated_list))
 
 
-@app.route("/api/shopping-lists/<uuid:shopping_list_id>", methods=["DELETE"])
 def api_delete_shopping_list(shopping_list_id: uuid.UUID):
     """API endpoint to delete a shopping list."""
     if not crud.delete_shopping_list(shopping_list_id):
@@ -670,32 +626,135 @@ def api_delete_shopping_list(shopping_list_id: uuid.UUID):
     return "", 204
 
 
-# --- Test-only routes (always registered so test_client + gunicorn see them;
-# guarded at runtime so they 404 in normal prod runs without debug/TESTING).
-# Enabled via TESTING=true env (passed to gunicorn in E2E) or app.config["TESTING"].
-# Used by E2E beforeEach and (optionally) dev; see seed_db.py:RECIPES_TO_SEED.
-@app.route("/api/test/seed-db", methods=["POST"])
+# --- Test-only seed view. Registered by create_app when testing is on.
+# Enabled via testing=True or TESTING=true env (gunicorn E2E). See seed_db.py:RECIPES_TO_SEED.
 def api_seed_database():
-    """Seeds the database. For testing/E2E purposes only. Returns 404 in normal production runs."""
-    if not (
-        getattr(app, "debug", False)
-        or app.config.get("TESTING")
-        or os.environ.get("TESTING", "").lower() in ("1", "true", "yes")
-    ):
-        abort(404)
+    """Seeds the database. For testing/E2E purposes only."""
     seed_database()
     return jsonify({"message": "Database seeded successfully"}), 200
 
 
 # --- React App Route ---
-@app.route("/ui", defaults={"path": ""}, strict_slashes=False)
-@app.route("/ui/", defaults={"path": ""}, strict_slashes=False)
-@app.route("/ui/<path:path>")  # Catch-all for client-side routing
 def serve_react_app(path=""):
     """Serves the React frontend application."""
     if not path or "." not in path:
         return send_from_directory("static/react_app", "index.html")
     return send_from_directory("static/react_app", path)
+
+
+_URL_RULES = (
+    ("/", root, None),
+    ("/recipes", legacy_recipe_list, None),
+    ("/recipes/new", legacy_recipe_new, None),
+    ("/recipes/<uuid:recipe_id>", legacy_recipe_detail, None),
+    ("/recipes/<uuid:recipe_id>/edit", legacy_recipe_edit, None),
+    ("/meal-plans", legacy_meal_plan_list, None),
+    ("/meal-plans/new", legacy_meal_plan_new, None),
+    ("/meal-plans/<uuid:meal_plan_id>", legacy_meal_plan_detail, None),
+    ("/meal-plans/<uuid:meal_plan_id>/edit", legacy_meal_plan_edit, None),
+    ("/meal-plans/<uuid:meal_plan_id>/shopping-list", legacy_shopping_list_html, None),
+    (
+        "/meal-plans/<uuid:meal_plan_id>/shopping-list/pdf",
+        download_shopping_list_pdf,
+        None,
+    ),
+    (
+        "/shopping-lists/<uuid:shopping_list_id>/pdf",
+        download_persisted_shopping_list_pdf,
+        None,
+    ),
+    ("/api/recipes", api_get_recipes, ["GET"]),
+    ("/api/ingredients", api_get_ingredients, ["GET"]),
+    ("/api/ingredients", api_create_ingredient, ["POST"]),
+    ("/api/locations", api_get_locations, ["GET"]),
+    ("/api/units", api_get_units, ["GET"]),
+    ("/api/ingredients/<uuid:ingredient_id>", api_get_ingredient, ["GET"]),
+    ("/api/ingredients/<uuid:ingredient_id>", api_update_ingredient, ["PUT"]),
+    ("/api/ingredients/<uuid:ingredient_id>", api_delete_ingredient, ["DELETE"]),
+    ("/api/recipes", api_create_recipe, ["POST"]),
+    ("/api/recipes/parse", api_parse_recipe, ["POST"]),
+    ("/api/recipes/fetch", api_fetch_recipe_page, ["POST"]),
+    ("/api/recipes/<uuid:recipe_id>", api_get_recipe, ["GET"]),
+    ("/api/recipes/<uuid:recipe_id>", api_update_recipe, ["PUT"]),
+    ("/api/recipes/<uuid:recipe_id>", api_delete_recipe, ["DELETE"]),
+    ("/api/meal-plans", api_get_meal_plans, ["GET"]),
+    ("/api/meal-plans", api_create_meal_plan, ["POST"]),
+    ("/api/meal-plans/<uuid:meal_plan_id>", api_get_meal_plan, ["GET"]),
+    ("/api/meal-plans/<uuid:meal_plan_id>", api_update_meal_plan, ["PUT"]),
+    ("/api/meal-plans/<uuid:meal_plan_id>", api_delete_meal_plan, ["DELETE"]),
+    (
+        "/api/meal-plans/<uuid:meal_plan_id>/recipes",
+        api_add_recipe_to_meal_plan,
+        ["POST"],
+    ),
+    (
+        "/api/meal-plans/<uuid:meal_plan_id>/recipes/<uuid:recipe_id>",
+        api_remove_recipe_from_meal_plan,
+        ["DELETE"],
+    ),
+    (
+        "/api/meal-plans/<uuid:meal_plan_id>/shopping-list",
+        api_get_shopping_list,
+        ["GET"],
+    ),
+    ("/api/shopping-lists", api_create_shopping_list, ["POST"]),
+    ("/api/shopping-lists", api_list_shopping_lists, ["GET"]),
+    (
+        "/api/shopping-lists/<uuid:shopping_list_id>",
+        api_get_single_shopping_list,
+        ["GET"],
+    ),
+    ("/api/shopping-lists/<uuid:shopping_list_id>", api_update_shopping_list, ["PUT"]),
+    (
+        "/api/shopping-lists/<uuid:shopping_list_id>",
+        api_delete_shopping_list,
+        ["DELETE"],
+    ),
+)
+
+
+def _register_routes(flask_app):
+    """Attach production view functions to *flask_app*."""
+    for rule, view_func, methods in _URL_RULES:
+        if methods is None:
+            flask_app.add_url_rule(rule, view_func=view_func)
+        else:
+            flask_app.add_url_rule(rule, view_func=view_func, methods=methods)
+    flask_app.add_url_rule(
+        "/ui",
+        defaults={"path": ""},
+        view_func=serve_react_app,
+        strict_slashes=False,
+    )
+    flask_app.add_url_rule(
+        "/ui/",
+        defaults={"path": ""},
+        view_func=serve_react_app,
+        strict_slashes=False,
+    )
+    flask_app.add_url_rule("/ui/<path:path>", view_func=serve_react_app)
+
+
+def create_app(*, testing=False):
+    """Build the Flask app. Seed route is registered only when testing."""
+    flask_app = Flask(__name__)
+    if testing or os.environ.get("TESTING", "").lower() in ("1", "true", "yes"):
+        flask_app.config["TESTING"] = True
+
+    flask_app.register_error_handler(HTTPException, handle_http_exception)
+    flask_app.before_request(remove_trailing_slash)
+    _register_routes(flask_app)
+
+    if flask_app.config.get("TESTING"):
+        flask_app.add_url_rule(
+            "/api/test/seed-db",
+            view_func=api_seed_database,
+            methods=["POST"],
+        )
+    return flask_app
+
+
+app = create_app()
 
 
 if __name__ == "__main__":

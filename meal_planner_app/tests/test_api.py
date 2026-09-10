@@ -5,7 +5,7 @@ Tests for the Flask API endpoints and legacy GET redirects into /ui/.
 import unittest
 import json
 import uuid
-from meal_planner_app.main import app
+from meal_planner_app.main import app, create_app
 from meal_planner_app import crud
 
 
@@ -124,12 +124,11 @@ class TestApi(unittest.TestCase):  # pylint: disable=too-many-public-methods
         )
 
     def test_seed_database_endpoint(self):
-        """Test the test-only /api/test/seed-db endpoint (guarded by TESTING)."""
-        # Ensure the route is enabled for this test client invocation.
-        app.config["TESTING"] = True
+        """Test the test-only /api/test/seed-db endpoint (opt-in via testing)."""
+        client = create_app(testing=True).test_client()
 
         # The endpoint should be reachable and should populate via the seed util.
-        response = self.client.post("/api/test/seed-db")
+        response = client.post("/api/test/seed-db")
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
         self.assertEqual(data.get("message"), "Database seeded successfully")
