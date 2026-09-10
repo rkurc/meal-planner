@@ -81,6 +81,43 @@ test("should create a new recipe", async ({ page }) => {
   await expect(page.getByText("2 cups Flour")).toBeVisible();
 });
 
+test("should import a pasted recipe into the create form", async ({ page }) => {
+  await page.route("**/api/recipes/parse", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        name: "Imported Soup",
+        description: "From paste",
+        instructions: "Boil water.",
+        source_url: "https://example.com/soup",
+        ingredients: [
+          { name: "Water", quantity: "1", unit: "l", location: "" },
+        ],
+        meta: { parser: "llm", model: "fake" },
+      }),
+    });
+  });
+
+  await page.goto("/ui/recipes");
+  await page.getByTestId("recipes-import").click();
+  await page.waitForURL("**/recipes/import");
+  await page.fill("#source_url", "https://example.com/soup");
+  await page.fill("#import-text", "Zupa. 1 l wody. Gotować.");
+  await page.getByTestId("recipes-import-parse").click();
+  await page.waitForURL("**/recipes/new");
+  await expect(page.locator("#name")).toHaveValue("Imported Soup");
+  await expect(page.locator("#instructions")).toHaveValue("Boil water.");
+  await expect(page.locator("#source_url")).toHaveValue(
+    "https://example.com/soup",
+  );
+  await page.getByRole("button", { name: "Create Recipe" }).click();
+  await page.waitForURL("**/recipes/*", { waitUntil: "networkidle" });
+  await expect(
+    page.getByRole("heading", { name: "Imported Soup" }),
+  ).toBeVisible();
+});
+
 test("should view recipe details", async ({ page }) => {
   await page.goto("/ui/recipes");
 

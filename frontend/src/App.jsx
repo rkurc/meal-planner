@@ -8,6 +8,7 @@ import Layout from "./components/Layout";
 import RecipeList from "./components/RecipeList";
 import RecipeDetail from "./components/RecipeDetail";
 import RecipeForm from "./components/RecipeForm";
+import RecipeImport from "./components/RecipeImport";
 import IngredientList from "./components/IngredientList";
 import IngredientDetail from "./components/IngredientDetail";
 import IngredientForm from "./components/IngredientForm";
@@ -28,6 +29,10 @@ const router = createBrowserRouter(
         {
           path: "recipes",
           element: <RecipeList />,
+        },
+        {
+          path: "recipes/import",
+          element: <RecipeImport />,
         },
         {
           path: "recipes/new",

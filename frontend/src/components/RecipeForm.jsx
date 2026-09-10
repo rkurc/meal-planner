@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import { hasPlaceholderInstructions } from "../hasPlaceholderInstructions";
+import { formDataFromDraft } from "../recipeDraft";
 
 const RecipeForm = () => {
   const { t } = useTranslation();
@@ -58,6 +59,18 @@ const RecipeForm = () => {
         });
     }
   }, [id, isEditing]);
+
+  useEffect(() => {
+    if (isEditing) {
+      return;
+    }
+    const mapped = formDataFromDraft(
+      location.state ? location.state.draft : null,
+    );
+    if (mapped) {
+      setFormData(mapped);
+    }
+  }, [isEditing, location.state]);
 
   useEffect(() => {
     if (loading || didFocusInstructions.current || !instructionsRef.current) {

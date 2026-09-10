@@ -8,8 +8,8 @@ This is a web application for managing recipes and meal plans. It features a Fla
 - Meal-plan recipe **counts** (fractions) multiply shopping-list quantities.
 - Ingredients: master SQLite table; recipe lines FK to it. `/ui/ingredients` is still a read-only list. Suggestion APIs for names/units/locations; default unit auto-fill.
 - SQLite file at `data/meal_planner.db` (`MEAL_PLANNER_DB`), behind nested DAOs. Tests use in-memory SQLite.
-- **95+** backend pytest tests in tree; **10** Playwright E2E tests.
-- No Automatic Recipe Discovery, no auth.
+- **95+** backend pytest tests in tree; Playwright E2E covers recipe, import, search, and shopping flows.
+- Recipe **import** from pasted text/HTML via a local LLM (Ollama sidecar). URL fetch is not in this version. No auth.
 - Dev/verification via Docker (see AGENTS.md). Canonical status: `.ai/progress.md`.
 - Former Jinja HTML GET paths 302 into `/ui/…`. Form POSTs are not served.
 
@@ -138,6 +138,22 @@ docker stop meal-planner-dev && docker rm meal-planner-dev
 - **React via backend:** http://localhost:5000/ui/ (`http://localhost:5000/` 302-redirects here)
 
 The frontend proxies `/api/*` requests to the backend.
+
+### Import a recipe (local LLM)
+
+Paste free text or HTML on **Recipes → Import recipe**. The server returns a draft (`POST /api/recipes/parse`); you review it on the existing create form and Save. Nothing is written until Save.
+
+The production image does **not** ship a model. Run Ollama next to the app:
+
+```bash
+docker buildx bake prod
+LLM_BASE_URL=http://ollama:11434 docker compose --profile llm up
+docker compose --profile llm exec ollama ollama pull qwen2.5:1.5b
+```
+
+Env: `LLM_BASE_URL` (empty → parse returns 503), `LLM_MODEL` (default `qwen2.5:1.5b`; upgrade with `qwen2.5:3b`), `LLM_TIMEOUT_SECONDS` (default 90). Point a devcontainer at a host Ollama with `LLM_BASE_URL=http://host.docker.internal:11434`.
+
+Without Ollama the rest of the app works; Import shows an error until the sidecar is up. Fetching a URL from the server is a later module.
 
 ### 4. Running Natively (Without Docker, for Quick Local Dev)
 
