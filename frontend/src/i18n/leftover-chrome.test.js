@@ -33,6 +33,11 @@ const FORBIDDEN = {
     "These are placeholder instructions from a legacy import",
     "the source recipe",
   ],
+  "RecipeImport.jsx": [
+    "Import recipe",
+    "Parse recipe",
+    "Local LLM is not running",
+  ],
 };
 
 describe("leftover i18n chrome", () => {

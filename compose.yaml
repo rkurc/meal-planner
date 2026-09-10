@@ -1,0 +1,49 @@
+# Meal Planner + optional local LLM (Ollama).
+#
+# App only:
+#   docker compose up
+#
+# App + Ollama (recipe import parse):
+#   LLM_BASE_URL=http://ollama:11434 docker compose --profile llm up
+# Then (once): docker compose --profile llm exec ollama ollama pull qwen2.5:1.5b
+#
+# The production image stays slim; the model lives in the ollama volume.
+
+services:
+  app:
+    image: meal-planner:prod
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5:1.5b}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-90}
+      MEAL_PLANNER_DB: /app/data/meal_planner.db
+    volumes:
+      - meal-planner-data:/app/data
+    command:
+      [
+        "gunicorn",
+        "-w",
+        "1",
+        "-t",
+        "120",
+        "-b",
+        "0.0.0.0:5000",
+        "meal_planner_app.main:app",
+      ]
+
+  ollama:
+    image: ollama/ollama
+    profiles: ["llm"]
+    volumes:
+      - ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+
+volumes:
+  meal-planner-data:
+  ollama:

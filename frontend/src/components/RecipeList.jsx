@@ -62,13 +62,22 @@ const RecipeList = () => {
         <h2 className="text-3xl font-bold text-gray-800">
           {t("recipes.title")}
         </h2>
-        <Link
-          to="/recipes/new"
-          data-testid="recipes-create"
-          className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
-        >
-          {t("recipes.create")}
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to="/recipes/import"
+            data-testid="recipes-import"
+            className="bg-white hover:bg-gray-100 text-blue-600 font-semibold py-2 px-4 rounded border border-blue-500"
+          >
+            {t("recipes.import")}
+          </Link>
+          <Link
+            to="/recipes/new"
+            data-testid="recipes-create"
+            className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded"
+          >
+            {t("recipes.create")}
+          </Link>
+        </div>
       </div>
       <form
         onSubmit={handleSearch}

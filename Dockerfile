@@ -67,4 +67,4 @@ EXPOSE 5000
 # Prod CMD: gunicorn serving the Flask app (no npm, no dev server, no debug).
 # NOTE: -w 1 keeps a single writer against the SQLite file. Multiple workers
 # can share the file (WAL) later; not enabled in this change.
-CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:5000", "meal_planner_app.main:app"]
+CMD ["gunicorn", "-w", "1", "-t", "120", "-b", "0.0.0.0:5000", "meal_planner_app.main:app"]

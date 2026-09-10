@@ -4,8 +4,10 @@ Flask serves JSON API, PDF, and the React SPA at /ui/.
 Integrates with CRUD operations and other services.
 """
 
+import logging
 import os
 import re
+import time
 import uuid  # Required for recipe_id conversion
 
 from urllib.parse import quote
@@ -21,6 +23,12 @@ from flask import (
 )
 
 from meal_planner_app import crud
+from meal_planner_app.ingest.llm_client import LlmTimeoutError, LlmUnavailableError
+from meal_planner_app.ingest.service import (
+    ParseUnusableError,
+    ParseValidationError,
+    parse_recipe,
+)
 from meal_planner_app.seed_db import seed_database
 from meal_planner_app.models.meal_plan import MealPlan, _normalize_recipe_entries
 from meal_planner_app.models.recipe import Recipe
@@ -29,6 +37,7 @@ from dataclasses import asdict
 from meal_planner_app.models.shopping_list import ShoppingList
 
 app = Flask(__name__)
+_LOG = logging.getLogger(__name__)
 
 
 @app.before_request
@@ -385,6 +394,37 @@ def api_create_recipe():
     )
 
     return jsonify(_recipe_to_dict(created_recipe)), 201
+
+
+@app.route("/api/recipes/parse", methods=["POST"])
+def api_parse_recipe():
+    """Parse pasted text/HTML into a recipe draft. Does not persist."""
+    data = request.get_json(silent=True) or {}
+    started = time.monotonic()
+    try:
+        draft = parse_recipe(
+            data.get("text"),
+            source_url=data.get("source_url") or "",
+            catalog_names=crud.list_unique_ingredient_names(),
+        )
+    except ParseValidationError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except ParseUnusableError as exc:
+        return jsonify({"error": str(exc)}), 422
+    except LlmTimeoutError as exc:
+        _LOG.warning("recipe parse timeout: %s", exc.__class__.__name__)
+        return jsonify({"error": str(exc)}), 504
+    except LlmUnavailableError as exc:
+        _LOG.warning("recipe parse llm unavailable: %s", exc.__class__.__name__)
+        return jsonify({"error": str(exc)}), 503
+    elapsed_ms = int((time.monotonic() - started) * 1000)
+    _LOG.info(
+        "recipe parse ok parser=%s model=%s elapsed_ms=%s",
+        draft.parser,
+        draft.model,
+        elapsed_ms,
+    )
+    return jsonify(draft.to_dict()), 200
 
 
 @app.route("/api/recipes/<uuid:recipe_id>", methods=["GET"])
