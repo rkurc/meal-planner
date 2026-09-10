@@ -1,36 +1,30 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `refactor/c2-split-crud`
+**Branch:** `refactor/abc`
 **Last updated:** 2026-09-10
+**HEAD:** `b5d4e93` (C2) on top of merged A/B/C work
 
 ## Standing instruction
 Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Plan C Task 2: split `crud.py` into `domain/*` with a compatibility re-export; rename `services.py` → `pdf.py`.
+Executed the codebase-review plans. **A3 = drop purchased checkboxes.**
 
-- Added `meal_planner_app/tests/test_crud_exports.py` first (passed on unsplit `crud.py`).
-- Moved functions into:
-  - `meal_planner_app/domain/_dao.py` (`set_dao` / `get_dao`)
-  - `meal_planner_app/domain/recipes.py`
-  - `meal_planner_app/domain/meal_plans.py`
-  - `meal_planner_app/domain/shopping.py`
-  - `meal_planner_app/domain/ingredients.py`
-- `meal_planner_app/crud.py` is now an explicit re-export (`__all__` listed).
-- Renamed `services.py` → `pdf.py`; updated `main.py` and `tests/test_pdf.py`. No `services.py` shim (Python grep clean).
+| Scope | Tasks | Status |
+|---|---|---|
+| A Correctness | A1 seed reset, A2 meal-plan PUT, A3 drop checkboxes, A4 MealPlanForm errors, A5 Vite PDF proxy | done |
+| B Simplification | B1 api.js, B2 catalog hook, B3 ingredient objects, B4 meal-plan names, B5 JSON errors, B6 batch find_all, B7 E2E hygiene | done |
+| C Structural | C1 create_app, C2 split crud, C3 move migrate_legacy, C4 drop recipe_ids + Jinja 302s | done |
 
-**Verify:**
-```
-docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev \
-  sh -c 'python -m pytest meal_planner_app/tests/ -q --tb=short && python -m pylint --rcfile=.pylintrc meal_planner_app'
-```
-225 passed; pylint 10.00/10.
+Docs: `docs/superpowers/specs/2026-09-10-codebase-review.md` and `docs/superpowers/plans/2026-09-10-refactor-*.md`.
 
 ## Next
 
-Finishing-a-development-branch (PR / merge options). Plan C is complete.
+- Push `refactor/abc` and open a PR (or stacked PRs) against `main`
+- Playwright against `meal-planner:ci` was not re-run on the fully merged tree in this session
+- Unrelated product work: auth; OpenAPI; calendar; prep-time
 
 ## Out of scope
 
-Auth; OpenAPI; React Query; SQLAlchemy; persisting purchased checkboxes.
+Auth; OpenAI; React Query; SQLAlchemy; persisting purchased checkboxes.
