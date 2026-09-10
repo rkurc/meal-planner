@@ -14,7 +14,8 @@ const MealPlanForm = () => {
   });
   const [allRecipes, setAllRecipes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loadError, setLoadError] = useState(null);
+  const [submitError, setSubmitError] = useState(null);
 
   useEffect(() => {
     const fetchRecipes = axios.get("/api/recipes");
@@ -55,7 +56,7 @@ const MealPlanForm = () => {
         setLoading(false);
       })
       .catch((error) => {
-        setError(error.message);
+        setLoadError(error.message);
         setLoading(false);
       });
   }, [id]);
@@ -126,7 +127,11 @@ const MealPlanForm = () => {
         navigate(`/meal-plans/${response.data.id}`);
       })
       .catch((error) => {
-        setError(error.response?.data?.detail || error.message);
+        setSubmitError(
+          error.response?.data?.error ||
+            error.response?.data?.detail ||
+            error.message,
+        );
       });
   };
 
@@ -136,9 +141,11 @@ const MealPlanForm = () => {
     );
   }
 
-  if (error) {
+  if (loadError) {
     return (
-      <p className="text-center text-red-500">Error loading form: {error}</p>
+      <p className="text-center text-red-500">
+        {t("mealPlans.errorLoadPlan", { message: loadError })}
+      </p>
     );
   }
 
@@ -147,6 +154,11 @@ const MealPlanForm = () => {
       <h2 className="text-3xl font-bold text-gray-800 mb-6">
         {id ? t("mealPlans.editTitle") : t("mealPlans.createTitle")}
       </h2>
+      {submitError && (
+        <p className="mb-4 text-red-600 bg-red-50 border border-red-200 rounded p-3">
+          {submitError}
+        </p>
+      )}
       <form
         onSubmit={handleSubmit}
         className="bg-white shadow-md rounded-lg p-6"
@@ -242,8 +254,7 @@ const MealPlanForm = () => {
             {t("mealPlans.addRecipe")}
           </button>
           <p className="text-xs text-gray-500 mt-1">
-            Use decimals for fractions e.g. 0.5, 1.25. Each row selects a recipe
-            and its multiplier.
+            {t("mealPlans.formHint")}
           </p>
         </div>
         <div className="flex items-center justify-between">
