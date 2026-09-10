@@ -1,15 +1,15 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `refactor/abc-follow-up`
+**Branch:** `main`
 **Last updated:** 2026-09-10
-**Base:** `origin/main` after PR #55 (`cd1a9fe`)
+**HEAD:** `9801cd9` (PR #56)
 
 ## Standing instruction
 Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-PR **#55** (`refactor/abc`) merged to `main`. Follow-up from the A/B/C review is on this branch:
+PR **#56** (`refactor/abc-follow-up`) merged to `main`. A/B/C leftover items from PR #55 are done:
 
 1. Removed dead `recipe_ids` read fallback in `MealPlanForm.jsx`
 2. All React components use `api.js` (no raw `fetch(`)
@@ -18,11 +18,13 @@ PR **#55** (`refactor/abc`) merged to `main`. Follow-up from the A/B/C review is
 5. README / legacy schema / package README point at `tools/migrate_legacy.py` and `pdf.py`
 6. E2E shopping-list comment matches `dao.reset()`; PUT uses `recipes`
 
+CI on PR #56 and on `main` @ `9801cd9`: backend, frontend, docker, integration — all success.
+
 Optional remaining: SQL `GROUP BY` usage counts; dedicated `SEED_DB` env.
 
 ## Next
 
-Open/merge the follow-up PR. Unrelated product work: auth; OpenAPI; calendar; prep-time.
+Unrelated product work on a **new** branch: auth; OpenAPI; calendar; prep-time.
 
 ## Out of scope
 
