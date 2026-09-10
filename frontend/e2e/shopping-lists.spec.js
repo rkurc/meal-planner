@@ -1,11 +1,11 @@
 // @ts-check
 import { test, expect } from "@playwright/test";
+import { seedDb, ensureShoppingList } from "./helpers.js";
 
 /* global process */
 
 test.beforeEach(async ({ page }) => {
-  const apiBase = process.env.API_BASE_URL || "http://localhost:5000";
-  await page.request.post(`${apiBase}/api/test/seed-db`);
+  await seedDb(page);
 });
 
 test("shopping lists are on meal plans, not a separate nav page", async ({
@@ -26,10 +26,8 @@ test("should generate a meal-plan shopping list, fetch its PDF, and delete it", 
     page.getByRole("heading", { name: "Shopping List" }),
   ).toBeVisible();
 
-  const generateButton = page.getByTestId("shopping-generate");
-  if (await generateButton.isVisible()) {
-    await generateButton.click();
-  }
+  await ensureShoppingList(page);
+  await expect(page.getByTestId("shopping-item-sources").first()).toBeVisible();
 
   const pdfLink = page.getByTestId("shopping-pdf");
   await expect(pdfLink).toBeVisible();

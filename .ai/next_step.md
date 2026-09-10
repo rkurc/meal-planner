@@ -1,6 +1,6 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `refactor/abc`
+**Branch:** `refactor/b7-e2e-hygiene` (from `refactor/abc`)
 **Last updated:** 2026-09-10
 
 ## Standing instruction
@@ -8,22 +8,34 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Wave 1 (Plan A) merged. Plan B in progress:
+Plan B Task 7 (E2E hygiene):
 
-| Task | SHA | Status |
-|---|---|---|
-| A1–A5 | on `refactor/abc` | done |
-| B1 api.js / drop axios | `da7fa1a` | merged |
-| B5 JSON /api errors | `2118281` | merged |
-| B6 batch find_all | `82baede` | merged |
-| B2 catalog hook + line fields | next |
-| B4 meal-plan recipe names | next |
-| B3 collapse ingredient GETs | after B2 |
-| B7 E2E hygiene | after B2/B4 |
+- Added `frontend/e2e/helpers.js` with `seedDb(page)` (`POST ${API_BASE_URL||http://localhost:5000}/api/test/seed-db`) and `ensureShoppingList(page)` (click Generate if present, else require list; fail if neither).
+- `main.spec.js`, `ingredients.spec.js`, `shopping-lists.spec.js` use `seedDb`.
+- Removed all `waitForTimeout` from e2e specs (lock: `frontend/src/e2e-timeout.lock.test.js`).
+- `page.once("dialog")` registered before save/delete clicks in `main.spec.js`.
+- `workers: 1` unchanged (`e2e-workers.test.js`).
+- Generate tests assert Edit (via helper) and at least one `shopping-item-sources` item.
+
+Verification (Docker `meal-planner:dev`):
+
+```
+docker run --rm \
+  -v "$(pwd)/frontend:/app/frontend" \
+  -v /app/frontend/node_modules \
+  -w /app/frontend meal-planner:dev \
+  sh -c 'npm run format-check && npm run lint && npm run test:unit'
+```
+
+- format-check: All matched files use Prettier code style
+- lint: clean
+- test:unit: 35 pass, 0 fail (includes e2e hygiene lock)
+
+Playwright E2E not run (needs gunicorn + `TESTING=true`; do not claim E2E green).
 
 ## Next
 
-Finish Plan B (B2, B4, B3, B7), then Plan C.
+B3 collapse ingredient GETs, then Plan C.
 
 ## Out of scope
 
