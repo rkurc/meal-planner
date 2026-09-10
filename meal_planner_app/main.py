@@ -34,7 +34,7 @@ from meal_planner_app.ingest.service import (
 from meal_planner_app.seed_db import seed_database
 from meal_planner_app.models.meal_plan import MealPlan, _normalize_recipe_entries
 from meal_planner_app.models.recipe import Recipe
-from meal_planner_app.services import FontUnavailableError, generate_shopping_list_pdf
+from meal_planner_app.pdf import FontUnavailableError, generate_shopping_list_pdf
 from dataclasses import asdict
 from meal_planner_app.models.shopping_list import ShoppingList
 
