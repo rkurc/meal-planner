@@ -7,6 +7,9 @@ import {
   formatSourceRecipeNames,
   groupItemsByLocation,
 } from "../shoppingListGroups";
+import { applyDefaultUnit } from "../defaultUnit";
+import { useCatalogLookups } from "../hooks/useCatalogLookups";
+import IngredientLineFields from "./IngredientLineFields";
 
 const ShoppingListView = ({ mealPlanId }) => {
   const { t, i18n } = useTranslation();
@@ -15,11 +18,12 @@ const ShoppingListView = ({ mealPlanId }) => {
   const [error, setError] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [editedItems, setEditedItems] = useState([]);
-
-  const [knownIngredients, setKnownIngredients] = useState([]);
-  const [knownLocations, setKnownLocations] = useState([]);
-  const [knownUnits, setKnownUnits] = useState([]);
-  const [ingredientDefaultUnits, setIngredientDefaultUnits] = useState({});
+  const {
+    knownIngredients,
+    knownLocations,
+    knownUnits,
+    ingredientDefaultUnits,
+  } = useCatalogLookups();
 
   useEffect(() => {
     setLoading(true);
@@ -45,73 +49,6 @@ const ShoppingListView = ({ mealPlanId }) => {
         setLoading(false);
       });
   }, [mealPlanId]);
-
-  useEffect(() => {
-    // Fetch known ingredients and locations for suggestions (like in RecipeForm)
-    fetch("/api/ingredients")
-      .then((response) => {
-        if (!response.ok) return [];
-        return response.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setKnownIngredients(data);
-        }
-      })
-      .catch(() => {
-        // non-fatal
-      });
-
-    // Fetch richer summary data to support default unit auto-populate (name -> unit)
-    // Follows exact existing pattern of separate fetch + non-fatal catch for known data.
-    fetch("/api/ingredients/summary")
-      .then((response) => {
-        if (!response.ok) return [];
-        return response.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data)) {
-          const map = {};
-          data.forEach((item) => {
-            if (item && item.name) {
-              map[item.name] = item.unit || "";
-            }
-          });
-          setIngredientDefaultUnits(map);
-        }
-      })
-      .catch(() => {
-        // non-fatal
-      });
-
-    fetch("/api/locations")
-      .then((response) => {
-        if (!response.ok) return [];
-        return response.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setKnownLocations(data);
-        }
-      })
-      .catch(() => {
-        // non-fatal
-      });
-
-    fetch("/api/units")
-      .then((response) => {
-        if (!response.ok) return [];
-        return response.json();
-      })
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setKnownUnits(data);
-        }
-      })
-      .catch(() => {
-        // non-fatal
-      });
-  }, []);
 
   const handleGenerateList = () => {
     if (!mealPlanId) return;
@@ -163,23 +100,16 @@ const ShoppingListView = ({ mealPlanId }) => {
   };
 
   const handleItemChange = (index, field, value) => {
-    const updated = [...editedItems];
-    const currentUnit = updated[index].unit;
-    updated[index][field] = value;
-    // Auto-populate unit with ingredient's default (from summary) ONLY if unit field is currently empty/falsy.
-    // This supports "when adding an ingredient" UX; does not overwrite if user already entered/changed unit.
-    if (
-      field === "name" &&
-      value &&
-      (!currentUnit || currentUnit.trim() === "")
-    ) {
-      const trimmedName = value.trim();
-      const defUnit = ingredientDefaultUnits[trimmedName];
-      if (defUnit) {
-        updated[index].unit = defUnit;
-      }
-    }
-    setEditedItems(updated);
+    setEditedItems((prev) => {
+      const updated = [...prev];
+      updated[index] = applyDefaultUnit(
+        updated[index],
+        field,
+        value,
+        ingredientDefaultUnits,
+      );
+      return updated;
+    });
   };
 
   const handleAddItem = () => {
@@ -327,54 +257,25 @@ const ShoppingListView = ({ mealPlanId }) => {
                     : group.location}
                 </h3>
                 {group.entries.map(({ item, index }) => (
-                  <div key={index} className="flex gap-2 items-center mb-2">
-                    <input
-                      type="text"
-                      placeholder={t("shopping.itemName")}
-                      value={item.name}
-                      onChange={(e) =>
-                        handleItemChange(index, "name", e.target.value)
-                      }
-                      list="known-ingredients"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      placeholder={t("shopping.qty")}
-                      value={item.quantity}
-                      onChange={(e) =>
-                        handleItemChange(index, "quantity", e.target.value)
-                      }
-                      className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      placeholder={t("shopping.unit")}
-                      value={item.unit}
-                      onChange={(e) =>
-                        handleItemChange(index, "unit", e.target.value)
-                      }
-                      list="known-units"
-                      className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      placeholder={t("shopping.location")}
-                      value={item.location || ""}
-                      onChange={(e) =>
-                        handleItemChange(index, "location", e.target.value)
-                      }
-                      list="known-locations"
-                      className="w-28 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      title={t("shopping.locationTitle")}
-                    />
-                    <button
-                      onClick={() => handleRemoveItem(index)}
-                      className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded"
-                    >
-                      {t("common.remove")}
-                    </button>
-                  </div>
+                  <IngredientLineFields
+                    key={index}
+                    item={item}
+                    onChange={(field, value) =>
+                      handleItemChange(index, field, value)
+                    }
+                    onRemove={() => handleRemoveItem(index)}
+                    namePlaceholder={t("shopping.itemName")}
+                    quantityPlaceholder={t("shopping.qty")}
+                    unitPlaceholder={t("shopping.unit")}
+                    locationPlaceholder={t("shopping.location")}
+                    locationTitle={t("shopping.locationTitle")}
+                    removeLabel={t("common.remove")}
+                    listIds={{
+                      ingredients: "known-ingredients",
+                      units: "known-units",
+                      locations: "known-locations",
+                    }}
+                  />
                 ))}
               </React.Fragment>
             ))}
