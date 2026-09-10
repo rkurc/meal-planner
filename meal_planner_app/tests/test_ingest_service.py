@@ -3,6 +3,7 @@
 import pytest
 
 from meal_planner_app import crud
+from meal_planner_app.ingest.fetch import FetchResult, set_fetch_impl
 from meal_planner_app.ingest.llm_client import LlmTimeoutError, LlmUnavailableError
 from meal_planner_app.ingest.service import (
     ParseUnusableError,
@@ -10,6 +11,15 @@ from meal_planner_app.ingest.service import (
     parse_recipe,
 )
 from meal_planner_app.tests.test_ingest_html import POLISH_JSONLD_HTML
+
+
+def stub_jsonld_page(url):
+    """Fake fetch_page: return the Polish JSON-LD HTML fixture."""
+    return FetchResult(
+        text=POLISH_JSONLD_HTML,
+        source_url=url,
+        content_type="text/html",
+    )
 
 
 class FakeLlm:
@@ -97,6 +107,30 @@ def test_empty_text_is_validation_error():
         parse_recipe("   ", llm=FakeLlm({}))
     with pytest.raises(ParseValidationError):
         parse_recipe("", llm=FakeLlm({}))
+
+
+def test_url_without_text_fetches_then_parses():
+    set_fetch_impl(stub_jsonld_page)
+    try:
+        llm = FakeLlm(
+            {
+                "ingredients": [
+                    {"name": "filet z kurczaka", "quantity": "500", "unit": "g"},
+                    {"name": "cebula", "quantity": "2", "unit": "szt"},
+                ]
+            }
+        )
+        draft = parse_recipe(
+            "",
+            source_url="https://aniagotuje.pl/przepis/kurczak",
+            llm=llm,
+            catalog_names=["Cebula"],
+        )
+        assert draft.name == "Kurczak z jarmużem i ryżem"
+        assert draft.source_url == "https://aniagotuje.pl/przepis/kurczak"
+        assert draft.ingredients[1].name == "Cebula"
+    finally:
+        set_fetch_impl(None)
 
 
 def test_oversize_text_is_validation_error():

@@ -141,7 +141,7 @@ The frontend proxies `/api/*` requests to the backend.
 
 ### Import a recipe (local LLM)
 
-Paste free text or HTML on **Recipes → Import recipe**. The server returns a draft (`POST /api/recipes/parse`); you review it on the existing create form and Save. Nothing is written until Save.
+On **Recipes → Import recipe** you can paste a recipe **URL**, click **Fetch page** (`POST /api/recipes/fetch`), and/or paste text/HTML. **Parse recipe** (`POST /api/recipes/parse`) turns that into a draft; you review it on the existing create form and Save. Parse with only a URL also fetches, then parses. Nothing is written until Save. Private/loopback hosts are rejected (SSRF).
 
 The production image does **not** ship a model. Run Ollama next to the app:
 
