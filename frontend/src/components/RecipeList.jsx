@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { api } from "../api.js";
 import RecipeItem from "./RecipeItem";
 
 const RecipeList = () => {
@@ -25,13 +26,8 @@ const RecipeList = () => {
     if (q) params.set("q", q);
     if (ingredient) params.set("ingredient", ingredient);
     const qs = params.toString();
-    fetch(qs ? `/api/recipes?${qs}` : "/api/recipes")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-        return response.json();
-      })
+    api
+      .get(qs ? `/api/recipes?${qs}` : "/api/recipes")
       .then((data) => {
         setRecipes(data);
         setLoading(false);

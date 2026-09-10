@@ -9,6 +9,7 @@ import {
 } from "../shoppingListGroups";
 import { applyDefaultUnit } from "../defaultUnit";
 import { useCatalogLookups } from "../hooks/useCatalogLookups";
+import { api } from "../api.js";
 import IngredientLineFields from "./IngredientLineFields";
 
 const ShoppingListView = ({ mealPlanId }) => {
@@ -31,8 +32,8 @@ const ShoppingListView = ({ mealPlanId }) => {
       setLoading(false);
       return;
     }
-    fetch("/api/shopping-lists")
-      .then((response) => response.json())
+    api
+      .get("/api/shopping-lists")
       .then((lists) => {
         const existing = lists.find((list) => list.meal_plan_id === mealPlanId);
         if (existing) {
@@ -53,19 +54,8 @@ const ShoppingListView = ({ mealPlanId }) => {
   const handleGenerateList = () => {
     if (!mealPlanId) return;
     setLoading(true);
-    fetch("/api/shopping-lists", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ meal_plan_id: mealPlanId }),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to generate shopping list");
-        }
-        return response.json();
-      })
+    api
+      .post("/api/shopping-lists", { meal_plan_id: mealPlanId })
       .then((data) => {
         setShoppingList(data);
         setEditedItems(data.items || []);
@@ -81,13 +71,9 @@ const ShoppingListView = ({ mealPlanId }) => {
     if (!window.confirm(t("shopping.deleteConfirm"))) {
       return;
     }
-    fetch(`/api/shopping-lists/${listId}`, {
-      method: "DELETE",
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to delete shopping list");
-        }
+    api
+      .del(`/api/shopping-lists/${listId}`)
+      .then(() => {
         if (shoppingList && shoppingList.id === listId) {
           setShoppingList(null);
           setEditedItems([]);
@@ -134,21 +120,10 @@ const ShoppingListView = ({ mealPlanId }) => {
   const handleSave = () => {
     if (!shoppingList) return;
 
-    fetch(`/api/shopping-lists/${shoppingList.id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    api
+      .put(`/api/shopping-lists/${shoppingList.id}`, {
         name: shoppingList.name,
         items: editedItems,
-      }),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Failed to save shopping list");
-        }
-        return response.json();
       })
       .then((data) => {
         setShoppingList(data);

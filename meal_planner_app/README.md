@@ -89,7 +89,8 @@ Data is stored in a SQLite file (`MEAL_PLANNER_DB`, default `data/meal_planner.d
 │   │   ├── ingredient.py
 │   │   ├── meal_plan.py
 │   │   └── recipe.py
-│   ├── services.py     # Other services (e.g., PDF generation)
+│   ├── pdf.py          # Shopping-list PDF generation
+│   ├── domain/         # Application operations (re-exported from crud.py)
 │   ├── static/         # Built React SPA (`react_app/`); no Jinja CSS pipeline
 │   └── tests/          # Unit tests
 │       ├── __init__.py

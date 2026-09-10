@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { hasPlaceholderInstructions } from "../hasPlaceholderInstructions";
+import { api } from "../api.js";
 
 const RecipeDetail = () => {
   const { id } = useParams();
@@ -12,13 +13,8 @@ const RecipeDetail = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch(`/api/recipes/${id}`)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Recipe not found");
-        }
-        return response.json();
-      })
+    api
+      .get(`/api/recipes/${id}`)
       .then((data) => {
         setRecipe(data);
         setLoading(false);
@@ -31,15 +27,10 @@ const RecipeDetail = () => {
 
   const handleDelete = () => {
     if (window.confirm(t("recipes.deleteConfirm", { name: recipe.name }))) {
-      fetch(`/api/recipes/${id}`, {
-        method: "DELETE",
-      })
-        .then((response) => {
-          if (response.ok) {
-            navigate("/recipes");
-          } else {
-            throw new Error("Failed to delete recipe");
-          }
+      api
+        .del(`/api/recipes/${id}`)
+        .then(() => {
+          navigate("/recipes");
         })
         .catch((error) => {
           alert(`Error deleting recipe: ${error.message}`);

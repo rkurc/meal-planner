@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { api } from "../api.js";
 
 const IngredientList = () => {
   const { t } = useTranslation();
@@ -10,13 +11,8 @@ const IngredientList = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch("/api/ingredients")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Network response was not ok");
-        }
-        return response.json();
-      })
+    api
+      .get("/api/ingredients")
       .then((data) => {
         setIngredients(data);
         setLoading(false);

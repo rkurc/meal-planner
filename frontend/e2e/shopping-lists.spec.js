@@ -125,16 +125,16 @@ test("generated items show source recipe names on hover title", async ({
   const weekly = plans.find((p) => p.name === "Weekly Meal Plan");
   expect(weekly).toBeTruthy();
 
-  // seed-db recreates recipes but keeps the meal plan, so recipe IDs go
-  // stale after the first test. Relink and drop leftover lists (e.g. the
-  // previous spec's Location Order List) so Generate uses Classic Pancakes.
+  // seed-db wipes all tables then recreates Weekly Meal Plan with current
+  // recipe IDs. Still drop leftover lists from earlier specs (e.g. Location
+  // Order List) so Generate uses Classic Pancakes.
   const relinked = await page.request.put(
     `${apiBase}/api/meal-plans/${weekly.id}`,
     {
       data: {
         name: weekly.name,
         description: weekly.description,
-        recipe_ids: recipes.map((r) => r.id),
+        recipes: recipes.map((r) => ({ id: r.id, count: 1 })),
       },
     },
   );

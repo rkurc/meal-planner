@@ -148,13 +148,16 @@ def _recipe_to_dict(recipe: Recipe) -> dict:
     }
 
 
-def _meal_plan_to_dict(meal_plan: MealPlan) -> dict:
+def _meal_plan_to_dict(meal_plan: MealPlan, recipes_by_id=None) -> dict:
     """Serialize a meal plan as JSON with recipes: [{id, name, count}].
 
     Does not emit legacy `recipe_ids`. Writers still accept that key (see
     api_create_meal_plan / api_update_meal_plan) so old clients do not wipe plans.
     """
-    recipes_by_id = {str(recipe.recipe_id): recipe for recipe in crud.list_recipes()}
+    if recipes_by_id is None:
+        recipes_by_id = {
+            str(recipe.recipe_id): recipe for recipe in crud.list_recipes()
+        }
     recipes_out = []
     for e in meal_plan.recipes or []:
         rid = e.get("recipe_id") or e.get("id")
@@ -411,7 +414,8 @@ def api_delete_recipe(recipe_id: uuid.UUID):
 def api_get_meal_plans():
     """API endpoint to get a list of all meal plans."""
     meal_plans = crud.list_meal_plans()
-    return jsonify([_meal_plan_to_dict(mp) for mp in meal_plans])
+    recipes_by_id = {str(recipe.recipe_id): recipe for recipe in crud.list_recipes()}
+    return jsonify([_meal_plan_to_dict(mp, recipes_by_id) for mp in meal_plans])
 
 
 def api_create_meal_plan():
