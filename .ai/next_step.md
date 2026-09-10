@@ -1,6 +1,6 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `refactor/c1-create-app` (from `refactor/abc`)
+**Branch:** `refactor/abc`
 **Last updated:** 2026-09-10
 
 ## Standing instruction
@@ -8,42 +8,22 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-C1 `create_app()` done.
+Executed plans A and B, plus C1/C3/C4. Remaining: **C2 split crud.py**.
 
-| Task | SHA | Status |
-|---|---|---|
-| A1–A5 | on `refactor/abc` | done |
-| B1–B7 | on `refactor/abc` | done |
-| C3 quarantine migrate_legacy | `c68d916` / `eef6264` | done |
-| C1 create_app | this commit | done |
-| C2 split crud.py | next | pending |
-| C4 drop recipe_ids + Jinja 302s | after C2 | pending |
+Done on this branch (from `origin/main` @ `c8b480e`):
 
-### C1 done
+- A1 seed `dao.reset()`; A2 meal-plan PUT/add-recipe; A3 drop purchased checkboxes; A4 MealPlanForm errors; A5 Vite PDF proxy
+- B1 `api.js` / drop axios; B2 catalog hook + line fields; B3 ingredient GET objects; B4 meal-plan names; B5 JSON /api errors; B6 batch find_all; B7 E2E seedDb / no waitForTimeout
+- C1 `create_app()` opt-in seed route; C3 `tools/migrate_legacy.py`; C4 drop `recipe_ids` JSON + Jinja 302s
 
-`create_app(*, testing=False)` owns Flask construction. Module-level `app = create_app()` keeps gunicorn `meal_planner_app.main:app`.
-
-`/api/test/seed-db` is registered only when `testing=True` or env `TESTING` is `1`/`true`/`yes`. The in-function 404 guard is gone. JSON `/api/` error handler from B5 is registered in the factory. DAO stays the `crud.get_dao()` singleton.
-
-Verified:
-
-```bash
-docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev \
-  python -m pytest meal_planner_app/tests/ -q --tb=short
-# 218 passed
-
-docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev \
-  python -m pylint --rcfile=.pylintrc meal_planner_app/main.py
-# 10.00/10
-```
-
-`test_seed_database_endpoint` now uses `create_app(testing=True).test_client()`.
+**A3 decision:** drop checkboxes (do not persist).
 
 ## Next
 
-C2: split `crud.py` into `domain/` modules with a compatibility re-export. Do not drop `recipe_ids` or Jinja 302s (C4). Do not bind DAO to the app.
+Plan C Task 2: split `crud.py` into `domain/*` with compatibility re-export; rename `services.py` → `pdf.py`.
+
+Then finishing-a-development-branch (PR / merge options).
 
 ## Out of scope
 
 Auth; OpenAPI; React Query; SQLAlchemy; persisting purchased checkboxes.
-SQL `GROUP BY` usage counts still a Python loop in `list_ingredients_summary`.
