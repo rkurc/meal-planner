@@ -1,6 +1,6 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `refactor/b1-api-js` (from `refactor/abc`)
+**Branch:** `refactor/b4-meal-plan-names`
 **Last updated:** 2026-09-10
 
 ## Standing instruction
@@ -8,25 +8,31 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Plan B Task 1 (`api.js` and drop axios) on `refactor/b1-api-js`.
+Plan B Task 4: meal-plan JSON includes recipe names.
 
-- Added `frontend/src/api.js` (`api.get/post/put/del` + `ApiError`) and TDD tests in `frontend/src/api.test.js`.
-- Replaced axios in `MealPlanList.jsx`, `MealPlanForm.jsx`, `MealPlanDetail.jsx` only.
-- MealPlanForm keeps Wave 1 A4 `loadError`/`submitError` split; submitError uses `err.message`; submit payload is `recipes` only (no `recipe_ids`).
-- Grep `from "axios"` under `frontend/src` is empty. Removed axios via Docker:
-  `docker run --rm -v "$(pwd)/frontend:/app" -w /app node:20-alpine sh -c 'npm uninstall axios'`
-- Verified in `meal-planner:dev` (anonymous volume for image `node_modules`):
-  `npm run test:unit` — 31 pass / 0 fail
-  `npm run lint` — pass
-  `npm run format-check` — pass (prettier wrapped one `assert.rejects` line)
+- `_meal_plan_to_dict` now emits `{id, name, count}` per recipe (names from `crud.list_recipes()` map; missing recipe → `name: ""`).
+- Still emits `recipe_ids` (Plan C4 drops it).
+- `MealPlanDetail` renders `mealPlan.recipes` directly (no extra `GET /api/recipes` join) and links names to `/recipes/:id`.
+- Verification:
+  - `docker run --rm -v "$(pwd):/app" -w /app meal-planner:dev python -m pytest meal_planner_app/tests/test_api.py -q --tb=short` → **34 passed**
+  - `docker run --rm -v "$(pwd)/frontend:/app/frontend" -v /app/frontend/node_modules -w /app/frontend meal-planner:dev npm run lint` → pass
+  - `docker run --rm -v "$(pwd)/frontend:/app/frontend" -v /app/frontend/node_modules -w /app/frontend meal-planner:dev npm run format-check` → pass
 
-RecipeForm / ShoppingListView still use fetch (or other helpers); that is B2.
+| Task | SHA | Status |
+|---|---|---|
+| A1–A5 | on `refactor/abc` | done |
+| B1 api.js / drop axios | `da7fa1a` | merged |
+| B5 JSON /api errors | `2118281` | merged |
+| B6 batch find_all | `82baede` | merged |
+| B4 meal-plan recipe names | this branch | done (unmerged) |
+| B2 catalog hook + line fields | next |
+| B3 collapse ingredient GETs | after B2 |
+| B7 E2E hygiene | after B2/B4 |
 
 ## Next
 
-Plan B Task 2: `useCatalogLookups` + `IngredientLineFields` + switch RecipeForm/ShoppingListView to `api.js`.
-
-Then B3–B7, then Plan C. C3 (move `migrate_legacy`) can still run in parallel with B.
+Merge B4 onto `refactor/abc`. Finish Plan B (B2, B3, B7), then Plan C.
 
 ## Out of scope
+
 Auth; OpenAPI; React Query; SQLAlchemy; persisting purchased checkboxes.

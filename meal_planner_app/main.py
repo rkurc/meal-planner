@@ -208,11 +208,19 @@ def _recipe_to_dict(recipe: Recipe) -> dict:
 
 def _meal_plan_to_dict(meal_plan: MealPlan) -> dict:
     """Serializes using the primary 'recipes' shape + legacy 'recipe_ids' for compat."""
+    recipes_by_id = {str(recipe.recipe_id): recipe for recipe in crud.list_recipes()}
     recipes_out = []
     for e in meal_plan.recipes or []:
         rid = e.get("recipe_id") or e.get("id")
         if rid:
-            recipes_out.append({"id": str(rid), "count": float(e.get("count", 1.0))})
+            recipe = recipes_by_id.get(str(rid))
+            recipes_out.append(
+                {
+                    "id": str(rid),
+                    "name": (recipe.name if recipe else ""),
+                    "count": float(e.get("count", 1.0)),
+                }
+            )
     return {
         "id": str(meal_plan.meal_plan_id),
         "name": meal_plan.name,
