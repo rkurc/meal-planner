@@ -83,6 +83,12 @@ Default model: `qwen2.5:1.5b`. Env: `LLM_BASE_URL`, `LLM_MODEL`, `LLM_TIMEOUT_SE
 3. Import UI + RecipeForm draft seeding + i18n + Playwright intercept
 4. Spec, README, `.ai/next_step.md`
 
-## Iteration 2
+## Iteration 2 (implemented)
 
-`ingest/fetch.py`: GET url with timeout and size cap, then the same parse service. Still review in `RecipeForm`.
+`meal_planner_app/ingest/fetch.py` GETs a public `http(s)` URL (15s timeout, 200 KiB cap, text/html|plain|xml only). Private, loopback, link-local, and metadata IPs are denied (SSRF), including after redirects.
+
+- `POST /api/recipes/fetch` `{url}` → `{text, source_url, content_type}` (no LLM, no DB).
+- `POST /api/recipes/parse` with `source_url` and empty `text` fetches, then parses.
+- Import UI: **Fetch page** fills the textarea; **Parse recipe** works with URL only.
+
+Still review in `RecipeForm` before Save.

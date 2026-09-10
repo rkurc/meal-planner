@@ -36,6 +36,7 @@ const FORBIDDEN = {
   "RecipeImport.jsx": [
     "Import recipe",
     "Parse recipe",
+    "Fetch page",
     "Local LLM is not running",
   ],
 };

@@ -118,6 +118,51 @@ test("should import a pasted recipe into the create form", async ({ page }) => {
   ).toBeVisible();
 });
 
+test("should fetch a recipe URL then parse it", async ({ page }) => {
+  await page.route("**/api/recipes/fetch", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        text: "<html><body>Zupa. 1 l wody. Gotować.</body></html>",
+        source_url: "https://example.com/soup",
+        content_type: "text/html",
+      }),
+    });
+  });
+  await page.route("**/api/recipes/parse", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        name: "URL Soup",
+        description: "",
+        instructions: "Boil water.",
+        source_url: "https://example.com/soup",
+        ingredients: [
+          { name: "Water", quantity: "1", unit: "l", location: "" },
+        ],
+        meta: { parser: "llm", model: "fake" },
+      }),
+    });
+  });
+
+  await page.goto("/ui/recipes");
+  await page.getByTestId("recipes-import").click();
+  await page.waitForURL("**/recipes/import");
+  await page.fill("#source_url", "https://example.com/soup");
+  await page.getByTestId("recipes-import-fetch").click();
+  await expect(page.locator("#import-text")).toHaveValue(
+    "<html><body>Zupa. 1 l wody. Gotować.</body></html>",
+  );
+  await page.getByTestId("recipes-import-parse").click();
+  await page.waitForURL("**/recipes/new");
+  await expect(page.locator("#name")).toHaveValue("URL Soup");
+  await expect(page.locator("#source_url")).toHaveValue(
+    "https://example.com/soup",
+  );
+});
+
 test("should view recipe details", async ({ page }) => {
   await page.goto("/ui/recipes");
 

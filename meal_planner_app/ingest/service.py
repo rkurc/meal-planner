@@ -3,6 +3,7 @@
 from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import urlparse
 
+from meal_planner_app.ingest.fetch import fetch_page
 from meal_planner_app.ingest.html_extract import (
     extract_jsonld_recipe,
     extract_visible_text,
@@ -126,7 +127,7 @@ def ingredients_from_payload(
 
 def _validate_text(text: Optional[str]) -> str:
     if text is None or not str(text).strip():
-        raise ParseValidationError("text is required")
+        raise ParseValidationError("text or url is required")
     raw = str(text)
     if len(raw.encode("utf-8")) > MAX_TEXT_BYTES:
         raise ParseValidationError("text is too large")
@@ -164,9 +165,16 @@ def parse_recipe(  # pylint: disable=too-many-arguments
     llm: Any = None,
     catalog_names: Optional[Iterable[str]] = None,
 ) -> ParsedRecipe:
-    """Turn pasted text/HTML into a draft. Never writes the database."""
-    raw = _validate_text(text)
+    """Turn pasted text/HTML (or a fetched URL) into a draft. Never writes the DB."""
     source = _validate_source_url(source_url)
+    if text is None or not str(text).strip():
+        if not source:
+            raise ParseValidationError("text or url is required")
+        fetched = fetch_page(source)
+        raw = fetched.text
+        source = source or fetched.source_url
+    else:
+        raw = _validate_text(text)
     client = llm if llm is not None else get_llm_client()
     model = getattr(client, "model", "") or ""
 

@@ -5,9 +5,10 @@ import json
 from meal_planner_app.main import app
 from meal_planner_app import crud
 from meal_planner_app.ingest import service as ingest_service
+from meal_planner_app.ingest.fetch import FetchDeniedError, FetchResult, set_fetch_impl
 from meal_planner_app.ingest.llm_client import LlmTimeoutError, LlmUnavailableError
 from meal_planner_app.tests.test_ingest_html import POLISH_JSONLD_HTML
-from meal_planner_app.tests.test_ingest_service import FakeLlm
+from meal_planner_app.tests.test_ingest_service import FakeLlm, stub_jsonld_page
 
 
 def _client():
@@ -17,10 +18,12 @@ def _client():
 
 def setup_function():
     ingest_service.set_llm_client(None)
+    set_fetch_impl(None)
 
 
 def teardown_function():
     ingest_service.set_llm_client(None)
+    set_fetch_impl(None)
 
 
 def test_parse_jsonld_returns_draft_and_does_not_persist():
@@ -107,3 +110,54 @@ def test_parse_without_llm_configured_503(monkeypatch):
     client = _client()
     response = client.post("/api/recipes/parse", json={"text": "zupa. gotować."})
     assert response.status_code == 503
+
+
+def test_fetch_returns_page_text_without_parsing():
+    set_fetch_impl(
+        lambda url: FetchResult(
+            text="<html>Zupa</html>",
+            source_url=url,
+            content_type="text/html",
+        )
+    )
+    client = _client()
+    response = client.post(
+        "/api/recipes/fetch",
+        json={"url": "https://example.com/zupa"},
+    )
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert data["text"] == "<html>Zupa</html>"
+    assert data["source_url"] == "https://example.com/zupa"
+    assert len(crud.list_recipes()) == 0
+
+
+def test_fetch_denied_is_400():
+    set_fetch_impl(lambda _url: (_ for _ in ()).throw(FetchDeniedError("blocked")))
+    client = _client()
+    response = client.post("/api/recipes/fetch", json={"url": "http://127.0.0.1/x"})
+    assert response.status_code == 400
+
+
+def test_parse_with_url_only_fetches_then_parses():
+    set_fetch_impl(stub_jsonld_page)
+    ingest_service.set_llm_client(
+        FakeLlm(
+            {
+                "ingredients": [
+                    {"name": "filet z kurczaka", "quantity": "500", "unit": "g"},
+                    {"name": "cebula", "quantity": "2", "unit": "szt"},
+                ]
+            }
+        )
+    )
+    client = _client()
+    crud.create_master_ingredient(name="Cebula", default_unit="szt")
+    response = client.post(
+        "/api/recipes/parse",
+        json={"source_url": "https://aniagotuje.pl/przepis/kurczak"},
+    )
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert data["name"] == "Kurczak z jarmużem i ryżem"
+    assert data["source_url"] == "https://aniagotuje.pl/przepis/kurczak"

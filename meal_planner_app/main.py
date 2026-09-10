@@ -23,6 +23,7 @@ from flask import (
 )
 
 from meal_planner_app import crud
+from meal_planner_app.ingest.fetch import FetchError, fetch_page
 from meal_planner_app.ingest.llm_client import LlmTimeoutError, LlmUnavailableError
 from meal_planner_app.ingest.service import (
     ParseUnusableError,
@@ -409,6 +410,10 @@ def api_parse_recipe():
         )
     except ParseValidationError as exc:
         return jsonify({"error": str(exc)}), 400
+    except FetchError as exc:
+        status = getattr(exc, "status_code", 400)
+        _LOG.warning("recipe parse fetch %s: %s", exc.__class__.__name__, status)
+        return jsonify({"error": str(exc)}), status
     except ParseUnusableError as exc:
         return jsonify({"error": str(exc)}), 422
     except LlmTimeoutError as exc:
@@ -425,6 +430,29 @@ def api_parse_recipe():
         elapsed_ms,
     )
     return jsonify(draft.to_dict()), 200
+
+
+@app.route("/api/recipes/fetch", methods=["POST"])
+def api_fetch_recipe_page():
+    """Download a public recipe page as text. Does not persist or call the LLM."""
+    data = request.get_json(silent=True) or {}
+    url = (data.get("url") or data.get("source_url") or "").strip()
+    try:
+        result = fetch_page(url)
+    except FetchError as exc:
+        status = getattr(exc, "status_code", 400)
+        _LOG.warning("recipe fetch %s: %s", exc.__class__.__name__, status)
+        return jsonify({"error": str(exc)}), status
+    return (
+        jsonify(
+            {
+                "text": result.text,
+                "source_url": result.source_url,
+                "content_type": result.content_type,
+            }
+        ),
+        200,
+    )
 
 
 @app.route("/api/recipes/<uuid:recipe_id>", methods=["GET"])
