@@ -37,8 +37,15 @@ sleep 10
 # Fallback: przepisy_tmp.odb (heuristic).
 if [ -f /app/legacy/recipes.csv ] || [ -f /app/legacy/przepisy.csv ] || [ -f /app/legacy/przepisy_tmp.odb ]; then
   echo "Legacy data found - running migration (prefers CSV if present)..."
-  python -m meal_planner_app.migrate_legacy || \
+  if [ -f /app/tools/migrate_legacy.py ]; then
+    python /app/tools/migrate_legacy.py || \
+      python -c "from meal_planner_app.seed_db import seed_if_empty; seed_if_empty()"
+  elif [ -f tools/migrate_legacy.py ]; then
+    python tools/migrate_legacy.py || \
+      python -c "from meal_planner_app.seed_db import seed_if_empty; seed_if_empty()"
+  else
     python -c "from meal_planner_app.seed_db import seed_if_empty; seed_if_empty()"
+  fi
 else
   echo "Seeding database if empty..."
   python -c "from meal_planner_app.seed_db import seed_if_empty; seed_if_empty()"

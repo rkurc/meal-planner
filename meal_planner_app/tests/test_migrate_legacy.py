@@ -5,7 +5,7 @@ import os
 import tempfile
 import unittest
 
-from meal_planner_app.migrate_legacy import extract_from_csvs
+from tools.migrate_legacy import extract_from_csvs
 
 
 def _write_csv(path, fieldnames, rows):
