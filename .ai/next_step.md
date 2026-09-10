@@ -2,30 +2,33 @@
 
 **Branch:** `refactor/abc`
 **Last updated:** 2026-09-10
-**HEAD:** `refactor/abc` (review fixes after A/B/C)
+**HEAD:** `6c6fb85` (+ follow-up notes commit)
 
 ## Standing instruction
 Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Executed the codebase-review plans. **A3 = drop purchased checkboxes.**
+A/B/C refactor is on `refactor/abc`. A3 = drop purchased checkboxes. Review fixes: `seedDb` asserts HTTP OK; `start_and_seed.sh` exports `TESTING=true`. Playwright **20 passed**.
 
-| Scope | Tasks | Status |
-|---|---|---|
-| A Correctness | A1 seed reset, A2 meal-plan PUT, A3 drop checkboxes, A4 MealPlanForm errors, A5 Vite PDF proxy | done |
-| B Simplification | B1 api.js, B2 catalog hook, B3 ingredient objects, B4 meal-plan names, B5 JSON errors, B6 batch find_all, B7 E2E hygiene | done |
-| C Structural | C1 create_app, C2 split crud, C3 move migrate_legacy, C4 drop recipe_ids + Jinja 302s | done |
+## Follow-up (after `refactor/abc` merges)
 
-Docs: `docs/superpowers/specs/2026-09-10-codebase-review.md` and `docs/superpowers/plans/2026-09-10-refactor-*.md`.
+Do this on a **new branch from `main`** (e.g. `refactor/abc-follow-up`). Keep each item a small commit.
 
-Code review follow-up: `seedDb` asserts HTTP OK; `start_and_seed.sh` exports `TESTING=true`. Playwright **20 passed** against gunicorn + rebuilt SPA (`TESTING=true`).
+1. **Dead `recipe_ids` read fallback** — `frontend/src/components/MealPlanForm.jsx` still maps `data.recipe_ids` if `data.recipes` is missing. API no longer emits `recipe_ids`. Delete the fallback; keep write-side acceptance on the backend for one more release.
+2. **Adopt `api.js` for remaining CRUD** — `RecipeForm.jsx`, `RecipeDetail.jsx`, `IngredientForm.jsx`, `IngredientDetail.jsx`, `IngredientList.jsx`, `ShoppingListView.jsx` still use raw `fetch`. Switch to `api.get/post/put/del` so B5 JSON `{error}` bodies surface. Do not add React Query.
+3. **Meal-plan list N+1 names** — `_meal_plan_to_dict` (`meal_planner_app/main.py`) calls `crud.list_recipes()` per plan. Cache one map in `api_get_meal_plans`.
+4. **Lock `crud` re-exports** — expand `meal_planner_app/tests/test_crud_exports.py` to the full `__all__` list in `crud.py` (or import `__all__` and assert each name).
+5. **Docs for migrate path** — README and `docs/legacy_przepisy_schema.md` still say `python -m meal_planner_app.migrate_legacy`. Point at `python tools/migrate_legacy.py`. Update `meal_planner_app/README.md` if it still lists `services.py`.
+6. **Stale E2E comment** — `frontend/e2e/shopping-lists.spec.js` still claims seed-db keeps the meal plan and stale recipe IDs (the A1 bug). Rewrite the comment to match `dao.reset()`.
+
+Optional / later (not blocking):
+
+- SQL `GROUP BY` for `list_ingredients_summary` usage counts
+- Dedicated `SEED_DB` env instead of overloading Flask `TESTING`
+
+Out of scope: auth; OpenAPI; calendar; React Query; SQLAlchemy; persisting purchased checkboxes.
 
 ## Next
 
-- Open a PR from `refactor/abc` against `main`
-- Unrelated product work: auth; OpenAPI; calendar; prep-time
-
-## Out of scope
-
-Auth; OpenAI; React Query; SQLAlchemy; persisting purchased checkboxes.
+Open PR for `refactor/abc`, wait for CI, merge, then start follow-up item 1 on a new branch.
