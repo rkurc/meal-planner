@@ -1,7 +1,7 @@
 # Persistent SQLite storage (DAO)
 
-**Date:** 2026-09-04
-**Status:** Approved for implementation
+**Date:** 2026-09-04  
+**Status:** Approved for implementation  
 **Branch:** `feat/persistent-sqlite-dao`
 
 ## Goal
