@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import {
   OTHER_LOCATION_GROUP,
   formatItemLabel,
+  formatSourceRecipeNames,
   groupItemsByLocation,
 } from "../shoppingListGroups";
 
@@ -190,7 +191,14 @@ const ShoppingListView = ({ mealPlanId }) => {
   const handleAddItem = () => {
     setEditedItems([
       ...editedItems,
-      { name: "", quantity: "", unit: "", location: "", purchased: false },
+      {
+        name: "",
+        quantity: "",
+        unit: "",
+        location: "",
+        purchased: false,
+        source_recipe_names: [],
+      },
     ]);
   };
 
@@ -409,24 +417,33 @@ const ShoppingListView = ({ mealPlanId }) => {
                   : group.location}
               </h3>
               <ul className="space-y-2">
-                {group.entries.map(({ item, index }) => (
-                  <li
-                    key={index}
-                    className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={item.purchased || false}
-                      onChange={() => handleTogglePurchased(index)}
-                      className="w-5 h-5 cursor-pointer"
-                    />
-                    <span
-                      className={`flex-1 ${item.purchased ? "line-through text-gray-400" : "text-gray-800"}`}
+                {group.entries.map(({ item, index }) => {
+                  const sourceTitle = formatSourceRecipeNames(
+                    item.source_recipe_names,
+                  );
+                  return (
+                    <li
+                      key={index}
+                      className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded"
                     >
-                      {formatItemLabel(item)}
-                    </span>
-                  </li>
-                ))}
+                      <input
+                        type="checkbox"
+                        checked={item.purchased || false}
+                        onChange={() => handleTogglePurchased(index)}
+                        className="w-5 h-5 cursor-pointer"
+                      />
+                      <span
+                        className={`flex-1 ${item.purchased ? "line-through text-gray-400" : "text-gray-800"}`}
+                        title={sourceTitle || undefined}
+                        data-testid={
+                          sourceTitle ? "shopping-item-sources" : undefined
+                        }
+                      >
+                        {formatItemLabel(item)}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}

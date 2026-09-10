@@ -362,6 +362,7 @@ def generate_shopping_list(
                     "location_id": getattr(ingredient, "location_id", None),
                 },
                 count,
+                recipe_name=recipe.name or "",
             )
 
     return _group_generated_items(finalize_aggregated(aggregated))
@@ -482,6 +483,7 @@ def create_shopping_list(
                 purchased=False,  # Default to not purchased
                 location=item.get("location"),
                 location_id=item.get("location_id"),
+                source_recipe_names=list(item.get("source_recipe_names") or []),
             )
             for item in generated_items
         ]
@@ -532,8 +534,22 @@ def update_shopping_list(
         shopping_list.name = name
 
     if items is not None:
-        # Re-create the list of ShoppingListItem objects from the provided dicts
-        updated_items = [ShoppingListItem(**item_data) for item_data in items]
+        updated_items = [
+            ShoppingListItem(
+                name=item_data.get("name", ""),
+                quantity=item_data.get("quantity", ""),
+                unit=item_data.get("unit") or "",
+                purchased=bool(item_data.get("purchased", False)),
+                location=item_data.get("location"),
+                location_id=(
+                    str(item_data["location_id"])
+                    if item_data.get("location_id") is not None
+                    else None
+                ),
+                source_recipe_names=list(item_data.get("source_recipe_names") or []),
+            )
+            for item_data in items
+        ]
         shopping_list.items = updated_items
 
     return get_dao().shopping_lists.update(shopping_list)

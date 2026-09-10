@@ -113,3 +113,56 @@ test("edit mode orders items by location like view mode", async ({ page }) => {
     .evaluateAll((els) => els.map((el) => el.value));
   expect(namesAfterMove).toEqual(["Flour", "Milk", "Salt"]);
 });
+
+test("generated items show source recipe names on hover title", async ({
+  page,
+}) => {
+  const apiBase = process.env.API_BASE_URL || "http://localhost:5000";
+  const recipesResp = await page.request.get(`${apiBase}/api/recipes`);
+  expect(recipesResp.ok()).toBeTruthy();
+  const recipes = await recipesResp.json();
+  const plansResp = await page.request.get(`${apiBase}/api/meal-plans`);
+  expect(plansResp.ok()).toBeTruthy();
+  const plans = await plansResp.json();
+  const weekly = plans.find((p) => p.name === "Weekly Meal Plan");
+  expect(weekly).toBeTruthy();
+
+  // seed-db recreates recipes but keeps the meal plan, so recipe IDs go
+  // stale after the first test. Relink and drop leftover lists (e.g. the
+  // previous spec's Location Order List) so Generate uses Classic Pancakes.
+  const relinked = await page.request.put(
+    `${apiBase}/api/meal-plans/${weekly.id}`,
+    {
+      data: {
+        name: weekly.name,
+        description: weekly.description,
+        recipe_ids: recipes.map((r) => r.id),
+      },
+    },
+  );
+  expect(relinked.ok()).toBeTruthy();
+
+  const listsResp = await page.request.get(`${apiBase}/api/shopping-lists`);
+  expect(listsResp.ok()).toBeTruthy();
+  const lists = await listsResp.json();
+  for (const sl of lists) {
+    if (sl.meal_plan_id === weekly.id) {
+      await page.request.delete(`${apiBase}/api/shopping-lists/${sl.id}`);
+    }
+  }
+
+  await page.goto("/ui/meal-plans");
+  await page.getByRole("link", { name: "Weekly Meal Plan" }).click();
+  await page.waitForURL("**/meal-plans/*");
+  await expect(
+    page.getByRole("heading", { name: "Shopping List" }),
+  ).toBeVisible();
+  const generateButton = page.getByTestId("shopping-generate");
+  await expect(generateButton).toBeVisible();
+  await generateButton.click();
+  const flour = page
+    .getByTestId("shopping-item-sources")
+    .filter({ hasText: "Flour" });
+  await expect(flour).toBeVisible();
+  await expect(flour).toHaveAttribute("title", "Classic Pancakes");
+});

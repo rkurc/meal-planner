@@ -13,6 +13,7 @@ class ShoppingListItem:
     purchased: bool = False
     location: Optional[str] = None
     location_id: Optional[str] = None
+    source_recipe_names: List[str] = field(default_factory=list)
 
 
 @dataclass

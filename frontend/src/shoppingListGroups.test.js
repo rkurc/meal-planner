@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import {
   OTHER_LOCATION_GROUP,
   formatItemLabel,
+  formatSourceRecipeNames,
   groupItemsByLocation,
 } from "./shoppingListGroups.js";
 
@@ -77,6 +78,20 @@ describe("groupItemsByLocation", () => {
       groups.flatMap((g) => g.entries.map((e) => e.index)),
       [1, 2, 0, 3],
     );
+  });
+});
+
+describe("formatSourceRecipeNames", () => {
+  it("joins unique names with comma-space", () => {
+    assert.equal(
+      formatSourceRecipeNames(["Pancakes", "Omelette"]),
+      "Pancakes, Omelette",
+    );
+  });
+  it("returns empty string for missing or blank names", () => {
+    assert.equal(formatSourceRecipeNames(undefined), "");
+    assert.equal(formatSourceRecipeNames([]), "");
+    assert.equal(formatSourceRecipeNames(["", "  "]), "");
   });
 });
 
