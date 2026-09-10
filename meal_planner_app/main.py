@@ -21,6 +21,7 @@ from flask import (
     send_from_directory,
     jsonify,
 )
+from werkzeug.exceptions import HTTPException
 
 from meal_planner_app import crud
 from meal_planner_app.ingest.fetch import FetchError, fetch_page
@@ -39,6 +40,13 @@ from meal_planner_app.models.shopping_list import ShoppingList
 
 app = Flask(__name__)
 _LOG = logging.getLogger(__name__)
+
+
+@app.errorhandler(HTTPException)
+def handle_http_exception(exc):
+    if request.path.startswith("/api/"):
+        return jsonify({"error": exc.description or exc.name}), exc.code
+    return exc
 
 
 @app.before_request

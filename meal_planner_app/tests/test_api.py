@@ -73,6 +73,13 @@ class TestApi(unittest.TestCase):  # pylint: disable=too-many-public-methods
         self.assertEqual(len(get_data), 1)
         self.assertEqual(get_data[0]["name"], "API Recipe")
 
+    def test_api_400_returns_json_error(self):
+        response = self.client.post("/api/recipes", json={})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.content_type, "application/json")
+        data = json.loads(response.data)
+        self.assertIn("error", data)
+
     def test_root_redirects_to_ui(self):
         response = self.client.get("/", follow_redirects=False)
         self.assertEqual(response.status_code, 302)

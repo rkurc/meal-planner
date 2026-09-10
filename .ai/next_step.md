@@ -1,6 +1,6 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `refactor/abc`
+**Branch:** `refactor/b5-json-errors` (from `refactor/abc`)
 **Last updated:** 2026-09-10
 
 ## Standing instruction
@@ -8,24 +8,20 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Codebase review + A/B/C plans committed (`8c20a4a`). **Wave 1 (Plan A) merged** onto `refactor/abc`:
+Plan B Task 5: JSON error handler for `/api/*`.
 
-| Task | SHA | What |
-|---|---|---|
-| A1 | `49ef8d1` | `seed_database()` calls `dao.reset()` |
-| A2 | `75c7ddc` | Name-only meal-plan PUT preserves recipes; missing recipe 404; count honored |
-| A3 | `a00d80f` | Dropped view-mode purchased checkboxes |
-| A4 | `8fe48dd` | MealPlanForm load vs submit errors; `mealPlans.formHint` |
-| A5 | `bde1267` | Vite proxies `/shopping-lists` and `/meal-plans` for PDFs |
-
-**A3 decision:** drop checkboxes (do not persist).
+- Added `TestApi.test_api_400_returns_json_error` (empty `POST /api/recipes` must be 400 JSON with `error`).
+- TDD: first run failed (`text/html; charset=utf-8` != `application/json`).
+- Registered `@app.errorhandler(HTTPException)` in `meal_planner_app/main.py`: `/api/` paths return `jsonify({"error": ...})`; PDF and `/ui` still return the exception (HTML).
+- Verification (Docker `meal-planner:dev`):
+  - `python -m pytest meal_planner_app/tests/test_api.py meal_planner_app/tests/test_ingredient_api.py -q --tb=short` → **48 passed**
+  - `python -m pylint --rcfile=.pylintrc meal_planner_app/main.py` → **10.00/10**
 
 ## Next
 
-Plan B (`docs/superpowers/plans/2026-09-10-refactor-b-simplification.md`): `api.js`, catalog hook, collapse ingredient GETs, meal-plan names, JSON errors, N+1 `find_all`, E2E hygiene.
+Remaining Plan B (`docs/superpowers/plans/2026-09-10-refactor-b-simplification.md`): `api.js`, catalog hook, collapse ingredient GETs, meal-plan names, N+1 `find_all`, E2E hygiene.
 
-Then Plan C. C3 (move `migrate_legacy`) can still run in parallel with B.
+Then Plan C. C3 (move `migrate_legacy`) can still run in parallel with B. C factory work depends on B5 so the handler is registered inside the factory.
 
 ## Out of scope
-
 Auth; OpenAPI; React Query; SQLAlchemy; persisting purchased checkboxes.
