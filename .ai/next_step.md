@@ -1,6 +1,6 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `refactor/abc`
+**Branch:** `refactor/b1-api-js` (from `refactor/abc`)
 **Last updated:** 2026-09-10
 
 ## Standing instruction
@@ -8,24 +8,25 @@ Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-Codebase review + A/B/C plans committed (`8c20a4a`). **Wave 1 (Plan A) merged** onto `refactor/abc`:
+Plan B Task 1 (`api.js` and drop axios) on `refactor/b1-api-js`.
 
-| Task | SHA | What |
-|---|---|---|
-| A1 | `49ef8d1` | `seed_database()` calls `dao.reset()` |
-| A2 | `75c7ddc` | Name-only meal-plan PUT preserves recipes; missing recipe 404; count honored |
-| A3 | `a00d80f` | Dropped view-mode purchased checkboxes |
-| A4 | `8fe48dd` | MealPlanForm load vs submit errors; `mealPlans.formHint` |
-| A5 | `bde1267` | Vite proxies `/shopping-lists` and `/meal-plans` for PDFs |
+- Added `frontend/src/api.js` (`api.get/post/put/del` + `ApiError`) and TDD tests in `frontend/src/api.test.js`.
+- Replaced axios in `MealPlanList.jsx`, `MealPlanForm.jsx`, `MealPlanDetail.jsx` only.
+- MealPlanForm keeps Wave 1 A4 `loadError`/`submitError` split; submitError uses `err.message`; submit payload is `recipes` only (no `recipe_ids`).
+- Grep `from "axios"` under `frontend/src` is empty. Removed axios via Docker:
+  `docker run --rm -v "$(pwd)/frontend:/app" -w /app node:20-alpine sh -c 'npm uninstall axios'`
+- Verified in `meal-planner:dev` (anonymous volume for image `node_modules`):
+  `npm run test:unit` — 31 pass / 0 fail
+  `npm run lint` — pass
+  `npm run format-check` — pass (prettier wrapped one `assert.rejects` line)
 
-**A3 decision:** drop checkboxes (do not persist).
+RecipeForm / ShoppingListView still use fetch (or other helpers); that is B2.
 
 ## Next
 
-Plan B (`docs/superpowers/plans/2026-09-10-refactor-b-simplification.md`): `api.js`, catalog hook, collapse ingredient GETs, meal-plan names, JSON errors, N+1 `find_all`, E2E hygiene.
+Plan B Task 2: `useCatalogLookups` + `IngredientLineFields` + switch RecipeForm/ShoppingListView to `api.js`.
 
-Then Plan C. C3 (move `migrate_legacy`) can still run in parallel with B.
+Then B3–B7, then Plan C. C3 (move `migrate_legacy`) can still run in parallel with B.
 
 ## Out of scope
-
 Auth; OpenAPI; React Query; SQLAlchemy; persisting purchased checkboxes.

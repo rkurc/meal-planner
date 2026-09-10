@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import axios from "axios";
+import { api } from "../api.js";
 import ShoppingListView from "./ShoppingListView";
 
 const MealPlanDetail = () => {
@@ -14,10 +14,10 @@ const MealPlanDetail = () => {
   const [recipesInPlan, setRecipesInPlan] = useState([]); // now [{recipe, count}, ...]
 
   useEffect(() => {
-    axios
+    api
       .get(`/api/meal-plans/${id}`)
-      .then((response) => {
-        setMealPlan(response.data);
+      .then((data) => {
+        setMealPlan(data);
         setLoading(false);
       })
       .catch((error) => {
@@ -37,10 +37,10 @@ const MealPlanDetail = () => {
       return;
     }
     // Fetch all recipes then filter (small dataset; keeps one request)
-    axios
+    api
       .get("/api/recipes")
-      .then((res) => {
-        const byId = Object.fromEntries(res.data.map((r) => [r.id, r]));
+      .then((recipes) => {
+        const byId = Object.fromEntries(recipes.map((r) => [r.id, r]));
         const resolved = entries
           .map((e) => {
             const rid = e.id || e.recipe_id;
@@ -58,8 +58,8 @@ const MealPlanDetail = () => {
 
   const handleDelete = () => {
     if (window.confirm(t("mealPlans.deleteConfirm"))) {
-      axios
-        .delete(`/api/meal-plans/${id}`)
+      api
+        .del(`/api/meal-plans/${id}`)
         .then(() => {
           navigate("/meal-plans");
         })
