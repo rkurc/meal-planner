@@ -1,31 +1,28 @@
 # .ai/next_step.md — Handoff
 
-**Branch:** `main`
-**Last updated:** 2026-09-10
-**HEAD:** `9801cd9` (PR #56)
+**Branch:** `feat/pdf-two-column-items`
+**Last updated:** 2026-09-14
+**HEAD:** (this commit)
 
 ## Standing instruction
 Create a new branch only when starting **unrelated** work.
 
 ## This session
 
-PR **#56** (`refactor/abc-follow-up`) merged to `main`. A/B/C leftover items from PR #55 are done:
+Shopping-list PDF layout change in `meal_planner_app/pdf.py`:
 
-1. Removed dead `recipe_ids` read fallback in `MealPlanForm.jsx`
-2. All React components use `api.js` (no raw `fetch(`)
-3. `api_get_meal_plans` shares one `list_recipes()` map
-4. `test_crud_exports` locks every `crud.__all__` name
-5. README / legacy schema / package README point at `tools/migrate_legacy.py` and `pdf.py`
-6. E2E shopping-list comment matches `dao.reset()`; PUT uses `recipes`
+- Each item is still a name | quantity | unit cell triple (the old 3-column row is one list element).
+- Items in a location group are placed two-up: left and right of the page midpoint, with a 6mm gutter.
+- Location is **not** drawn as a `--- loc ---` header. Groups are separated by one empty line.
+- Dual column headers (Ingredient/Quantity/Unit in both page-columns).
+- Column fractions 52/18/30 so Polish `Jednostka` / `główka` fit.
 
-CI on PR #56 and on `main` @ `9801cd9`: backend, frontend, docker, integration — all success.
-
-Optional remaining: SQL `GROUP BY` usage counts; dedicated `SEED_DB` env.
+Tests: `TestPdfTwoColumnLayout` in `meal_planner_app/tests/test_pdf.py`.
+Verification (host venv; Docker was not available): `python -m pytest meal_planner_app/tests/ -q` → **233 passed**. pylint 10.00/10 on the touched files. Sample PDF rendered with pypdfium2 and inspected: two columns, blank line between groups, no location headers.
 
 ## Next
 
-Unrelated product work on a **new** branch: auth; OpenAPI; calendar; prep-time.
+Commit + push `feat/pdf-two-column-items` when ready. Re-run checks via `meal-planner-dev` Docker image when Docker is available.
 
 ## Out of scope
-
 Auth; OpenAPI; React Query; SQLAlchemy; persisting purchased checkboxes.
